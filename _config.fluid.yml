@@ -225,7 +225,7 @@ color:
 # Font
 font:
   font_size: 16px
-  font_family:
+  font_family: Noto Serif SC,"Microsoft Yahei", Hiragino Sans GB, Microsoft Sans Serif, WenQuanYi Micro Hei, sans-serif
   letter_spacing: 0.02em
   code_font_size: 85%
 
