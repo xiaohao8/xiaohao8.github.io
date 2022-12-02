@@ -1,6 +1,12 @@
 ---
 title: 关于
 layout: about
+comments: false
 ---
+一名﻿高中生
 
-这是一个演示博客,欢迎登陆[管理页](/admin/)查看并实际体验效果
+QQ:3543601929
+
+G﻿ithub:https://github.com/xiaohao8
+
+邮箱﻿:3543601929#qq.com（#替换
