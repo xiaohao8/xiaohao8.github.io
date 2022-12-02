@@ -1,10 +1,12 @@
 ---
-title: Fluid主题修改字体
+title: Hexo-Fluid主题修改字体思源宋体
 date: 2022-12-02 16:23:36
 updated: 2022-12-02 16:23:36
+categories:
+  - 技术
 comments: true
 ---
-1﻿.<https://hexo.fluid-dev.com/docs/advance/#hexo-注入代码>
+
 
 1. 打开﻿下载字体的网站google-webfonts-helper[](https://google-webfonts-helper.herokuapp.com/)<https://gwfh.mranftl.com/fonts>搜索思源宋体—Noto Serif SC，然后去掉latin,选择简体中文。
 2. 在﻿下方点击下载，然后传到github仓库source目录中的fonts目录。如图
