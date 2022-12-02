@@ -111,7 +111,7 @@ deploy:
 # abbrlink config
 abbrlink:
   alg: crc16      #support crc16(default) and crc32
-  rep: dex        #support dec(default) and hex
+  rep: dec        #support dec(default) and hex
   drafts: false   #(true)Process draft,(false)Do not process draft. false(default) 
   # Generate categories from directory-tree
   # depth: the max_depth of directory-tree you want to generate, should > 0
