@@ -1,4 +1,5 @@
 ---
+index_img: https://th.bing.com/th/id/OIP.fSJPcHZ9F_C4Sw0an778AgHaBl?pid=ImgDet&rs=1
 title: 谈github被墙
 date: 2022-12-07 12:49:27
 updated: 2022-12-07 12:49:27
