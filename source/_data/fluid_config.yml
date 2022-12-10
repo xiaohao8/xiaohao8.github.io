@@ -3,7 +3,7 @@ navbar:
   ground_glass:
     enable: true
 index:
-  banner_img: /images/uploads/bbc58c3d998d4f389fdae649334873f7.jpg
+  banner_img: https://pic.imgdb.cn/item/6393f03ab1fccdcd3610d927.jpg
   banner_img_height: 100
   slogan:
     text: 醉里挑灯看剑，梦回吹角连营。
