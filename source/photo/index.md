@@ -1,14 +1,14 @@
 ---
 
-title: 留言板
+title: 相册
 
 date: 2020-02-29 18:18:00   
 
-type: "talk"                
+type: "photo"                
 
 comments: true   
 
-layout:talk
+layout:photo
 
 ---
 
