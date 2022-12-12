@@ -1,6 +1,6 @@
 [build]
   publish = "public"
-  command = "npm install hexo-generator-feed --save;npm install --save hexo-helper-live2d;npm run build;npm install --save hexo-blog-encrypt"
+  command = "npm install hexo-generator-feed --save;yarn install --save hexo-helper-live2d;yarn install --save hexo-blog-encrypt;npm run build"
 
 [build.environment]
   NODE_VERSION = "14"
