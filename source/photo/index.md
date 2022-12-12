@@ -6,7 +6,9 @@ date: 2020-02-29 18:18:00
 
 type: "talk"                
 
-comments: true            
+comments: true   
+
+layout:talk
 
 ---
 
