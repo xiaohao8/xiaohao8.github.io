@@ -225,7 +225,7 @@ color:
 # Font
 font:
   font_size: 16px
-  font_family: Noto Serif SC,"Microsoft Yahei", Hiragino Sans GB, Microsoft Sans Serif, WenQuanYi Micro Hei, sans-serif
+  font_family: 
   letter_spacing: 0.02em
   code_font_size: 85%
 
@@ -236,7 +236,7 @@ custom_js:
 
 # 指定自定义 .css 文件路径，用法和 custom_js 相同
 # The usage is the same as custom_js
-custom_css: /css/custom.css
+custom_css: 
 
 # 网页访问统计
 # Analysis of website visitors
