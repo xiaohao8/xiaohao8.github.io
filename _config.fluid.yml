@@ -353,7 +353,7 @@ navbar:
     - { key: "about", link: "/about/", icon: "iconfont icon-user-fill" }
     - { key: 'Admin', link: '/admin/', icon: "iconfont icon-users" }
     - { key: "links", link: "/links/", icon: "iconfont icon-link-fill" }
-    - { key: "开往", link: "https://travellings.link", icon: "" }
+    - { key: "开往", link: "https://travellings.cn", icon: "" }
 
 # 搜索功能，基于 hexo-generator-search 插件，若已安装其他搜索插件请关闭此功能，以避免生成多余的索引文件
 # Search feature, based on hexo-generator-search. If you have installed other search plugins, please disable this feature to avoid generating redundant index files
@@ -466,9 +466,9 @@ setInterval("createtime()",250);
 
 
 </script>
- <a href="https://travellings.link/" target="_blank" rel="noopener" title="开往-友链接力">
+ <a href="https://travellings.cn/" target="_blank" rel="noopener" title="开往-友链接力">
 
-    <img src="https://travellings.link/assets/logo.gif" alt="开往-友链接力" width="120">
+    <img src="https://travellings.cn/assets/logo.gif" alt="开往-友链接力" width="120">
 
 </a>
 
