@@ -183,12 +183,3 @@ feed:
     path: atom.xml
     limit: false
     
-history_calendar:
-  priority: 4
-  enable: true
-  enable_page: all
-  layout:
-    type: class
-    name: sticky_layout
-    index: 0
-  temple_html: '<div class="card-widget card-history"><div class="card-content"><div class="item-headline"><i class="fas fa-clock fa-spin"></i><span>那年今日</span></div><div id="history-baidu" style="height: 100px;overflow: hidden"><div class="history_swiper-container" id="history-container" style="width: 100%;height: 100%"><div class="swiper-wrapper" id="history_container_wrapper" style="height:20px"></div></div></div></div>'
