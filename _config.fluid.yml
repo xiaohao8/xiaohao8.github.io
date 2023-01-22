@@ -355,6 +355,7 @@ navbar:
     - { key: "links", link: "/links/", icon: "iconfont icon-link-fill" }
     - { key: "开往", link: "https://travellings.cn", icon: "iconfont icon-linkedin-fill" }
     - { key: "个站商店~虫洞", link: "https://storeweb.cn/s/1562", icon: "iconfont icon-line-fill" }
+    - { key: "旗下站点", link: "https://home.202271.xyz/", icon: "iconfont icon-home-fill" }
 
 
 # 搜索功能，基于 hexo-generator-search 插件，若已安装其他搜索插件请关闭此功能，以避免生成多余的索引文件
@@ -477,6 +478,7 @@ setInterval("createtime()",250);
 <span id="jinrishici-sentence">正在加载今日诗词....</span>
 
 <script src="https://sdk.jinrishici.com/v2/browser/jinrishici.js" charset="utf-8"></script>
+<script type="text/javascript" src="https://js.users.51.la/21534687.js"></script>
  '
 
   # 展示网站的 PV、UV 统计数
