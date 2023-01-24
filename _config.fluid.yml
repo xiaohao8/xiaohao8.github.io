@@ -432,11 +432,10 @@ footer:
   content: '<p>
                             <a style="margin-inline:5px" target="_blank" href="https://hexo.io/zh-cn/">
                                 <img src="http://img.shields.io/badge/Frame-Hexo-blue?style=flat&logo=hexo" title="本博客由Hexo强力驱动"></a>
-                            <a class="github-badge" target="_blank" href="https://vercel.com/" style="margin-inline:5px" title="本站采用多线部署，主线路托管于Vercel">
-                            <img src="https:?style-flat&logo=data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://sourcebucket.s3.ladydaily.com/badge/Hosted-Vercel-brightgreen.svg" alt=""></a>
-                        <a class="github-badge" target="_blank" href="https://web.51.la/report/main?comId=21534687" style="margin-inline:5px" title="本站数据分析得益于51la技术支持">
-                            <img src="https://img.shields.io/badge/51la-%E7%BB%9F%E8%AE%A1-red?style-flat&logo=data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://sourcebucket.s3.ladydaily.com/badge/Analytics-51la-3db1eb.svg" alt=""></a>
                             <a style="margin-inline:5px" target="_blank" href="https://github.com/">
+                            <a class="github-badge" target="_blank" href="https://web.51.la/report/main?comId=21534687" style="margin-inline:5px">
+
+<img src="https://cdn.chuckle.top/img/51la.svg" /></a>
                                 <img src="http://img.shields.io/badge/Deploy-GitHub-d021d6?style=flat&logo=GitHub" title="本站部署于Github"></a>
                             <a style="margin-inline:5px" target="_blank" href="http://creativecommons.org/licenses/by-nc-sa/4.0/">
                                 <img src="http://img.shields.io/badge/Copyright-BY--NC--SA%204.0-d42328?style=flat&logo=Claris" title="本站采用知识共享署名-非商业性使用-相同方式共享4.0国际许可协议进行许可"></a>
