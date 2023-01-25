@@ -47,13 +47,13 @@ links:
       link: "https://anzhiy.cn/ "
       intro: 生活明朗，万物可爱
       avatar: https://image.anzhiy.cn/adminuploads/1/2022/09/15/63232b7d91d22.jpg
-    - avatar: https://cdn.dusays.com/avatar.png
-      link: https://dusays.com/
-      title: 杜老师说
     - title: 张洪Heo
       link: https://blog.zhheo.com/
       intro: 分享设计与科技生活
       avatar: https://img.zhheo.com/i/2022/08/19/62ff32fa28da1.png
+    - avatar: https://cdn.dusays.com/avatar.png
+      link: https://dusays.com/
+      title: 杜老师说
     - title: XKの博客
       link: https://www.xukaiyyds.cn/
       avatar: https://www.xukaiyyds.cn/img/favicon.png
@@ -122,3 +122,15 @@ links:
       title: 梦创空间博客
       intro: 领略生命的快意。
       avatar: https://s2.loli.net/2023/01/17/CO7oAY8ZBjmLEVF.jpg
+    - title: 哔哔哔哔
+      link: https://bebebe.be/
+      intro: Steven Lynn的个人博客
+      avatar: https://s2.loli.net/2022/12/01/Degbk6vMHoIx9ms.png
+    - title: 是非题
+      avatar: https://other.shifeiti.com/logo/logo.png
+      intro: 记录生活，热爱跑步，学习 FPGA 中
+      link: https://www.shifeiti.com/
+    - title: 小朊的朋友圈
+      link: https://www.xrpyq.com
+      intro: 隔牖风惊竹，开门雪满山！
+      avatar: https://q.qlogo.cn/g?b=qq&nk=227389436&s=640
