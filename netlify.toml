@@ -1,6 +1,6 @@
 [build]
   publish = "public"
-  command = "npm install hexo-generator-feed --save;npm run build;npm install --save hexo-helper-live2d;npm install live2d-widget-model-koharu"
+  command = "npm install hexo-generator-feed --save;npm run build"
 
 [build.environment]
   NODE_VERSION = "14"
