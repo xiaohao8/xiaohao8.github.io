@@ -206,9 +206,9 @@ live2d:
 
     position: right
 
-    width: 100
+    width: 40
 
-    height: 150
+    height: 60
 
   mobile:
 
