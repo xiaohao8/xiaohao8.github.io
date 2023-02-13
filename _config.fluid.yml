@@ -431,7 +431,7 @@ footer:
   # HTML of the first line of the footer, it is recommended to keep the Fluid link to promote this theme to more people
   content: '<a href="https://www.pengqi.club/" target="_blank">淇云博客</a> <a href="https://evolution-host.com/" target="_blank">evolution-host</a>
  
-<script src="https://jsd.haorwen.tk/gh/stevenjoezhang/live2d-widget@latest/autoload.js"></script>'
+<script src="https://cdn.jsdelivr.net/gh/stevenjoezhang/live2d-widget@0.9.0/autoload.js"></script>'
 
 
   # 展示网站的 PV、UV 统计数
