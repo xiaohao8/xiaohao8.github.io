@@ -429,13 +429,9 @@ open_graph:
 footer:
   # 页脚第一行文字的 HTML，建议保留 Fluid 的链接，用于向更多人推广本主题
   # HTML of the first line of the footer, it is recommended to keep the Fluid link to promote this theme to more people
-  content: '<a href="https://www.pengqi.club/" target="_blank">淇云博客</a> <a href="https://evolution-host.com/" target="_blank">evolution-host</a>
- 
-<script src="https://cdn.jsdelivr.net/gh/stevenjoezhang/live2d-widget@0.9.0/autoload.js"></script>
+  content: '<script src="https://cdn.jsdelivr.net/gh/stevenjoezhang/live2d-widget@0.9.0/autoload.js"></script>
 <script charset="UTF-8" id="LA_COLLECT" src="//sdk.51.la/js-sdk-pro.min.js"></script>
-
-<script>LA.init({id:"JwpL5spaq2i5T5JA",ck:"JwpL5spaq2i5T5JA"})</script>
-<script id="LA-DATA-WIDGET" crossorigin="anonymous" charset="UTF-8" src="https://v6-widget.51.la/v6/JwpL5spaq2i5T5JA/quote.js?theme=0&f=12&display=0,1,1,1,0,0,1,1"></script>'
+<script id="LA-DATA-WIDGET" crossorigin="anonymous" charset="UTF-8" src="https://v6-widget.51.la/v6/JwpL5spaq2i5T5JA/quote.js?theme=0&f=12&display=0,1,1,1,0,0,1,0"></script>'
 
 
   # 展示网站的 PV、UV 统计数
