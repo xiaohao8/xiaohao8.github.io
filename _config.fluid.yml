@@ -429,7 +429,7 @@ open_graph:
 footer:
   # 页脚第一行文字的 HTML，建议保留 Fluid 的链接，用于向更多人推广本主题
   # HTML of the first line of the footer, it is recommended to keep the Fluid link to promote this theme to more people
-  content:'<!--live2d-->
+  content: '<!--live2d-->
 
 <script src="https://cdn-1309416366.cos.ap-beijing.myqcloud.com/live2d/loadForJan.js"></script>
 <script charset="UTF-8" id="LA_COLLECT" src="//sdk.51.la/js-sdk-pro.min.js"></script>
