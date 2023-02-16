@@ -436,8 +436,8 @@ footer:
 <script id="LA-DATA-WIDGET" crossorigin="anonymous" charset="UTF-8" src="https://v6-widget.51.la/v6/JwpL5spaq2i5T5JA/quote.js?theme=0&f=12&display=0,1,1,1,0,0,1,0"></script>'
 
 
-  # 展示网站的 PV、UV 统计数
-  # Display website PV and UV statistics
+   # 展示网站的 PV、UV 统计数
+   # Display website PV and UV statistics
   statistics:
     enable: false
 
