@@ -8,6 +8,8 @@ categories:
   - 技术
 comments: true
 ---
+2023.2.18更新，已停止请不要尝试，买一年是1美元，续费没有折扣！！！
+
 看到群里有人发考虑买xyz域名，于是就分享一下自己的xyz域名是如何购买的。
 
 .xyz，Internet网址域名后缀，全球通用的新顶级域名，简单来说就是网址中最右边一个“点”后面的字符，由XYZ注册局运营  。Slogan是“For every website, everywhere®”(适用于每个网站，每个地方) 
