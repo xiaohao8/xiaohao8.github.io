@@ -15,7 +15,7 @@ menu:
     视频混剪: /tags/混剪/ || fas fa-scissors
   友链:
     友链鱼塘: /fcircle/ || fas fa-fish-fins
-    友情链接: /link/ || fas fa-user-group
+    友情链接: /links/ || fas fa-user-group
     宝藏博主: javascript:travelling() || fas fa-bus
   我的:
     在线工具: /tlink/ || fas fa-screwdriver-wrench
@@ -91,7 +91,7 @@ favicon: https://202271.xyz/images/uploads/android-chrome-192x192.png
 # Avatar (头像)
 avatar:
   img: https://i.imgtg.com/2023/02/21/s7OAS.jpg
-  effect: true
+  effect: flase
 
 # 关于页面自定义
 aboutpage: 
@@ -155,8 +155,7 @@ cover:
   # left/right/both
   position: both
   # When cover is not set, the default cover is displayed (當沒有設置cover時，默認的封面顯示)
-  default_cover:
-    # - https://i.loli.net/2020/05/01/gkihqEjXxJ5UZ1C.jpg
+  default_cover: https://photoimage.2lc.top/LightPicture/2023/02/348c4a73fe7c0f37.jpg
 
 # Replace Broken Images (替換無法顯示的圖片)
 error_img:
