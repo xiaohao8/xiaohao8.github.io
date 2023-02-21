@@ -86,12 +86,12 @@ katex:
 # --------------------------------------
 
 # Favicon（网站图标）
-favicon: https://tucdn.wpon.cn/2023/02/10/a43d4d587028e.png
+favicon: https://202271.xyz/images/uploads/android-chrome-192x192.png
 
 # Avatar (头像)
 avatar:
-  img: https://p.zhheo.com/2023ab4befd994d9bc8e1e6a78027d517e21075402.png!cover
-  effect: false
+  img: https://i.imgtg.com/2023/02/21/s7OAS.jpg
+  effect: true
 
 # 关于页面自定义
 aboutpage: 
@@ -893,9 +893,9 @@ hometop:
   banner:
     enable: true
     class: creativity #people/creativity
-    title_up: 分享设计
+    title_up: 分享技术
     title_dn: 与科技生活
-    tips: ZHHEO.COM
+    tips: 202271.XYZ
   categoryGroup:
     enable: true
     category_list:
