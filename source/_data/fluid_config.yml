@@ -3,7 +3,7 @@ navbar:
   ground_glass:
     enable: true
 index:
-  banner_img: /images/uploads/67774b1602fd7fc6.jpg
+  banner_img: https://npm.elemecdn.com/inju-tuku@1.0.3/img/index_img.gif
   banner_img_height: 100
   slogan:
     text: 不是所有博客都叫醉里
