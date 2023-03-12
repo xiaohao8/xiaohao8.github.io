@@ -3,10 +3,10 @@ navbar:
   ground_glass:
     enable: true
 index:
-  banner_img: https://i.imgtg.com/2023/03/08/YE9MD.jpg
+  banner_img: /images/uploads/67774b1602fd7fc6.jpg
   banner_img_height: 100
   slogan:
-    text: ""
+    text: 不是所有博客都叫醉里
 post:
   banner_img: /images/uploads/1616421416500-wallhaven-rddv31.jpg
   banner_img_height: 70
