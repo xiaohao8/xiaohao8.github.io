@@ -17,10 +17,12 @@ comments: true
 
 如果你有 Microsoft 365 E5 开发人员订阅，请立即检查你的订阅状态：
 
-使用个人账户登陆开发者控制台
-或者 使用子号（企业号）访问订阅管理页面
+使用个人账户登陆开发者控制台<https://developer.microsoft.com/en-us/microsoft-365/profile>
+或者 使用子号（企业号）访问订阅管理页面<https://admin.microsoft.com/Adminportal/Home?source=applauncher#/subscriptions>
 如果显示你的账号已过期或者两天内过期，就是被封禁订阅了
 
 Microsoft 365 E5 开发人员订阅被封
+
+![](https://cos.mbrjun.cn/IMGS/2023/04/05/5e939bc4-e963-4cbf-b5b8-be37ee6fbfe0.webp)
 
 被封禁后，如果你的账号有重要数据，请立刻将数据备份到安全的地方，订阅封禁后，你的数据还会被保留一个月，如果你实在没有办法转移数据，可以去看看 mover.io 这样的网盘对拷网站（谨慎使用对拷，因为使用对拷也可能导致目标账号被封）
