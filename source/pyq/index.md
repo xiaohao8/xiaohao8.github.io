@@ -1,10 +1,10 @@
 ---
 
-title: 关于
+title: 醉里的朋友圈
 
 layout: about
 
-comments: false
+comments: true
 
 ---
 <!-- fontawesome图标的依赖，主题自带的不用加这行 -->
