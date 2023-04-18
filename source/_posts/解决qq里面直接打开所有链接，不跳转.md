@@ -1,4 +1,6 @@
 ---
+banner_img: /images/uploads/screenshot_20230419-005629.png
+index_img: /images/uploads/screenshot_20230419-005629.png
 title: 解决QQ里面直接打开所有链接，不跳转
 date: 2023-04-19 00:42:07
 updated: 2023-04-19 00:42:07
