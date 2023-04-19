@@ -39,14 +39,14 @@ links:
       intro: 一个普通学生的普通生活
       link: https://xiaolii.com/
       avatar: https://502.chat/Imagesource/icon.jpg
-    - title: Diary of LX
-      intro: 随便写写
-      link: https://diary.bid/
-      avatar: https://diary.bid/wp-content/uploads/2022/11/%E4%B8%8B%E8%BD%BD.jpg
     - title: 安知鱼
       link: "https://anzhiy.cn/ "
       intro: 生活明朗，万物可爱
       avatar: https://image.anzhiy.cn/adminuploads/1/2022/09/15/63232b7d91d22.jpg
+    - title: Diary of LX
+      intro: 随便写写
+      link: https://diary.bid/
+      avatar: https://diary.bid/wp-content/uploads/2022/11/%E4%B8%8B%E8%BD%BD.jpg
     - title: 张洪Heo
       link: https://blog.zhheo.com/
       intro: 分享设计与科技生活
@@ -142,3 +142,6 @@ links:
       link: https://blog.shinezz.cc/
       intro: Sh1n3zZ の 小屋 - 一个小小秘密基地ヾ(^▽^*)))
       avatar: https://blog.shinezz.cc/img/ServerIcon_Flu.png
+    - link: https://linguoguang.com/
+      title: 木木困玉光的博客
+      avatar: /images/uploads/yutzi.jpg
