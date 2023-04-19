@@ -432,8 +432,18 @@ footer:
   content: '<!--live2d-->
 
 <script src="https://cdn-1309416366.cos.ap-beijing.myqcloud.com/live2d/loadForJan.js"></script>
-<script charset="UTF-8" id="LA_COLLECT" src="//sdk.51.la/js-sdk-pro.min.js"></script>
-<script id="LA-DATA-WIDGET" crossorigin="anonymous" charset="UTF-8" src="https://v6-widget.51.la/v6/JwpL5spaq2i5T5JA/quote.js?theme=0&f=12&display=0,1,1,1,0,0,1,0"></script>'
+<span id="runtime_span"></span>
+
+<script type="text/javascript">function show_runtime(){window.setTimeout("show_runtime()",1000);X=new 
+
+Date("07/15/2022 21:42:29");
+
+Y=new Date();T=(Y.getTime()-X.getTime());M=24*60*60*1000;
+
+a=T/M;A=Math.floor(a);b=(a-A)*24;B=Math.floor(b);c=(b-B)*60;C=Math.floor((b-B)*60);D=Math.floor((c-C)*60);
+
+runtime_span.innerHTML="醉里已经运行了: "+A+"天"+B+"小时"+C+"分"+D+"秒"}show_runtime();</script>
+'
 
 
    # 展示网站的 PV、UV 统计数
