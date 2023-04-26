@@ -182,6 +182,4 @@ feed:
     type: atom
     path: atom.xml
     limit: false
-    encrypt:
-
-	enable:true
+   
