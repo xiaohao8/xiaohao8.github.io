@@ -192,9 +192,7 @@ encrypt: # hexo-blog-encrypt
 
   tags:
 
-  - {name: 随笔, password: hao123}
-
-  - {name: 加密文章, password: jiami}
+  - {name: 加密文章, password: }
 
   theme: xray
 
