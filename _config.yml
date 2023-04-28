@@ -192,7 +192,7 @@ encrypt: # hexo-blog-encrypt
 
   tags:
 
-  - {name: 加密文章, password: }
+  - {name: 加密文章 ,password: 71938227}
 
   theme: xray
 
