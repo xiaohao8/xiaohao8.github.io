@@ -3,16 +3,16 @@ navbar:
   ground_glass:
     enable: true
 index:
-  banner_img: https://npm.elemecdn.com/inju-tuku@1.0.3/img/index_img.gif
+  banner_img: https://t.mwm.moe/pc
   banner_img_height: 100
   slogan:
     text: 不是所有博客都叫醉里
 post:
-  banner_img: /images/uploads/1616421416500-wallhaven-rddv31.jpg
+  banner_img: https://t.mwm.moe/pc
   banner_img_height: 70
-  default_index_img: /images/uploads/default_post_img.png
+  default_index_img: https://t.mwm.moe/pc
 archive:
-  banner_img: /images/uploads/1616421416500-wallhaven-rddv31.jpg
+  banner_img: https://t.mwm.moe/pc
   banner_img_height: 80
   subtitle: null
 category:
@@ -31,7 +31,7 @@ about:
   name: 醉里
   intro: My blog
 links:
-  banner_img: /images/uploads/1616421416500-wallhaven-rddv31.jpg
+  banner_img: https://t.mwm.moe/pc
   banner_img_height: 80
   subtitle: null
   items:
