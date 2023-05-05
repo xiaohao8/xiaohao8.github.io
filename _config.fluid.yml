@@ -226,7 +226,7 @@ color:
 # Font
 font:
   font_size: 16px
-  font_family: 
+  font_family: DingTalkJinBuTi-Regular
   letter_spacing: 0.02em
   code_font_size: 85%
 
@@ -238,7 +238,7 @@ custom_js:
 # 指定自定义 .css 文件路径，用法和 custom_js 相同
 # The usage is the same as custom_js
 custom_css: 
-  - /css/cloudedGlass.css
+  - /css/fonts.css
 # 网页访问统计
 # Analysis of website visitors
 web_analytics:  # 网页访问统计
