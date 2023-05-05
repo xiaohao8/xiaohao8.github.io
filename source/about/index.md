@@ -3,10 +3,14 @@ title: 关于
 layout: about
 comments: false
 ---
-一名﻿高中生
+00后❤️
 
-QQ:3543601929
+坐标
 
 G﻿ithub:https://github.com/xiaohao8
 
-邮箱﻿:3543601929#qq.com（#替换
+CSDN:<https://blog.csdn.net/m0_73182063?spm=1000.2115.3001.5343>
+
+QQ:(🉑打钱，🉑赞助🦄)
+
+![](/images/uploads/qrcode_20230505232417.png)
