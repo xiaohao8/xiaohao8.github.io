@@ -3,16 +3,16 @@ navbar:
   ground_glass:
     enable: true
 index:
-  banner_img: https://t.mwm.moe/pc
+  banner_img: https://i.imgtg.com/2023/05/05/CJFsq.jpg
   banner_img_height: 100
   slogan:
-    text: 不是所有博客都叫醉里
+    text: " You are back it with all the good things in the world. 你逆光而来，配得上这世间所有的好。"
 post:
-  banner_img: https://t.mwm.moe/pc
+  banner_img: https://imgapi.xl0408.top/index.php
   banner_img_height: 70
-  default_index_img: https://t.mwm.moe/pc
+  default_index_img: https://i.imgtg.com/2022/09/14/yAzLX.png
 archive:
-  banner_img: https://t.mwm.moe/pc
+  banner_img: https://imgapi.xl0408.top/index.php
   banner_img_height: 80
   subtitle: null
 category:
