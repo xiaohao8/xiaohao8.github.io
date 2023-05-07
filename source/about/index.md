@@ -1,18 +1,16 @@
 ---
-comments: false
-date: ''
-excerpt: G ithub:https://github.com/xiaohao8 CSDN:https://blog.csdn.net/m0_73182063?spm=1000.2115.3001.5343 QQ（🉑赞助） 
-layout: about
 title: 关于
-updated: 2023-5-6T23:12:35.842+8:0
+layout: about
+comments: false
 ---
-G﻿ithub:[https://github.com/xiaohao8](https://)
+00后❤️
 
+坐标
 
+G﻿ithub:https://github.com/xiaohao8
 
-CSDN:[https://blog.csdn.net/m0_73182063?spm=1000.2115.3001.5343](https://)
+CSDN:<https://blog.csdn.net/m0_73182063?spm=1000.2115.3001.5343>
 
+QQ:(🉑打钱，🉑赞助🦄)
 
-
-QQ（🉑赞助）
 ![](/images/uploads/qrcode_20230505232417.png)
