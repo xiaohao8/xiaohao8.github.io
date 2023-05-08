@@ -1,6 +1,6 @@
 [build]
   publish = "public"
-  command = "npm install hexo-generator-feed --save;npm update hexo-url-submission;npm run build"
+  command = "npm install hexo-generator-feed --save;npm i hexo-url-submission;npm run build"
 
 [build.environment]
   NODE_VERSION = "14"
