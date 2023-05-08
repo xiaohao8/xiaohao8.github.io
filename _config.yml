@@ -188,7 +188,7 @@ url_submission:
 
   type: "all" # latest or all
 
-  channels: # included channels are `baidu`, `google`, `bing`, `shenma`
+  channels: {baidu: {}, bing: a0755937921f48af948311087954208c, google: {},  # included channels are `baidu`, `google`, `bing`, `shenma`
 
     baidu:
 
@@ -198,7 +198,7 @@ url_submission:
 
     bing:
 
-      token: "" # Bing Access Token
+      token: "a0755937921f48af948311087954208c" # Bing Access Token
 
       count: 10 # Optional
 
@@ -226,4 +226,4 @@ url_submission:
 
   urls_path: "submit_url.txt" # The file wait for submission
 
-  sitemap: "baidusitemap.xml" # The filepath for sitemap
+  sitemap: "sitemap.xml" # The filepath for sitemap
