@@ -182,48 +182,4 @@ feed:
     type: atom
     path: atom.xml
     limit: false
-url_submission:
 
-  enable: true
-
-  type: "all" # latest or all
-
-  channels: {baidu: {}, bing: a0755937921f48af948311087954208c, google: {},  # included channels are `baidu`, `google`, `bing`, `shenma`
-
-    baidu:
-
-      token: "" # Baidu Private Token
-
-      count: 10 # Optional
-
-    bing:
-
-      token: "a0755937921f48af948311087954208c" # Bing Access Token
-
-      count: 10 # Optional
-
-    google: 
-
-      key: "google.json" # Google key path (e.g. `google_key.json` or `data/google_key.json`)
-
-      count: 10 # Optional
-
-    shenma:
-
-      count: 10 # Optional
-
-      user: "" # Username used when registering
-
-      token: "" # ShenMa Private Key
-
-  prefix: ["/post", "/wiki"] # URL prefix
-
-  ignore: ["/post/a*", "/post/a?c"] # URL addresses that do not need to be submitted (wildcards are supported)
-
-  count: 100
-
-  proxy: "" # Set the proxy used to submit urls to Google
-
-  urls_path: "submit_url.txt" # The file wait for submission
-
-  sitemap: "sitemap.xml" # The filepath for sitemap
