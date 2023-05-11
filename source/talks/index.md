@@ -17,4 +17,4 @@ updated: 2023-5-6T23:6:35.96+8:0
 
 <div id="qexot"></div>
 
-<script>showQexoTalks("qexot", "https;//admin.202271.xyz", 5)</script>
+<script>showQexoTalks("qexot", "https://admin.202271.xyz", 5)</script>
