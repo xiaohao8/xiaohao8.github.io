@@ -1,14 +1,24 @@
 ---
-index_img: https://th.bing.com/th/id/R.64e433079a0991c8e2c1f23a1c50d45f?rik=q%2fYSEWvH5FVUAA&riu=http%3a%2f%2fcdn.onlinewebfonts.com%2fsvg%2fimg_178343.png&ehk=OUQVvl%2b9JtS6MEPVCtUzjlLc2sKy7SFlPF4ZGDeCRlU%3d&risl=&pid=ImgRaw&r=0
-title: 站长工具——免费api
-date: 2022-12-05 15:03:21
-updated: 2022-12-05 15:03:21
-tags:
-  - api
+abbrlink: ''
 categories:
-  - 技术
+- 技术
 comments: true
+date: '2022-12-05T15:03:21+08:00'
+excerpt:   大米api:https://api.qqsuu.cn/   韩 小韩api:https://api.vvhan.com/   免费 api:https://api.aa1.cn/(作者:夏柔 - 分享的API永不收费   最新 可用免费api↑   免费api支持 的功能如下 二维码生成 快速将URL或者文字生成二维码  调用：110793 ICP备案查询 快速查询域名备案信息  调用：154...
+index_img: https://th.bing.com/th/id/R.64e433079a0991c8e2c1f23a1c50d45f?rik=q%2fYSEWvH5FVUAA&riu=http%3a%2f%2fcdn.onlinewebfonts.com%2fsvg%2fimg_178343.png&ehk=OUQVvl%2b9JtS6MEPVCtUzjlLc2sKy7SFlPF4ZGDeCRlU%3d&risl=&pid=ImgRaw&r=0
+tags:
+- api
+title: 站长工具——免费api
+updated: 2023-5-12T23:33:8.815+8:0
 ---
+* 大米api:https://api.qqsuu.cn/
+
+* 韩﻿小韩api:https://api.vvhan.com/
+
+* 免费﻿api:https://api.aa1.cn/(作者:夏柔 - 分享的API永不收费
+
+* 最新﻿可用免费api↑
+
 免费api支持﻿的功能如下
 
 ```
@@ -244,7 +254,7 @@ IT行业相关新闻资讯API
 有梦就要去追，待会儿醒了，就不容易再睡着了
 ```
 
-1.  大米api:https://api.qqsuu.cn/
+1. 大米api:https://api.qqsuu.cn/
 2. 韩﻿小韩api:https://api.vvhan.com/
 3. 免费﻿api:https://api.aa1.cn/(作者:夏柔 - 分享的API永不收费
 4. 最新﻿可用免费api↑
