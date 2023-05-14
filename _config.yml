@@ -139,7 +139,7 @@ sitemap:
 # hexo-filter-nofollow
 # https://github.com/hexojs/hexo-filter-nofollow
 nofollow:
-  enable: true
+  enable: false
   field: site
   exclude:
 
