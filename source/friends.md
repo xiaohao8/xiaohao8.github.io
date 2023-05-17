@@ -4,8 +4,8 @@ title: 友链【新】
 updated: 2023-5-12T23:46:17.802+8:0
 ---
 <div id="qexo-friends"></div>
-<link rel="stylesheet" href="https://unpkg.com/qexo-friends/friends.css"/>
-<script src="https://cdn.jsdelivr.net/npm/qexo-static@1.6.0/hexo/friends.js"></script>
+<link rel="stylesheet" href="https://npm.elemecdn.com/qexo-friends/friends.css"/>
+<script src="https://npm.elemecdn.com/qexo-static@1.6.0/hexo/friends.js"></script>
 <script>loadQexoFriends("qexo-friends", "https://admin.202271.xyz")</script>
 在线友链申请
 <div id="friends-api"></div>
