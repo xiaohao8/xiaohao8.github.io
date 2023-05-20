@@ -445,6 +445,9 @@ Y=new Date();T=(Y.getTime()-X.getTime());M=24*60*60*1000;
 a=T/M;A=Math.floor(a);b=(a-A)*24;B=Math.floor(b);c=(b-B)*60;C=Math.floor((b-B)*60);D=Math.floor((c-C)*60);
 
 runtime_span.innerHTML="醉里已经运行了: "+A+"天"+B+"小时"+C+"分"+D+"秒"}show_runtime();</script>
+<a href="https://icp.gov.moe/?keyword=20226555" target="_blank">
+<img src="https://icp.gov.moe/images/ico64.png" alt="萌ICP备20230249号">
+</a>
  
  <a href="http://www.91667.cn">驾校宝典</a>
  <a href="https://didi.seowhy.com">搜外友链</a>
