@@ -438,8 +438,6 @@ footer:
 <div style="background: #f5f5f5; padding: 20px;">
 <div style="text-align: center;">
 <a href="https://202271.xyz/sitemap.xml" target="_blank" rel="noopener" style="color: #333; font-size: 16px; text-decoration: none;">网站地图</a> | <a href="https://202271.xyz/atom.xml" target="_blank" rel="noopener" style="color: #333; font-size: 16px; text-decoration: none;">RSS订阅</a>
-</div>
-</div>
 
    # 展示网站的 PV、UV 统计数
    # Display website PV and UV statistics
