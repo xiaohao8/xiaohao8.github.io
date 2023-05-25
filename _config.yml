@@ -3,11 +3,11 @@
 ## Source: https://github.com/hexojs/hexo/
 
 # Site
-title: 醉里博客
-subtitle: '醉里博客——小豪的个人博客'
-description: '醉里博客——小豪的个人博客'
-keywords: 醉里博客,hexo美化,fluid主题,个站商店,xyz域名,中文博客,typecho,个人博客
-author: 小豪
+title: 星河博客
+subtitle: '星河博客——网络资源分享博客'
+description: '星河博客——网络资源分享博客'
+keywords: 星河博客,hexo美化,fluid主题,个站商店,xyz域名,中文博客,typecho,个人博客
+author: 小星河
 language: zh-CN
 timezone: ''
 
@@ -99,7 +99,7 @@ ignore:
 # Extensions
 ## Plugins: https://hexo.io/plugins/
 ## Themes: https://hexo.io/themes/
-theme: Acrylic
+theme: next
 
 # Deployment
 ## Docs: https://hexo.io/docs/one-command-deployment
