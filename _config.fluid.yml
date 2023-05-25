@@ -431,16 +431,7 @@ open_graph:
 footer:
   # 页脚第一行文字的 HTML，建议保留 Fluid 的链接，用于向更多人推广本主题
   # HTML of the first line of the footer, it is recommended to keep the Fluid link to promote this theme to more people
-  content: '<!--live2d-->
-<script src="https://cdn-1309416366.cos.ap-beijing.myqcloud.com/live2d/loadForJan.js"></script>
-<span id="runtime_span"></span>
-<script type="text/javascript">function show_runtime(){window.setTimeout("show_runtime()",1000);X=new 
-Date("07/15/2022 21:42:29");
-Y=new Date();T=(Y.getTime()-X.getTime());M=24*60*60*1000;
-a=T/M;A=Math.floor(a);b=(a-A)*24;B=Math.floor(b);c=(b-B)*60;C=Math.floor((b-B)*60);D=Math.floor((c-C)*60);
-
-runtime_span.innerHTML="醉里已经运行了: "+A+"天"+B+"小时"+C+"分"+D+"秒"}show_runtime();</script>
-<a href="https://icp.gov.moe/?keyword=20226555" target="_blank" rel="noopener"><img src="https://icp.gov.moe/images/ico64.png" alt="萌icp备20226555" style="width: 16px; height: 16px;"> <span style="color: #ff69b4; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 14px; font-weight: bold;">萌icp备20226555</span></a>
+  content: '<a href="https://icp.gov.moe/?keyword=20226555" target="_blank" rel="noopener"><img src="https://icp.gov.moe/images/ico64.png" alt="萌icp备20226555" style="width: 16px; height: 16px;"> <span style="color: #ff69b4; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 14px; font-weight: bold;">萌icp备20226555</span></a>
  
  <a href="http://www.91667.cn">驾校宝典</a>
  <a href="https://didi.seowhy.com">搜外友链</a>
