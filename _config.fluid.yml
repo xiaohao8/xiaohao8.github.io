@@ -434,10 +434,10 @@ footer:
   content: ' <a href="https://icp.gov.moe/?keyword=20226555" target="_blank" rel="noopener"><img src="https://icp.gov.moe/images/ico64.png" alt="萌icp备20226555" style="width: 16px; height: 16px;"></a>
  <a href="http://www.91667.cn">驾校宝典</a>
  <a href="https://didi.seowhy.com">搜外友链</a>
- <a href="http://www.shijunjiaoyu.com/">诗歌</a>'
-<div style="background: #f5f5f5; padding: 20px;">
-<div style="text-align: center;">
-<a href="https://202271.xyz/sitemap.xml" target="_blank" rel="noopener" style="color: #333; font-size: 16px; text-decoration: none;">网站地图</a> | <a href="https://202271.xyz/atom.xml" target="_blank" rel="noopener" style="color: #333; font-size: 16px; text-decoration: none;">RSS订阅</a>
+ <a href="http://www.shijunjiaoyu.com/">诗歌</a>
+ <div style="text-align: center; font-size: 16px;">
+<a href="https://202271.xyz/sitemap.xml" target="_blank" rel="noopener" style="color: #333; text-decoration: none;">网站地图</a> | <a href="https://202271.xyz/atom.xml" target="_blank" rel="noopener" style="color: #333; text-decoration: none;">RSS订阅</a>
+</div>
 
    # 展示网站的 PV、UV 统计数
    # Display website PV and UV statistics
