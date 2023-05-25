@@ -431,8 +431,7 @@ open_graph:
 footer:
   # 页脚第一行文字的 HTML，建议保留 Fluid 的链接，用于向更多人推广本主题
   # HTML of the first line of the footer, it is recommended to keep the Fluid link to promote this theme to more people
-  content: '<a href="https://icp.gov.moe/?keyword=20226555" target="_blank" rel="noopener"><img src="https://icp.gov.moe/images/ico64.png" alt="萌icp备20226555" style="width: 16px; height: 16px;"> <span style="color: #ff69b4; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 14px; font-weight: bold;">萌icp备20226555</span></a>
- 
+  content: ' <a href="https://icp.gov.moe/?keyword=20226555" target="_blank" rel="noopener"><img src="https://icp.gov.moe/images/ico64.png" alt="萌icp备20226555" style="width: 16px; height: 16px;"></a>
  <a href="http://www.91667.cn">驾校宝典</a>
  <a href="https://didi.seowhy.com">搜外友链</a>
  <a href="http://www.shijunjiaoyu.com/">诗歌</a>'
