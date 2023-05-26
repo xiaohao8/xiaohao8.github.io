@@ -12,4 +12,4 @@ Disallow: /fonts/
 Disallow: /vendors/
 Disallow: /fancybox/
 Disallow: /admin
-sitemap: https://www.fuzhihao.cn/sitemap.xml
+Sitemap: https://www.fuzhihao.cn/sitemap.xml
