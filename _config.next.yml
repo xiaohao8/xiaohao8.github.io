@@ -221,14 +221,14 @@ footer:
 
   # Beian ICP and gongan information for Chinese users. See: https://beian.miit.gov.cn, http://www.beian.gov.cn
   beian:
-    enable: true
+    enable: false
     icp:
     # The digit in the num of gongan beian.
-    gongan_id: 20234046
+    gongan_id: 
     # The full num of gongan beian.
-    gongan_num: 20234046
+    gongan_num: 
     # The icon for gongan beian. See: http://www.beian.gov.cn/portal/download
-    gongan_icon_url: https://icp.gov.moe/images/ico64.png
+    gongan_icon_url: 
 
 
 # ---------------------------------------------------------------
@@ -418,10 +418,10 @@ github_banner:
 # ---------------------------------------------------------------
 
 font:
-  enable: false
+  enable: true
 
   # Uri of fonts host, e.g. https://fonts.googleapis.com (Default).
-  host:
+  host: https://fonts.googleapis.com
 
   # Font options:
   # `external: true` will load this font family from `host` above.
@@ -431,13 +431,13 @@ font:
   # Global font settings used for all elements inside <body>.
   global:
     external: true
-    family: Lato
+    family: Trebuchet MS
     size:
 
   # Font settings for site title (.site-title).
   title:
     external: true
-    family:
+    family: Trebuchet MS
     size:
 
   # Font settings for headlines (<h1> to <h6>).
