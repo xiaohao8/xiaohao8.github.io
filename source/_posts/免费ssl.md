@@ -1,11 +1,18 @@
 ---
-abbrlink: ''
-categories: []
-date: '2023-05-29T23:35:28.475670+08:00'
-excerpt: ohttps.com是一个提供免费HTTPS证书的网站。它可以为你的网站免费颁发有效期为90天的SSL证书，让你的网站拥有安全的https加密连接。同时，ohttps.com还提供了一些简单易用的工具，帮助你快速配置和安装SSL证书。  注册 登录控制台 创建证书支持泛域名 DNS授权模式：需要用户提供DNS域名解析服务商的API接口授权 免DNS授权模式：无需用户提供DNS域名解析服务商的API...
-tags: []
+index_img: https://tse1-mm.cn.bing.net/th/id/OIP-C.OOOMQbaDHJurT_m2AchAXwHaEH?pid=ImgDet&rs=1
 title: 免费ssl证书稳定申请，支持泛域名
+date: 2023-05-29T23:35:28.475670+08:00
 updated: 2023-5-29T23:42:52.856+8:0
+tags:
+  - 免费
+keywords:
+  - 免费
+  - ssl
+excerpt: ohttps.com是一个提供免费HTTPS证书的网站。它可以为你的网站免费颁发有效期为90天的SSL证书，让你的网站拥有安全的https加密连接。同时，ohttps.com还提供了一些简单易用的工具，帮助你快速配置和安装SSL证书。  注册 登录控制台 创建证书支持泛域名 DNS授权模式：需要用户提供DNS域名解析服务商的API接口授权 免DNS授权模式：无需用户提供DNS域名解析服务商的API...
+abbrlink: ""
+categories:
+  - 技术
+comments: true
 ---
 ohttps.com是一个提供免费HTTPS证书的网站。它可以为你的网站免费颁发有效期为90天的SSL证书，让你的网站拥有安全的https加密连接。同时，ohttps.com还提供了一些简单易用的工具，帮助你快速配置和安装SSL证书。
 
