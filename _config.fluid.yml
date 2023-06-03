@@ -1,4 +1,3 @@
-custom_head: <meta name="baidu-site-verification" content="codeva-aodBntuOs9" />
 #---------------------------
 # Hexo Theme Fluid
 # Author: Fluid-dev
@@ -1032,7 +1031,7 @@ links:
   # Custom content at the bottom of the links
   custom:
     enable: true
-    content: '<hr><p>在下方留言申请加入我的友链，按如下格式提供信息：</p><ul><li>博客名：醉里</li><li>简介：小豪的个人博客</li><li>链接：https://202271.xyz</li><li>图片：https://202271.xyz/images/uploads/android-chrome-192x192.png</li></ul>'
+    content: '<hr><p>自2023.6.3起为了方便申请和管理，请前往网页右上角的新友链页提交！（老友链不受影响）</p><ul><li>博客名：醉里</li><li>简介：小豪的个人博客</li><li>链接：https://202271.xyz</li><li>图片：https://202271.xyz/images/uploads/android-chrome-192x192.png</li></ul>'
 
   # 评论插件
   # Comment plugin
