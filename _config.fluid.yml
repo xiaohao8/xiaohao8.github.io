@@ -358,6 +358,7 @@ navbar:
     - { key: "朋友圈", link: "https://202271.xyz/pyq", icon: "iconfont icon-home-fill" }
     - { key: "说说", link: "https://202271.xyz/talks", icon: "iconfont icon-home-fill" }
     - { key: "links", link: "/links/", icon: "iconfont icon-link-fill" }
+    - { key: "新友链", link: "/friends/", icon: "iconfont icon-link-fill" }
 
 
 # 搜索功能，基于 hexo-generator-search 插件，若已安装其他搜索插件请关闭此功能，以避免生成多余的索引文件
