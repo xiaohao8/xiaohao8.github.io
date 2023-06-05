@@ -2,7 +2,7 @@
 date: '2023-05-11T23:00:28.027790+08:00'
 title: New友链
 updated: 2023-6-5T21:54:5.577+8:0
-comment: true
+comments: true
 ---
 <div id="qexo-friends"></div>
 <link rel="stylesheet" href="https://npm.elemecdn.com/qexo-friends/friends.css"/>
