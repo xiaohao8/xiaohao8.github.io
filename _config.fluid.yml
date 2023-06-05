@@ -431,16 +431,10 @@ open_graph:
 footer:
   # 页脚第一行文字的 HTML，建议保留 Fluid 的链接，用于向更多人推广本主题
   # HTML of the first line of the footer, it is recommended to keep the Fluid link to promote this theme to more people
-  content: '<a href="https://github.com/xiaohao8" target="_blank">
-  <img src="bottom-logo.png" alt="Bottom Logo" width="150" height="50">
-</a>
-<a href="https://dns.aliyun.com/" target="_blank">
-  <img src="bottom-logo2.png" alt="Bottom Logo 2" width="150" height="50">
-</a>
-<a href="https://netlify.com" target="_blank">
-  <img src="bottom-logo3.png" alt="Bottom Logo 3" width="150" height="50">
-</a>
-'
+  content: '<a href="https://icp.gov.moe/?keyword=20226555" target="_blank">
+  <img src="https://icp.gov.moe/images/ico64.png" alt="萌icp备" width="20" height="20">
+  <span>萌备20226555</span>
+</a>'
  
  
    # 展示网站的 PV、UV 统计数
