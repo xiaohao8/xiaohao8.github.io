@@ -19,7 +19,7 @@ hexo.extend.generator.register("admin-manifest", function (locals) {
   });
 
   const manifest = {
-    adminVersion: "3.2.2",
+    adminVersion: "4.0.0",
     generatedAt: new Date().toISOString(),
     hexoVersion: hexo.version,
     site: {

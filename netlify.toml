@@ -30,13 +30,6 @@
     X-Content-Type-Options = "nosniff"
 
 [[headers]]
-  for = "/admin/config.yml"
-  [headers.values]
-    Content-Type = "text/yaml; charset=utf-8"
-    Cache-Control = "public, max-age=0, must-revalidate"
-    X-Content-Type-Options = "nosniff"
-
-[[headers]]
   for = "/admin/manifest.json"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"

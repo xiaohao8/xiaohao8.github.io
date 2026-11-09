@@ -1,117 +1,102 @@
-# 后台使用与维护
+# 后台使用与维护（Qexo 风格 · Netlify 版）
+
+> v4.0.0：完全重写。不再使用 Netlify CMS / Netlify Identity / Git Gateway，
+> 改为 **Qexo 同款模式**：浏览器用 GitHub Token 直连 GitHub API 读写仓库，
+> 保存即提交到 `main`，Netlify 自动构建发布。界面按 Qexo 的 Argon Dashboard 风格实现。
 
 ## 入口
 
-- 后台地址：`https://202271.xyz/admin/`
-- 登录方式：Netlify Identity 轻量登录页，登录成功后才加载 CMS
-- 内容发布：Netlify CMS Editorial Workflow + Git Gateway
+- 后台地址：`https://202271.xyz/admin/`（站内导航「管理后台」）
+- 演示模式：`https://202271.xyz/admin/?demo=1`（本地模拟数据，不连 GitHub，随便点）
+- 所有前端资源（Vditor 编辑器、js-yaml、样式）都由本站托管，不依赖外网 CDN
 
-后台静态资源全部由本站托管，不依赖 jsDelivr、unpkg 或 Netlify Identity CDN。
+## 首次配置（一次性）
 
-后台入口会先加载轻量登录页，只拉取 Netlify Identity 客户端；认证成功后再动态加载 Netlify CMS、工作台和 Git Gateway 数据。这样不会在登录前初始化整站内容，能减少弱网或旧会话导致的卡死、白屏和反复刷新。
+### 1. 生成 GitHub Token
 
-后台入口已从独立子域名迁移到主站 `/admin/`。请确认 `202271.xyz` 对应的 Netlify 站点已启用 Identity 与 Git Gateway；如果 Identity 只配置在旧的管理子站上，需要在新站点重新启用并邀请账号。
+1. 打开 <https://github.com/settings/personal-access-tokens/new>（Fine-grained token）
+2. **Repository access** → Only select repositories → 选 `xiaohao8/xiaohao8.github.io`
+3. **Permissions → Repository permissions → Contents** 设为 `Read and write`（其他保持默认）
+4. 生成后复制 Token（`github_pat_` 开头）
 
-`admin.202271.xyz` 当前指向 Vercel 上的旧 Qexo 实例，和主站 Netlify CMS 不是同一套后台。发布后请统一使用 `https://202271.xyz/admin/`；如果不再保留旧实例，可删除该 DNS 记录，或在 Cloudflare 把旧子域名 301 到新后台路径。
+### 2. 登录
 
-## 内容模块
+在 `/admin/` 登录页输入 **GitHub 用户名**（xiaohao8）和上一步的 Token，勾选「记住登录状态」。
+Token 只保存在你本机浏览器（localStorage / sessionStorage），不经过任何第三方。
+Token 过期或失效时后台会提示重新登录。
 
-| 模块 | 用途 | 数据位置 |
+### 3.（可选）配置 Netlify 集成
+
+登录后进入「设置 → Netlify 集成」：
+
+| 配置项 | 作用 | 获取方式 |
 | --- | --- | --- |
-| 工作台 | 内容统计、最近文章、快捷入口 | `source/_data/admin_overview.yml` |
-| 文章 | Hexo 文章的新建与编辑 | `source/_posts` |
-| 页面 | 关于、友链、说说、朋友圈、计划清单 | `source` 下对应 Markdown |
-| 说说 | 短内容时间线和配图 | `source/_data/talks.yml` |
-| 主题与友链 | 导航、横幅、首页、友链列表 | `source/_data/fluid_config.yml` |
-| 站点资料 | 标题、描述、关键词、作者 | `source/_data/site_meta.yml` |
+| Site ID | 读取部署状态/历史 | Netlify 后台 → Site settings → General → Site information |
+| Access Token | 配合 Site ID 查部署 | Netlify → User settings → Applications → New access token |
+| Build Hook URL | 一键重新部署 | Site settings → Build & deploy → Build hooks |
 
-文章集合保留了 `abbrlink` 和 `password` 字段，编辑旧文章时不要清空 `abbrlink`，否则旧永久链接会失效。
+不配置也不影响正常写作：保存文章 = 提交 GitHub = 自动触发 Netlify 构建。
 
-## 工作台实现
+### 4.（可选）关闭旧的 Netlify Identity
 
-- `source/admin/assets/custom.js` 注册 `qexo-dashboard` 自定义 widget。
-- `scripts/admin-manifest.js` 在构建时生成 `public/admin/manifest.json`。
-- 工作台读取该文件展示文章、页面、友链、说说、标签数量以及最近文章。
-- `scripts/site-meta.js` 在构建前把站点资料覆盖到 Hexo 配置。
-- `scripts/talks.js` 注册 `qexo_talks` 标签，读取 `talks.yml` 生成说说时间线。
+新后台不再使用 Identity / Git Gateway。可在 Netlify 后台
+（Integrations → Netlify Identity）关闭它，不影响新后台。
 
-## 后台资源与缓存
+## 功能与数据位置
 
-- `source/admin/vendor/` 存放固定版本的 Netlify CMS 和 Identity Widget。
-- `source/admin/assets/` 存放后台样式、启动逻辑和工作台代码。
-- `source/admin/assets/admin.js` 负责登录页、会话校验、懒加载 CMS 和错误恢复。
-- `source/admin/index.html` 中 CSS/JS 地址带 `?v=` 版本号。
-- `netlify.toml` 按版本号对 `assets` 使用一年强缓存；修改后台 CSS/JS 后，必须同步修改 `?v=` 版本号。
-- `netlify.toml` 对 `vendor` 使用长期缓存，对 `config.yml` 和 `manifest.json` 禁止缓存。
+| 模块 | 功能 | 数据位置 |
+| --- | --- | --- |
+| 工作台 | 统计卡、最近文章、最新图片、Netlify 部署状态、快捷入口 | 实时读取仓库 + `/admin/manifest.json` |
+| 文章管理 | 列表/搜索/新建/删除，置顶、加密状态展示 | `source/_posts/*.md` |
+| 编辑器 | Vditor（IR 所见即所得 Markdown）、front-matter 侧栏、自动摘要、图片直传、Ctrl+S | 文章 front-matter + 正文 |
+| 页面管理 | 关于 / 友链页 / 说说页 / 朋友圈 / 计划清单 | `source/about/index.md` 等对应 md |
+| 说说 | 快发框（Markdown + 配图 + 时间）、时间线编辑/删除 | `source/_data/talks.yml` |
+| 友链 | 表格增删改 | `source/_data/fluid_config.yml` → `links.items` |
+| 图库 | 拖拽多图上传、缩略图预览、复制相对路径/URL/Markdown、删除 | `source/images/uploads/` |
+| 设置 | 仓库连接、Netlify、站点资料、导航菜单、首页外观 | localStorage + `site_meta.yml` + `fluid_config.yml` |
 
-## 本地检查
+## 注意事项
+
+- **保存即发布**：所有写操作都会直接 commit 到 `main` 分支并触发 Netlify 生产构建；
+  部署约 1-2 分钟完成。想先看看效果可以用 `?demo=1` 演示模式。
+- **abbrlink 勿动**：编辑旧文章时 `abbrlink` 为只读展示，不要清空，否则旧链接 404。
+- **图片路径**：编辑器/图库上传的图片在文章里写相对路径 `/images/uploads/文件名`。
+- **缓存**：`/admin/assets/*`、`/admin/vendor/*` 有一年强缓存（netlify.toml），
+  代码更新会带 `?v=版本号` 参数刷新。本地调试请用无痕窗口或 `hexo server`。
+- **安全**：后台 HTML 带 `noindex`；请勿把 Token 提交进仓库或贴给别人。
+
+## 本地开发
 
 ```bash
-git submodule update --init --recursive
-npm install
-npm run build
+npm install        # 首次
+npm run server     # http://localhost:4000/admin/ 打开后台
+npm run build      # 生成到 public/
 ```
 
-后台是纯静态文件，可以直接检查 `public/admin/`。本地没有 Netlify Identity/Git Gateway 时，只能验证启动页和资源加载；完整登录与内容读写需要线上 Netlify 环境。
+本地 `hexo server` 下后台可用演示模式（`?demo=1`）完整预览；
+连 GitHub 时直接在登录页填 Token 即可（浏览器直接访问 api.github.com）。
 
-如果本机安装 `hexo-all-minifier` 的图片压缩二进制失败，可在本地测试配置中关闭 `image_minifier`，不要为此改动线上构建配置。
+## 目录结构
 
-Netlify 构建使用 Node.js 22，RSS 依赖固定在 `package.json` 的 `hexo-generator-feed@3.0.0`，不再在构建命令中临时安装未锁版本的插件。
-
-## 发布流程
-
-1. 在后台编辑内容并保存。
-2. 在“工作流”中检查并发布。
-3. Netlify 收到 Git 提交后自动构建。
-4. 构建完成后新内容上线。
-
-## 常见故障
-
-### 登录后提示 Git Gateway token 失效
-
-错误示例：
-
-```text
-Git Gateway Error: Please ask your site administrator to reissue the Git Gateway token.
+```
+source/admin/
+├── index.html              # 壳（内联 SVG 图标 + 启动画面）
+├── assets/
+│   ├── admin.css           # Argon/Qexo 风格样式（手写，无框架）
+│   ├── app.js              # 会话 / 路由 / 骨架 / 通用 UI
+│   ├── github.js           # GitHub REST 封装
+│   ├── netlify.js          # Netlify API 封装
+│   ├── yaml.js             # front-matter / YAML 往返
+│   ├── demo.js             # 演示模式数据源
+│   └── pages/              # 各页面模块（dashboard/posts/editor/…）
+└── vendor/
+    ├── vditor/dist/        # Vditor 编辑器（Qexo 同款）
+    └── js-yaml.min.js
 ```
 
-处理方式：进入 Netlify 站点设置，打开 Identity 服务，在 Git Gateway 中重新签发 token。这个问题不是前端资源导致的，重新部署静态文件也不能代替重签 token。
+## 常见问题
 
-### 登录按钮点击后没有反应
-
-现在的登录页不再依赖 Netlify Identity 弹窗 iframe，而是直接调用同站 `/.netlify/identity` 接口。若登录失败：
-
-1. 先检查邮箱和密码是否正确。
-2. 点击登录页下方的“清除会话并重试”，清除过期或损坏的 Netlify Identity 本地会话。
-3. 关闭可能注入 iframe 或翻译页面的浏览器扩展后重试。
-4. 确认 Netlify Identity 已启用，且账号已完成邮箱验证。
-
-### 登录页一直转圈或 CMS 闪退
-
-先点击“清除会话并重试”。如果仍出现：
-
-- 在浏览器开发者工具 Network 中检查 `/.netlify/identity/token` 和 `/.netlify/git/github/*` 是否超时或返回 401。
-- 确认 `source/admin/assets/admin.js`、`custom.js` 和 `index.html` 的 `?v=` 版本号一致。
-- 删除旧的浏览器缓存后重新打开 `https://202271.xyz/admin/`。
-- 查看控制台是否有扩展注入脚本导致的异常；可先用无痕窗口验证。
-- 后台会对 Identity 和 CMS 资源自动重试一次；如果仍失败，页面会显示明确错误和“重新加载”按钮，不会一直停在空白页。
-
-### 浏览器提示 ERR_CONNECTION_CLOSED 或整页打不开
-
-优先检查系统代理。若使用 Clash、V2Ray 等本地代理（常见地址为 `127.0.0.1:7897`），代理节点异常时浏览器会表现为整页连接关闭，但命令行直连可能是正常的。
-
-- 临时关闭系统代理，或在代理软件中把 `202271.xyz`、`*.netlify.app` 设为直连。
-- Windows 也可在“Internet 选项 → 连接 → 局域网设置 → 高级 → 例外”中加入 `202271.xyz;*.netlify.app`。
-- 主域名不稳定时，可使用备用入口：`https://xiaohao8.netlify.app/admin/`。备用入口与原站是同一份站点，但登录会话按域名独立保存。
-
-### 国内访问仍然偏慢
-
-本地化后台资源和静态缓存只消除了第三方 CDN 与重复访问的开销，站点主体仍托管在 Netlify，首屏链路依然受跨境网络影响。当前域名使用 Cloudflare DNS；如果记录仍是 DNS only，流量不会经过 Cloudflare 代理和缓存，需要把主站记录切换为 Proxied，并开启 Brotli 与 HTTP/3。对 `/images/*`、`/css/*`、`/js/*` 设置缓存规则，`/admin/*` 必须绕过缓存，避免后台登录和配置读取被缓存。Cloudflare 免费线路在国内仍可能绕行境外节点，如果要求稳定低延迟，需要国内可访问的反向代理或迁移到国内/亚太节点。不要在仓库中写入任何 token、密码或私钥。
-
-## 升级 Netlify CMS
-
-1. 下载对应版本的 Netlify CMS 浏览器 bundle 和 Identity Widget。
-2. 替换 `source/admin/vendor/` 中的文件，同时保留 LICENSE。
-3. 更新 `source/admin/index.html` 中的文件名和 `?v=` 版本号。
-4. 登录后台检查内容集合、工作台、文章编辑器、说说和主题设置。
-5. 在 Netlify 部署后检查 `/admin/config.yml`、`/admin/manifest.json` 和静态资源的响应头。
+**登录报 404 / 找不到仓库？** 检查设置页 Owner / 仓库名；Token 需要勾选该仓库。
+**保存报 403？** Token 的 Contents 权限需要是 Read and write，或 Token 已过期。
+**部署状态一直加载失败？** Site ID 或 Token 不对；只填 Build Hook 也能一键部署，只是看不到状态。
+**编辑器空白？** Vditor 资源由 `/admin/vendor/vditor/` 提供，确认部署产物里有该目录。
