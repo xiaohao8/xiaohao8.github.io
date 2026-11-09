@@ -1,26 +1,42 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="x-UA-Compatible" content="IE=Edge" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="white" />
-    <script type="text/javascript" src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
-    <title>魔王の领地</title>
+    <meta name="theme-color" content="#6d5bd0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>醉里博客 · 内容工作台</title>
+    <link rel="icon" href="/images/uploads/android-chrome-192x192.png" />
+    <link rel="preload" href="/admin/vendor/netlify-cms-2.10.192.js" as="script" />
+    <link rel="preload" href="/admin/vendor/netlify-identity-widget-1.9.2.js" as="script" />
+    <link rel="stylesheet" href="/admin/assets/admin.css?v=3.1.0" />
+    <link rel="stylesheet" href="/admin/assets/dashboard.css?v=3.1.0" />
+    <script>
+      window.CMS_MANUAL_INIT = true;
+
+      if (!window.location.hash || window.location.hash === "#" || window.location.hash === "#/") {
+        window.history.replaceState(null, "", "#/collections/overview/entries/dashboard");
+      }
+    </script>
   </head>
 
   <body>
-    <script defer="true" src="https://cdn.jsdelivr.net/npm/netlify-cms@2/dist/netlify-cms.js"></script>
-    <script>
-        if (window.netlifyIdentity) {
-          window.netlifyIdentity.on("init", user => {
-            if (!user) {
-              window.netlifyIdentity.on("login", () => {
-                document.location.href = "/admin/";
-              });
-            }
-          });
-        }
-    </script>
+    <div id="admin-boot" role="status" aria-live="polite">
+      <div class="admin-boot-card">
+        <div class="admin-boot-mark">醉</div>
+        <p class="admin-boot-kicker">ZUI LI CONTENT STUDIO</p>
+        <h1>醉里博客管理台</h1>
+        <p class="admin-boot-copy" id="admin-boot-copy">正在加载本地后台资源，首次打开会稍慢一些。</p>
+        <div class="admin-boot-progress"><span></span></div>
+        <p class="admin-boot-hint">资源已改为本站托管，不再依赖境外 CMS CDN。</p>
+        <button class="admin-boot-retry" id="admin-boot-retry" type="button" hidden onclick="window.location.reload()">重新加载</button>
+      </div>
+    </div>
+
+    <script defer src="/admin/vendor/netlify-identity-widget-1.9.2.js" onerror="window.__adminAssetError = 'identity'"></script>
+    <script defer src="/admin/vendor/netlify-cms-2.10.192.js" onerror="window.__adminAssetError = 'cms'"></script>
+    <script defer src="/admin/assets/custom.js?v=3.1.0"></script>
+    <script defer src="/admin/assets/admin.js?v=3.1.0"></script>
   </body>
 </html>

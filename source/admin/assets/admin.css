@@ -1,0 +1,195 @@
+:root {
+  --admin-brand: #6d5bd0;
+  --admin-brand-deep: #44318d;
+  --admin-cyan: #23b5d3;
+  --admin-ink: #24324a;
+  --admin-muted: #72809a;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+#admin-boot {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 24px;
+  box-sizing: border-box;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(109, 91, 208, 0.2), transparent 28%),
+    radial-gradient(circle at 82% 24%, rgba(35, 181, 211, 0.18), transparent 28%),
+    linear-gradient(135deg, #f7f8ff 0%, #eef3fb 52%, #f7fbfc 100%);
+  transition: opacity 280ms ease, visibility 280ms ease;
+}
+
+#admin-boot::before,
+#admin-boot::after {
+  position: absolute;
+  border-radius: 999px;
+  content: "";
+  filter: blur(1px);
+  opacity: 0.55;
+}
+
+#admin-boot::before {
+  width: 360px;
+  height: 360px;
+  top: -180px;
+  right: -100px;
+  background: linear-gradient(135deg, rgba(109, 91, 208, 0.22), rgba(35, 181, 211, 0.02));
+}
+
+#admin-boot::after {
+  width: 260px;
+  height: 260px;
+  bottom: -140px;
+  left: -90px;
+  background: linear-gradient(135deg, rgba(35, 181, 211, 0.18), rgba(109, 91, 208, 0.02));
+}
+
+#admin-boot.is-hidden {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.admin-boot-card {
+  position: relative;
+  width: min(520px, 100%);
+  padding: 42px 44px 38px;
+  box-sizing: border-box;
+  border: 1px solid rgba(76, 92, 128, 0.12);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 28px 80px rgba(58, 70, 112, 0.18);
+  text-align: center;
+  backdrop-filter: blur(18px);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+}
+
+.admin-boot-mark {
+  display: grid;
+  width: 68px;
+  height: 68px;
+  margin: 0 auto 20px;
+  place-items: center;
+  border-radius: 20px;
+  background: linear-gradient(145deg, var(--admin-brand), var(--admin-brand-deep));
+  box-shadow: 0 14px 30px rgba(109, 91, 208, 0.32);
+  color: #fff;
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.admin-boot-kicker {
+  margin: 0 0 8px;
+  color: var(--admin-brand);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.admin-boot-card h1 {
+  margin: 0;
+  color: var(--admin-ink);
+  font-size: 28px;
+  line-height: 1.3;
+}
+
+.admin-boot-copy {
+  margin: 14px auto 0;
+  color: var(--admin-muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.admin-boot-progress {
+  position: relative;
+  display: block;
+  height: 5px;
+  margin: 26px 0 14px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #e8ecf7;
+}
+
+.admin-boot-progress span {
+  position: absolute;
+  top: 0;
+  left: -38%;
+  display: block;
+  width: 38%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--admin-brand), var(--admin-cyan));
+  animation: admin-boot-progress 1.2s ease-in-out infinite;
+}
+
+.admin-boot-hint {
+  margin: 0;
+  color: #8a96aa;
+  font-size: 12px;
+}
+
+.admin-boot-retry {
+  margin-top: 20px;
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--admin-brand-deep);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+#admin-boot.is-error .admin-boot-progress span {
+  left: 0;
+  width: 100%;
+  background: #e05252;
+  animation: none;
+}
+
+#admin-boot.is-error .admin-boot-mark {
+  background: linear-gradient(145deg, #e66b6b, #b73d3d);
+  box-shadow: 0 14px 30px rgba(183, 61, 61, 0.24);
+}
+
+@keyframes admin-boot-progress {
+  0% {
+    left: -38%;
+  }
+
+  55% {
+    left: 34%;
+  }
+
+  100% {
+    left: 102%;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-boot-card {
+    padding: 34px 24px 30px;
+    border-radius: 20px;
+  }
+
+  .admin-boot-card h1 {
+    font-size: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-boot-progress span {
+    animation-duration: 2.4s;
+  }
+}

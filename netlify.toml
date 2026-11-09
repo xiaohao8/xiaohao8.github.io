@@ -1,6 +1,82 @@
 [build]
   publish = "public"
-  command = "npm install hexo-generator-feed --save;npm i hexo-url-submission;npm run build"
+  command = "npm run build"
 
 [build.environment]
-  NODE_VERSION = "14"
+  NODE_VERSION = "22"
+
+[[headers]]
+  for = "/admin/vendor/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    X-Content-Type-Options = "nosniff"
+
+[[headers]]
+  for = "/admin/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+    X-Content-Type-Options = "nosniff"
+
+[[headers]]
+  for = "/admin/"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    X-Content-Type-Options = "nosniff"
+
+[[headers]]
+  for = "/admin/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    X-Content-Type-Options = "nosniff"
+
+[[headers]]
+  for = "/admin/config.yml"
+  [headers.values]
+    Content-Type = "text/yaml; charset=utf-8"
+    Cache-Control = "public, max-age=0, must-revalidate"
+    X-Content-Type-Options = "nosniff"
+
+[[headers]]
+  for = "/admin/manifest.json"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/css/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "/js/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+[[headers]]
+  for = "/img/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+[[redirects]]
+  from = "/talks"
+  to = "/talks.html"
+  status = 200
+
+[[redirects]]
+  from = "/talks/"
+  to = "/talks.html"
+  status = 200
+
+[[redirects]]
+  from = "/friends"
+  to = "/friends.html"
+  status = 200
+
+[[redirects]]
+  from = "/friends/"
+  to = "/friends.html"
+  status = 200

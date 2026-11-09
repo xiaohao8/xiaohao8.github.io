@@ -2,6 +2,19 @@ navbar:
   blog_title: 醉里博客
   ground_glass:
     enable: true
+  menu:
+    - { key: "home", link: "/", icon: "iconfont icon-home-fill" }
+    - { key: "archive", link: "/archives/", icon: "iconfont icon-archive-fill" }
+    - { key: "category", link: "/categories/", icon: "iconfont icon-category-fill" }
+    - { key: "tag", link: "/tags/", icon: "iconfont icon-tags-fill" }
+    - { key: "about", link: "/about/", icon: "iconfont icon-user-fill" }
+    - { key: "Admin", name: "管理后台", link: "/admin/", icon: "iconfont icon-users" }
+    - { key: "开往", link: "https://travellings.cn/go.html", icon: "iconfont icon-linkedin-fill" }
+    - { key: "个站商店~虫洞", link: "https://storeweb.cn/s/1562", icon: "iconfont icon-line-fill" }
+    - { key: "朋友圈", link: "/pyq/", icon: "iconfont icon-home-fill" }
+    - { key: "说说", link: "/talks/", icon: "iconfont icon-comment-fill" }
+    - { key: "links", link: "/links/", icon: "iconfont icon-link-fill" }
+    - { key: "新友链", link: "/friends/", icon: "iconfont icon-link-fill" }
 index:
   banner_img: https://i.imgtg.com/2023/05/05/CJFsq.jpg
   banner_img_height: 100
