@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var ADMIN_VERSION = "3.2.1";
+  var ADMIN_VERSION = "3.2.2";
   var boot = document.getElementById("admin-boot");
   if (!boot) {
     return;
@@ -18,6 +18,7 @@
   var errorBox = document.getElementById("admin-login-error");
   var retryButton = document.getElementById("admin-boot-retry");
   var resetButton = document.getElementById("admin-boot-reset");
+  var fallback = document.getElementById("admin-boot-fallback");
 
   var authClient = null;
   var cmsStarted = false;
@@ -463,6 +464,10 @@
     clearSession();
     window.location.replace("/admin/");
   });
+
+  if (fallback && /\.netlify\.app$/i.test(window.location.hostname)) {
+    fallback.hidden = true;
+  }
 
   startIdentity();
 })();

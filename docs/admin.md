@@ -96,6 +96,14 @@ Git Gateway Error: Please ask your site administrator to reissue the Git Gateway
 - 查看控制台是否有扩展注入脚本导致的异常；可先用无痕窗口验证。
 - 后台会对 Identity 和 CMS 资源自动重试一次；如果仍失败，页面会显示明确错误和“重新加载”按钮，不会一直停在空白页。
 
+### 浏览器提示 ERR_CONNECTION_CLOSED 或整页打不开
+
+优先检查系统代理。若使用 Clash、V2Ray 等本地代理（常见地址为 `127.0.0.1:7897`），代理节点异常时浏览器会表现为整页连接关闭，但命令行直连可能是正常的。
+
+- 临时关闭系统代理，或在代理软件中把 `202271.xyz`、`*.netlify.app` 设为直连。
+- Windows 也可在“Internet 选项 → 连接 → 局域网设置 → 高级 → 例外”中加入 `202271.xyz;*.netlify.app`。
+- 主域名不稳定时，可使用备用入口：`https://xiaohao8.netlify.app/admin/`。备用入口与原站是同一份站点，但登录会话按域名独立保存。
+
 ### 国内访问仍然偏慢
 
 本地化后台资源和静态缓存只消除了第三方 CDN 与重复访问的开销，站点主体仍托管在 Netlify，首屏链路依然受跨境网络影响。当前域名使用 Cloudflare DNS；如果记录仍是 DNS only，流量不会经过 Cloudflare 代理和缓存，需要把主站记录切换为 Proxied，并开启 Brotli 与 HTTP/3。对 `/images/*`、`/css/*`、`/js/*` 设置缓存规则，`/admin/*` 必须绕过缓存，避免后台登录和配置读取被缓存。Cloudflare 免费线路在国内仍可能绕行境外节点，如果要求稳定低延迟，需要国内可访问的反向代理或迁移到国内/亚太节点。不要在仓库中写入任何 token、密码或私钥。

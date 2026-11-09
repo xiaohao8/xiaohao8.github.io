@@ -148,6 +148,18 @@ body {
   font-size: 12px;
 }
 
+.admin-boot-fallback {
+  margin-top: 10px;
+}
+
+.admin-boot-fallback[hidden] {
+  display: none !important;
+}
+
+.admin-boot-fallback a {
+  color: var(--admin-brand-deep);
+}
+
 .admin-auth-form {
   display: grid;
   gap: 14px;

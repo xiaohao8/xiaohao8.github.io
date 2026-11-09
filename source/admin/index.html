@@ -9,8 +9,8 @@
     <title>醉里博客 · 内容工作台</title>
     <link rel="icon" href="/images/uploads/android-chrome-192x192.png" />
     <link rel="preload" href="/admin/vendor/netlify-identity-widget-1.9.2.js" as="script" />
-    <link rel="stylesheet" href="/admin/assets/admin.css?v=3.2.1" />
-    <link rel="stylesheet" href="/admin/assets/dashboard.css?v=3.2.1" />
+    <link rel="stylesheet" href="/admin/assets/admin.css?v=3.2.2" />
+    <link rel="stylesheet" href="/admin/assets/dashboard.css?v=3.2.2" />
     <script>
       window.CMS_MANUAL_INIT = true;
     </script>
@@ -59,6 +59,10 @@
         </form>
         <div class="admin-boot-progress" id="admin-boot-progress"><span></span></div>
         <p class="admin-boot-hint" id="admin-boot-hint">Netlify Identity 安全登录 · 后台资源由本站托管</p>
+        <p class="admin-boot-hint admin-boot-fallback" id="admin-boot-fallback">
+          国内网络如提示 ERR_CONNECTION_CLOSED，请检查系统代理；也可使用
+          <a href="https://xiaohao8.netlify.app/admin/">备用入口</a>。
+        </p>
         <div class="admin-boot-actions">
           <button class="admin-boot-retry" id="admin-boot-retry" type="button" hidden>重新加载</button>
           <button class="admin-boot-reset" id="admin-boot-reset" type="button" hidden>清除会话并重试</button>
@@ -66,6 +70,6 @@
       </div>
     </div>
 
-    <script defer src="/admin/assets/admin.js?v=3.2.1"></script>
+    <script defer src="/admin/assets/admin.js?v=3.2.2"></script>
   </body>
 </html>
