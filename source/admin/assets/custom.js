@@ -17,15 +17,6 @@
   window.addEventListener("hashchange", syncDashboardRoute);
   syncDashboardRoute();
 
-  if (window.netlifyIdentity) {
-    window.netlifyIdentity.on("login", function () {
-      window.location.replace("/admin/" + overviewRoute);
-    });
-    window.netlifyIdentity.on("logout", function () {
-      window.location.replace("/admin/");
-    });
-  }
-
   function formatDate(value) {
     if (!value) {
       return "";

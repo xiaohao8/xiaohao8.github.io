@@ -8,35 +8,64 @@
     <meta name="robots" content="noindex, nofollow" />
     <title>醉里博客 · 内容工作台</title>
     <link rel="icon" href="/images/uploads/android-chrome-192x192.png" />
-    <link rel="preload" href="/admin/vendor/netlify-cms-2.10.192.js" as="script" />
     <link rel="preload" href="/admin/vendor/netlify-identity-widget-1.9.2.js" as="script" />
-    <link rel="stylesheet" href="/admin/assets/admin.css?v=3.1.0" />
-    <link rel="stylesheet" href="/admin/assets/dashboard.css?v=3.1.0" />
+    <link rel="stylesheet" href="/admin/assets/admin.css?v=3.2.0" />
+    <link rel="stylesheet" href="/admin/assets/dashboard.css?v=3.2.0" />
     <script>
       window.CMS_MANUAL_INIT = true;
-
-      if (!window.location.hash || window.location.hash === "#" || window.location.hash === "#/") {
-        window.history.replaceState(null, "", "#/collections/overview/entries/dashboard");
-      }
     </script>
   </head>
 
   <body>
-    <div id="admin-boot" role="status" aria-live="polite">
+    <div id="admin-boot" data-mode="checking" role="status" aria-live="polite">
       <div class="admin-boot-card">
         <div class="admin-boot-mark">醉</div>
         <p class="admin-boot-kicker">ZUI LI CONTENT STUDIO</p>
         <h1>醉里博客管理台</h1>
-        <p class="admin-boot-copy" id="admin-boot-copy">正在加载本地后台资源，首次打开会稍慢一些。</p>
-        <div class="admin-boot-progress"><span></span></div>
-        <p class="admin-boot-hint">资源已改为本站托管，不再依赖境外 CMS CDN。</p>
-        <button class="admin-boot-retry" id="admin-boot-retry" type="button" hidden onclick="window.location.reload()">重新加载</button>
+        <p class="admin-boot-copy" id="admin-boot-copy">正在检查登录状态并连接 Netlify Identity。</p>
+        <form class="admin-auth-form" id="admin-login-form" hidden novalidate>
+          <div class="admin-auth-field">
+            <label for="admin-login-email">邮箱</label>
+            <input
+              class="admin-auth-input"
+              id="admin-login-email"
+              name="email"
+              type="email"
+              inputmode="email"
+              autocomplete="username"
+              spellcheck="false"
+              placeholder="name@example.com"
+              required
+            />
+          </div>
+          <div class="admin-auth-field">
+            <label for="admin-login-password">密码</label>
+            <input
+              class="admin-auth-input"
+              id="admin-login-password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              placeholder="请输入密码"
+              required
+            />
+          </div>
+          <p class="admin-auth-error" id="admin-login-error" role="alert" hidden></p>
+          <div class="admin-auth-row">
+            <button class="admin-auth-submit" id="admin-login-submit" type="submit">登录工作台</button>
+            <button class="admin-auth-link" id="admin-forgot-password" type="button">忘记密码</button>
+          </div>
+          <p class="admin-auth-note">登录成功后才加载 CMS 工作台，减少首次打开的等待和内存占用。</p>
+        </form>
+        <div class="admin-boot-progress" id="admin-boot-progress"><span></span></div>
+        <p class="admin-boot-hint" id="admin-boot-hint">Netlify Identity 安全登录 · 后台资源由本站托管</p>
+        <div class="admin-boot-actions">
+          <button class="admin-boot-retry" id="admin-boot-retry" type="button" hidden>重新加载</button>
+          <button class="admin-boot-reset" id="admin-boot-reset" type="button" hidden>清除会话并重试</button>
+        </div>
       </div>
     </div>
 
-    <script defer src="/admin/vendor/netlify-identity-widget-1.9.2.js" onerror="window.__adminAssetError = 'identity'"></script>
-    <script defer src="/admin/vendor/netlify-cms-2.10.192.js" onerror="window.__adminAssetError = 'cms'"></script>
-    <script defer src="/admin/assets/custom.js?v=3.1.0"></script>
-    <script defer src="/admin/assets/admin.js?v=3.1.0"></script>
+    <script defer src="/admin/assets/admin.js?v=3.2.0"></script>
   </body>
 </html>

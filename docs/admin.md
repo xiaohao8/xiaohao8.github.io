@@ -3,10 +3,12 @@
 ## 入口
 
 - 后台地址：`https://202271.xyz/admin/`
-- 登录方式：Netlify Identity
+- 登录方式：Netlify Identity 轻量登录页，登录成功后才加载 CMS
 - 内容发布：Netlify CMS Editorial Workflow + Git Gateway
 
 后台静态资源全部由本站托管，不依赖 jsDelivr、unpkg 或 Netlify Identity CDN。
+
+后台入口会先加载轻量登录页，只拉取 Netlify Identity 客户端；认证成功后再动态加载 Netlify CMS、工作台和 Git Gateway 数据。这样不会在登录前初始化整站内容，能减少弱网或旧会话导致的卡死、白屏和反复刷新。
 
 后台入口已从独立子域名迁移到主站 `/admin/`。请确认 `202271.xyz` 对应的 Netlify 站点已启用 Identity 与 Git Gateway；如果 Identity 只配置在旧的管理子站上，需要在新站点重新启用并邀请账号。
 
@@ -37,6 +39,7 @@
 
 - `source/admin/vendor/` 存放固定版本的 Netlify CMS 和 Identity Widget。
 - `source/admin/assets/` 存放后台样式、启动逻辑和工作台代码。
+- `source/admin/assets/admin.js` 负责登录页、会话校验、懒加载 CMS 和错误恢复。
 - `source/admin/index.html` 中 CSS/JS 地址带 `?v=` 版本号。
 - 修改后台 CSS/JS 后，需要同步修改 `?v=` 版本号，避免浏览器继续使用旧缓存。
 - `netlify.toml` 对 `vendor` 使用长期缓存，对 `config.yml` 和 `manifest.json` 禁止缓存。
@@ -76,7 +79,21 @@ Git Gateway Error: Please ask your site administrator to reissue the Git Gateway
 
 ### 登录按钮点击后没有反应
 
-检查 Netlify Identity 是否启用、站点是否允许该账号登录，以及浏览器是否拦截了第三方 Cookie。后台本身已经本地化，不再依赖境外 CDN。
+现在的登录页不再依赖 Netlify Identity 弹窗 iframe，而是直接调用同站 `/.netlify/identity` 接口。若登录失败：
+
+1. 先检查邮箱和密码是否正确。
+2. 点击登录页下方的“清除会话并重试”，清除过期或损坏的 Netlify Identity 本地会话。
+3. 关闭可能注入 iframe 或翻译页面的浏览器扩展后重试。
+4. 确认 Netlify Identity 已启用，且账号已完成邮箱验证。
+
+### 登录页一直转圈或 CMS 闪退
+
+先点击“清除会话并重试”。如果仍出现：
+
+- 在浏览器开发者工具 Network 中检查 `/.netlify/identity/token` 和 `/.netlify/git/github/*` 是否超时或返回 401。
+- 确认 `source/admin/assets/admin.js`、`custom.js` 和 `index.html` 的 `?v=` 版本号一致。
+- 删除旧的浏览器缓存后重新打开 `https://202271.xyz/admin/`。
+- 查看控制台是否有扩展注入脚本导致的异常；可先用无痕窗口验证。
 
 ### 国内访问仍然偏慢
 
