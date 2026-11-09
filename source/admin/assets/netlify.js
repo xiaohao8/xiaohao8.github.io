@@ -69,4 +69,39 @@ export class NetlifyAPI {
     if (!res.ok) throw new Error("Build Hook 触发失败：" + res.status);
     return true;
   }
+
+  /**
+   * 只用 Access Token 自动识别站点：优先匹配站点域名（settings.siteUrl），
+   * 其次匹配名称，最后取账号下第一个站点。返回 { siteId, name } 或 null。
+   */
+  async discoverSite(siteUrl) {
+    const res = await fetch(`${NL_API}/sites?per_page=100`, {
+      headers: { Authorization: "Bearer " + this.token },
+    });
+    if (!res.ok) {
+      let msg = "Netlify Token 校验失败（" + res.status + "）";
+      try {
+        const j = await res.json();
+        if (j && j.message) msg = j.message;
+      } catch (_) { /* ignore */ }
+      throw new Error(msg);
+    }
+    const sites = await res.json();
+    if (!Array.isArray(sites) || !sites.length) return null;
+    const want = String(siteUrl || "").replace(/^https?:\/\//, "").replace(/\/$/, "").toLowerCase();
+    const hostOf = (u) => String(u || "").replace(/^https?:\/\//, "").split("/")[0].toLowerCase();
+    const byDomain = want
+      ? sites.find((s) =>
+          (s.custom_domains || []).some((d) => d.toLowerCase() === want) ||
+          hostOf(s.ssl_url) === want || hostOf(s.url) === want)
+      : null;
+    const byName = sites.find((s) => String(s.name || "").toLowerCase().includes("xiaohao8"));
+    const pick = byDomain || byName || sites[0];
+    return {
+      siteId: pick.id,
+      name: pick.name,
+      matched: byDomain ? "domain" : byName ? "name" : "first",
+      total: sites.length,
+    };
+  }
 }

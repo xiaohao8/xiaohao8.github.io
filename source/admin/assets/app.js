@@ -4,7 +4,7 @@ import { GitHubAPI } from "./github.js";
 import { NetlifyAPI } from "./netlify.js";
 import { DemoAPI } from "./demo.js";
 
-export const VERSION = "4.0.0";
+export const VERSION = "4.0.1";
 export const ADMIN_TITLE = "醉里博客";
 
 const LS_SESSION = "qexo4_session";
@@ -549,6 +549,11 @@ function bootApp(session, opts = {}) {
   renderShell(ctx);
   if (opts.justLoggedIn) {
     toast(`欢迎回来，${session.user ? session.user.name : "管理员"}`, "success", 2600);
+    if (session.mode !== "demo" && !ctx.nl.canReadDeploys && !ctx.nl.buildHook) {
+      setTimeout(() => {
+        toast("提示：到「设置 → Netlify 集成」粘贴一个 Access Token，即可在工作台看到部署状态", "info", 6500);
+      }, 1600);
+    }
   }
   if (!location.hash) location.hash = "#/";
   window.addEventListener("hashchange", () => route(ctx));

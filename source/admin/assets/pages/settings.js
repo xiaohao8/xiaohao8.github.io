@@ -3,6 +3,7 @@
 import {
   ic, esc, el, toast, loading, store,
 } from "../app.js";
+import { NetlifyAPI } from "../netlify.js";
 import { loadYaml, dumpYaml } from "../yaml.js";
 
 const SITE_META_PATH = "source/_data/site_meta.yml";
@@ -31,17 +32,17 @@ export default async function settings(view, ctx, params, handleErr) {
   const nl = settings.netlify || {};
   const nlCard = el(`<div class="card settings-section">
       <div class="card-header">${ic("deploy")}<h2>Netlify 集成</h2><div class="sub">部署状态查看 + 一键重新部署（本地保存）</div></div>
-      <div class="field"><label>Site ID</label>
-        <input class="input input-mono" id="s-nl-site" value="${esc(nl.siteId || "")}" placeholder="Netlify 站点 ID（站点设置 → General）" />
-        <div class="hint">Netlify 后台 → Site settings → General → Site information → Site ID</div>
-      </div>
       <div class="field"><label>Netlify Access Token</label>
-        <input class="input input-mono" id="s-nl-token" type="password" value="${esc(nl.token || "")}" placeholder="用于读取部署状态（可选）" />
-        <div class="hint">在 <a href="https://app.netlify.com/user/applications" target="_blank" rel="noopener">Netlify → User settings → Applications</a> 创建 Personal Access Token</div>
+        <input class="input input-mono" id="s-nl-token" type="password" value="${esc(nl.token || "")}" placeholder="只需填这一个，Site ID 会自动识别" />
+        <div class="hint">在 <a href="https://app.netlify.com/user/applications" target="_blank" rel="noopener">Netlify → User settings → Applications</a> 创建 Personal Access Token，保存时自动识别你的站点</div>
       </div>
-      <div class="field"><label>Build Hook URL</label>
-        <input class="input input-mono" id="s-nl-hook" value="${esc(nl.buildHook || "")}" placeholder="https://api.netlify.com/build_hooks/xxxx（可选）" />
-        <div class="hint">Netlify 后台 → Site settings → Build & deploy → Build hooks；保存文章时 push 会自动构建，这里只用于手动重新部署</div>
+      <div class="field"><label>Site ID（自动识别，一般不用填）</label>
+        <input class="input input-mono" id="s-nl-site" value="${esc(nl.siteId || "")}" placeholder="留空 = 按 Token 自动识别" />
+        <div class="hint">自动识别失败时才需要手动填：Netlify 后台 → Site settings → General → Site information</div>
+      </div>
+      <div class="field"><label>Build Hook URL（可选）</label>
+        <input class="input input-mono" id="s-nl-hook" value="${esc(nl.buildHook || "")}" placeholder="https://api.netlify.com/build_hooks/xxxx" />
+        <div class="hint">保存文章时 push 会自动构建，这里只用于顶栏「一键部署」手动触发</div>
       </div>
       <div class="settings-actions">
         <button class="btn" id="test-nl">${ic("refresh")}测试部署状态读取</button>
@@ -101,20 +102,40 @@ export default async function settings(view, ctx, params, handleErr) {
     toast("仓库设置已保存，刷新页面后生效", "success");
   });
 
-  nlCard.querySelector("#save-nl").addEventListener("click", () => {
+  nlCard.querySelector("#save-nl").addEventListener("click", async () => {
     const s = store.getSettings();
-    s.netlify = {
+    const next = {
       siteId: nlCard.querySelector("#s-nl-site").value.trim(),
       token: nlCard.querySelector("#s-nl-token").value.trim(),
       buildHook: nlCard.querySelector("#s-nl-hook").value.trim(),
     };
+    // 只填了 Token 没填 Site ID → 自动识别站点
+    if (next.token && !next.siteId) {
+      loading.show("正在用 Token 自动识别站点…");
+      try {
+        const tmp = new NetlifyAPI({ netlify: next });
+        const found = await tmp.discoverSite(s.siteUrl);
+        loading.hide();
+        if (found) {
+          next.siteId = found.siteId;
+          nlCard.querySelector("#s-nl-site").value = found.siteId;
+          const how = { domain: "按域名精确匹配", name: "按名称匹配", first: "取账号下第一个站点" }[found.matched];
+          toast(`已识别站点「${found.name}」（${how}，共 ${found.total} 个站点）`, "success", 4200);
+        } else {
+          toast("Token 有效，但账号下没有站点", "error");
+        }
+      } catch (e) {
+        loading.hide();
+        toast("自动识别失败：" + e.message + "（Token 仍会保存）", "error", 5200);
+      }
+    }
+    s.netlify = next;
     store.saveSettings(s);
     toast("Netlify 设置已保存", "success");
   });
 
   nlCard.querySelector("#test-nl").addEventListener("click", async () => {
     // 临时用输入框的值测试
-    const { NetlifyAPI } = await import("../netlify.js?v=4.0.0");
     const tmp = new NetlifyAPI({
       netlify: {
         siteId: nlCard.querySelector("#s-nl-site").value.trim(),
@@ -122,7 +143,24 @@ export default async function settings(view, ctx, params, handleErr) {
         buildHook: nlCard.querySelector("#s-nl-hook").value.trim(),
       },
     });
-    if (!tmp.canReadDeploys) { toast("请先填写 Site ID 和 Token", "error"); return; }
+    if (!tmp.token) { toast("请先填写 Netlify Token", "error"); return; }
+    if (!tmp.canReadDeploys) {
+      loading.show("正在用 Token 自动识别站点…");
+      try {
+        const found = await tmp.discoverSite(ctx.settings.siteUrl);
+        loading.hide();
+        if (found) {
+          nlCard.querySelector("#s-nl-site").value = found.siteId;
+          toast(`自动识别到站点「${found.name}」，点「保存」后生效`, "success", 4200);
+        } else {
+          toast("Token 有效，但账号下没有站点", "error");
+        }
+      } catch (e) {
+        loading.hide();
+        toast("识别失败：" + e.message, "error", 5000);
+      }
+      return;
+    }
     loading.show("正在读取部署状态…");
     try {
       const list = await tmp.deploys(1);

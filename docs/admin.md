@@ -27,13 +27,13 @@ Token 过期或失效时后台会提示重新登录。
 
 ### 3.（可选）配置 Netlify 集成
 
-登录后进入「设置 → Netlify 集成」：
+登录后进入「设置 → Netlify 集成」，**通常只需要粘贴一个 Access Token**：
 
 | 配置项 | 作用 | 获取方式 |
 | --- | --- | --- |
-| Site ID | 读取部署状态/历史 | Netlify 后台 → Site settings → General → Site information |
-| Access Token | 配合 Site ID 查部署 | Netlify → User settings → Applications → New access token |
-| Build Hook URL | 一键重新部署 | Site settings → Build & deploy → Build hooks |
+| Access Token | 查部署状态；保存时自动识别 Site ID | Netlify → User settings → Applications → New access token |
+| Site ID | 一般不用填，保存时按 Token 自动识别 | 仅识别失败时手动填（Site settings → General） |
+| Build Hook URL | 顶栏「一键部署」手动触发 | Site settings → Build & deploy → Build hooks |
 
 不配置也不影响正常写作：保存文章 = 提交 GitHub = 自动触发 Netlify 构建。
 
@@ -98,5 +98,5 @@ source/admin/
 
 **登录报 404 / 找不到仓库？** 检查设置页 Owner / 仓库名；Token 需要勾选该仓库。
 **保存报 403？** Token 的 Contents 权限需要是 Read and write，或 Token 已过期。
-**部署状态一直加载失败？** Site ID 或 Token 不对；只填 Build Hook 也能一键部署，只是看不到状态。
+**部署状态一直加载失败 / 填了 Token 没识别到站点？** 确认 Token 是账号级 Personal Access Token，且站点属于该账号。
 **编辑器空白？** Vditor 资源由 `/admin/vendor/vditor/` 提供，确认部署产物里有该目录。
