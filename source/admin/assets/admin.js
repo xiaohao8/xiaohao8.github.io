@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var ADMIN_VERSION = "3.2.0";
+  var ADMIN_VERSION = "3.2.1";
   var boot = document.getElementById("admin-boot");
   if (!boot) {
     return;
@@ -163,15 +163,40 @@
     });
   }
 
-  function loadScript(src, kind, timeout) {
+  function loadScript(src, kind, timeout, attempt) {
+    attempt = attempt || 1;
     return new Promise(function (resolve, reject) {
       var settled = false;
       var script = document.createElement("script");
-      var timer = window.setTimeout(function () {
+      var timer = null;
+
+      function fail(message) {
         if (!settled) {
           settled = true;
-          reject(new Error(kind + " resource timed out"));
+          if (timer) {
+            window.clearTimeout(timer);
+          }
+          if (script.parentNode) {
+            script.parentNode.removeChild(script);
+          }
+          if (attempt < 2) {
+            setText(
+              hint,
+              kind === "cms"
+                ? "网络不稳定，正在重新加载编辑器资源…"
+                : "网络不稳定，正在重新连接登录服务…"
+            );
+            window.setTimeout(function () {
+              loadScript(src, kind, timeout, attempt + 1).then(resolve, reject);
+            }, 1500);
+          } else {
+            reject(new Error(message));
+          }
         }
+      }
+
+      timer = window.setTimeout(function () {
+        fail(kind + " resource timed out");
       }, timeout || 20000);
 
       script.src = src;
@@ -179,16 +204,14 @@
       script.onload = function () {
         if (!settled) {
           settled = true;
-          window.clearTimeout(timer);
+          if (timer) {
+            window.clearTimeout(timer);
+          }
           resolve();
         }
       };
       script.onerror = function () {
-        if (!settled) {
-          settled = true;
-          window.clearTimeout(timer);
-          reject(new Error(kind + " resource failed to load"));
-        }
+        fail(kind + " resource failed to load");
       };
       document.head.appendChild(script);
     });

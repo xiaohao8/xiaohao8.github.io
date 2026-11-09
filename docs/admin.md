@@ -41,7 +41,7 @@
 - `source/admin/assets/` 存放后台样式、启动逻辑和工作台代码。
 - `source/admin/assets/admin.js` 负责登录页、会话校验、懒加载 CMS 和错误恢复。
 - `source/admin/index.html` 中 CSS/JS 地址带 `?v=` 版本号。
-- 修改后台 CSS/JS 后，需要同步修改 `?v=` 版本号，避免浏览器继续使用旧缓存。
+- `netlify.toml` 按版本号对 `assets` 使用一年强缓存；修改后台 CSS/JS 后，必须同步修改 `?v=` 版本号。
 - `netlify.toml` 对 `vendor` 使用长期缓存，对 `config.yml` 和 `manifest.json` 禁止缓存。
 
 ## 本地检查
@@ -94,6 +94,7 @@ Git Gateway Error: Please ask your site administrator to reissue the Git Gateway
 - 确认 `source/admin/assets/admin.js`、`custom.js` 和 `index.html` 的 `?v=` 版本号一致。
 - 删除旧的浏览器缓存后重新打开 `https://202271.xyz/admin/`。
 - 查看控制台是否有扩展注入脚本导致的异常；可先用无痕窗口验证。
+- 后台会对 Identity 和 CMS 资源自动重试一次；如果仍失败，页面会显示明确错误和“重新加载”按钮，不会一直停在空白页。
 
 ### 国内访问仍然偏慢
 
