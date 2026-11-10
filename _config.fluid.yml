@@ -966,7 +966,7 @@ about:
   icons:
     - { class: "iconfont icon-github-fill", link: "https://github.com", tip: "GitHub" }
     - { class: "iconfont icon-douban-fill", link: "https://douban.com", tip: "豆瓣" }
-    - { class: "iconfont icon-wechat-fill", qrcode: "/img/favicon.png" }
+    - { class: "iconfont icon-wechat-fill", qrcode: "https://202271.xyz/images/uploads/android-chrome-192x192.png" }
 
 
 #---------------------------
