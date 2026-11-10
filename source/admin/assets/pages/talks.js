@@ -1,7 +1,7 @@
 /* pages/talks.js — 说说：快发框 + 时间线（写 source/_data/talks.yml） */
 
 import {
-  ic, esc, el, toast, loading, fmtTime, confirmDialog, lightbox, imgWithFallback, previewSrcsFor, safeImgUrl,
+  ic, esc, el, toast, loading, fmtTime, confirmDialog, lightbox, imgWithFallback, previewSrcsFor, safeImgUrl, safeHttpUrl,
 } from "../app.js";
 import { loadYaml, dumpYaml } from "../yaml.js";
 import { ensureVditorLib } from "./editor-shared.js";
@@ -31,6 +31,10 @@ function renderInlineMd(md) {
       // 捕获组是已转义文本：先还原再校验协议，避免实体在属性内解码造成注入
       const safe = safeImgUrl(unesc(src));
       return safe ? `<img src="${esc(safe)}" alt="${alt}" loading="lazy" />` : alt;
+    });
+    s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, text, href) => {
+      const safe = safeHttpUrl(unesc(href));
+      return safe ? `<a href="${esc(safe)}" target="_blank" rel="noopener">${text}</a>` : m;
     });
     s = s.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
     s = s.replace(/`([^`]+)`/g, "<code>$1</code>");

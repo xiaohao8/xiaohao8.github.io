@@ -4,7 +4,7 @@ import { GitHubAPI, setMediaConfig, mediaFallbackUrls } from "./github.js";
 import { NetlifyAPI } from "./netlify.js";
 import { DemoAPI } from "./demo.js";
 
-export const VERSION = "4.1.0";
+export const VERSION = "4.1.1";
 export const ADMIN_TITLE = "醉里博客";
 
 const LS_SESSION = "qexo4_session";

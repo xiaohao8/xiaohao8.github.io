@@ -15,6 +15,28 @@ export function invalidatePostsCache() {
   try { localStorage.removeItem(CACHE_KEY); } catch (_) { /* ignore */ }
 }
 
+/** 日期字符串 → 排序用毫秒数；兼容补零/不补零/ISO 三种写法，无效返回 0 */
+export function dateValue(s) {
+  if (!s) return 0;
+  const m = String(s).match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  if (!m) return 0;
+  const p = (n) => (n.length < 2 ? "0" + n : n);
+  return Date.parse(
+    m[1] + "-" + p(m[2]) + "-" + p(m[3]) + "T" + p(m[4] || "00") + ":" + p(m[5] || "00") + ":" + p(m[6] || "00") + "Z"
+  ) || 0;
+}
+
+/** 文章的站内地址：permalink / abbrlink 优先（_config.yml permalink 为 post/:abbrlink/） */
+export function postLink(p, siteUrl) {
+  const base = String(siteUrl || "").replace(/\/$/, "");
+  if (p.permalink) {
+    const pl = String(p.permalink).replace(/^\//, "");
+    return /^https?:\/\//i.test(pl) ? pl : base + "/" + pl;
+  }
+  if (p.abbrlink != null && p.abbrlink !== "") return base + "/post/" + p.abbrlink + "/";
+  return base + "/";
+}
+
 /** 读取全部文章 front-matter（带 localStorage 缓存，跨标签页复用 5 分钟） */
 export async function loadAllPosts(ctx, { force = false } = {}) {
   if (!force) {
@@ -43,14 +65,16 @@ export async function loadAllPosts(ctx, { force = false } = {}) {
           tags: Array.isArray(fm.tags) ? fm.tags.map(String) : [],
           categories: Array.isArray(fm.categories) ? fm.categories.map(String) : [],
           password: fm.password ? Boolean(String(fm.password)) : false,
+          permalink: fm.permalink == null ? "" : String(fm.permalink),
+          abbrlink: fm.abbrlink == null ? "" : String(fm.abbrlink),
         });
       } catch (_) {
-        data.push({ name: f.name, path: f.path, size: f.size, title: f.name, date: "", updated: "", sticky: null, tags: [], categories: [], password: false });
+        data.push({ name: f.name, path: f.path, size: f.size, title: f.name, date: "", updated: "", sticky: null, tags: [], categories: [], password: false, permalink: "", abbrlink: "" });
       }
     }
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
-  data.sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || a.name.localeCompare(b.name));
+  data.sort((a, b) => dateValue(b.date || b.updated) - dateValue(a.date || a.updated) || a.name.localeCompare(b.name));
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), scope: cacheScope(ctx), data }));
   } catch (_) { /* ignore */ }
@@ -108,7 +132,7 @@ export default async function posts(view, ctx, params, handleErr) {
         <td class="cell-muted">${fmtSize(p.size)}</td>
         <td class="cell-actions">
           <a class="icon-btn" title="编辑" href="#/edit?file=${encodeURIComponent(p.path)}">${ic("edit")}</a>
-          <a class="icon-btn" title="在博客查看" href="${esc(ctx.settings.siteUrl)}/" target="_blank" rel="noopener">${ic("external")}</a>
+          <a class="icon-btn" title="在博客查看${p.abbrlink ? "（/post/" + esc(p.abbrlink) + "/）" : ""}" href="${esc(postLink(p, ctx.settings.siteUrl))}" target="_blank" rel="noopener">${ic("external")}</a>
           <button class="icon-btn danger act-del" title="删除">${ic("trash")}</button>
         </td>
       </tr>`).join("");

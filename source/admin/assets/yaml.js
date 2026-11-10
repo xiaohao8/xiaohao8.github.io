@@ -32,11 +32,11 @@ export function splitFrontMatter(text) {
   }
   if (typeof data !== "object" || data === null) data = {};
   // js-yaml 会把时间戳解析成 Date，还原成原始字符串
-  const isDate = (v) => Object.prototype.toString.call(v) === "[object Date]";
   for (const key of Object.keys(data)) {
-    if (isDate(data[key])) {
+    if (isDateObj(data[key])) {
       const line = raw.match(new RegExp("^" + key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ":\\s*(.+)$", "m"));
-      data[key] = line ? line[1].trim().replace(/^['"]|['"]$/g, "") : isoToLocal(data[key]);
+      // 原始行取不到时按 UTC 还原（js-yaml 对无时区时间戳按 UTC 解析）
+      data[key] = line ? line[1].trim().replace(/^['"]|['"]$/g, "") : isoToUtc(data[key]);
     }
   }
   reviveDates(data);
@@ -69,13 +69,17 @@ export function dumpYaml(obj) {
   });
 }
 
-/** 通用 load（嵌套日期也还原为本地字符串，避免 dump 时格式漂移） */
+/** 通用 load（嵌套日期也还原为原始字符串，避免 dump 时格式漂移） */
 export function loadYaml(text) {
   return reviveDates(jsYaml().load(text, { json: true }));
 }
 
+const isDateObj = (v) => Object.prototype.toString.call(v) === "[object Date]";
+
 function reviveDates(v) {
-  if (v instanceof Date) return isoToLocal(v);
+  // js-yaml 把无时区时间戳按 UTC 解析成 Date；用 UTC 字段还原才能拿回原始字符串，
+  // 否则东八区浏览器上每次 loadYaml→dumpYaml 往返都会让日期漂移 +8 小时
+  if (isDateObj(v)) return isoToUtc(v);
   if (Array.isArray(v)) return v.map(reviveDates);
   if (v && typeof v === "object") {
     for (const k of Object.keys(v)) v[k] = reviveDates(v[k]);
@@ -91,15 +95,22 @@ export function isoToLocal(d) {
     " " + p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
 }
 
-/** Date / 字符串 → datetime-local 控件值 */
+function isoToUtc(d) {
+  const p = (n) => (n < 10 ? "0" + n : "" + n);
+  return d.getUTCFullYear() + "-" + p(d.getUTCMonth() + 1) + "-" + p(d.getUTCDate()) +
+    " " + p(d.getUTCHours()) + ":" + p(d.getUTCMinutes()) + ":" + p(d.getUTCSeconds());
+}
+
+/** Date / 字符串 → datetime-local 控件值（兼容不补零的月/日/时/分/秒） */
 export function toInputDate(value) {
   if (!value) return "";
-  if (value instanceof Date) return isoToLocal(value).replace(" ", "T");
+  if (isDateObj(value)) return isoToLocal(value).replace(" ", "T");
   let s = String(value).trim().replace("T", " ");
-  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
   if (!m) return "";
-  return m[1] + "-" + m[2] + "-" + m[3] + "T" +
-    (m[4] || "00") + ":" + (m[5] || "00") + ":" + (m[6] || "00");
+  const p = (n) => (n.length < 2 ? "0" + n : n);
+  return m[1] + "-" + p(m[2]) + "-" + p(m[3]) + "T" +
+    p(m[4] || "00") + ":" + p(m[5] || "00") + ":" + p(m[6] || "00");
 }
 
 /** datetime-local 值 → front-matter 常用格式 */

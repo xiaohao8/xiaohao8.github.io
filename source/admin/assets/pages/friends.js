@@ -61,7 +61,14 @@ export default async function friends(view, ctx, params, handleErr) {
         im.src = avatarSrc;
         im.alt = "";
         im.referrerPolicy = "no-referrer";
+        im.loading = "lazy";
         im.style.cssText = "width:100%;height:100%;object-fit:cover;border-radius:50%;display:block";
+        // 头像挂了（外链被墙/失效）就换成 globe 占位图标
+        im.addEventListener("error", () => {
+          im.remove();
+          const holder = tr.querySelector(".friend-avatar");
+          if (holder && !holder.firstChild) holder.innerHTML = ic("globe");
+        }, { once: true });
         tr.querySelector(".friend-avatar").appendChild(im);
       }
       const a = tr.querySelector(".friend-link");

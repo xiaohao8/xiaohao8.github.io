@@ -5,7 +5,7 @@ import {
 } from "../app.js";
 import { loadYaml } from "../yaml.js";
 import { deployState } from "../netlify.js";
-import { loadAllPosts } from "./posts.js";
+import { loadAllPosts, postLink } from "./posts.js";
 
 export default async function dashboard(view, ctx, params, handleErr) {
   const settings = ctx.settings;
@@ -69,13 +69,18 @@ export default async function dashboard(view, ctx, params, handleErr) {
 
   async function loadStats() {
     const api = ctx.api;
+    let postsFailed = false;
     const [posts, talksYaml, fluidYaml, metaYaml, images] = await Promise.all([
-      loadAllPosts(ctx).catch(() => []),
+      loadAllPosts(ctx).catch(() => { postsFailed = true; return []; }),
       api.readFile("source/_data/talks.yml").catch(() => "items: []"),
       api.readFile("source/_data/fluid_config.yml").catch(() => "links: {}"),
       api.readFile("source/_data/site_meta.yml").catch(() => ""),
       api.listDir("source/images/uploads").catch(() => []),
     ]);
+    if (postsFailed) {
+      statGrid.appendChild(el(`<div class="card" style="grid-column:1/-1;margin:0;display:flex;align-items:center;gap:.6rem;color:var(--warning)">
+        ${ic("alert")}<span>部分数据拉取失败（网络或限流），统计可能不准；<a href="#/">点击重试</a></span></div>`));
+    }
     let talks = [], links = [], meta = {};
     try { talks = (loadYaml(talksYaml).items || []); } catch (_) {}
     try { links = ((loadYaml(fluidYaml).links || {}).items || []); } catch (_) {}
@@ -115,6 +120,8 @@ export default async function dashboard(view, ctx, params, handleErr) {
       name: p.name,
       sticky: p.sticky,
       tags: p.tags || [],
+      link: postLink(p, settings.siteUrl),
+      hasLink: Boolean(p.permalink || p.abbrlink),
     }));
     const tb = recentCard.querySelector("tbody");
     if (!rows.length) {
@@ -126,7 +133,10 @@ export default async function dashboard(view, ctx, params, handleErr) {
           <td class="cell-title">${esc(r.title)}<small>${esc(r.name)}${r.sticky ? " · 置顶" + esc(r.sticky) : ""}</small></td>
           <td class="cell-muted">${esc(fmtTime(r.date))}</td>
           <td>${(r.tags || []).slice(0, 2).map((t) => `<span class="badge badge-primary">${esc(t)}</span>`).join(" ")}</td>
-          <td class="cell-actions"><a class="icon-btn" href="#/edit?file=${encodeURIComponent(r.path)}" title="编辑">${ic("edit")}</a></td>
+          <td class="cell-actions">
+            ${r.hasLink ? `<a class="icon-btn" href="${esc(r.link)}" target="_blank" rel="noopener" title="在博客查看">${ic("eye")}</a>` : ""}
+            <a class="icon-btn" href="#/edit?file=${encodeURIComponent(r.path)}" title="编辑">${ic("edit")}</a>
+          </td>
         </tr>`).join("");
     }
 
