@@ -10,7 +10,7 @@
  * 因此远端结果与 `git push` 逐字节等价。只支持快进，绝不 force。
  *
  * 用法：
- *   node scripts/git-api-push.mjs [branch] [--remote origin] [--repo owner/name] [--dry-run]
+ *   node tools/git-api-push.mjs [branch] [--remote origin] [--repo owner/name] [--dry-run]
  *
  * token 来源（不会打印、不会落盘）：
  *   1) 环境变量 GITHUB_TOKEN / GH_TOKEN
