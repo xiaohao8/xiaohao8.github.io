@@ -14,7 +14,9 @@
 [[headers]]
   for = "/admin/assets/*"
   [headers.values]
-    Cache-Control = "public, max-age=3600, must-revalidate"
+    # app.js 对各页面的动态 import 带 ?v=VERSION，但模块间的静态 import（./github.js 等）
+    # 没有版本号；这里改成每次重新验证（ETag 命中走 304），避免发布后 1 小时内仍用旧模块
+    Cache-Control = "public, max-age=0, must-revalidate"
     X-Content-Type-Options = "nosniff"
 
 [[headers]]

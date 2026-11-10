@@ -88,8 +88,9 @@ raw 地址会 302 到签名直链，`<img>` 会自动跟随。Gitee 镜像尚未
 - **abbrlink 勿动**：编辑旧文章时 `abbrlink` 为只读展示，不要清空，否则旧链接 404。
 - **图片路径**：编辑器/图库上传的图片在文章里写相对路径 `/images/uploads/文件名`；
   后台预览另走 Gitee 镜像（仓库路径 `source/images/uploads/文件名`），二者不是同一条 URL。
-- **缓存**：`/admin/assets/*`、`/admin/vendor/*` 有缓存头（netlify.toml），
-  代码更新会带 `?v=版本号` 参数刷新（v4.0.2）。本地调试请用无痕窗口或 `hexo server`。
+- **缓存**：`/admin/vendor/*` 长期强缓存；`/admin/assets/*` 设为 `max-age=0`（每次 ETag 验证，
+  命中走 304），保证模块间静态 import 也能在发布后立即更新；入口资源另带 `?v=版本号`（v4.0.2）。
+  本地调试请用无痕窗口或 `hexo server`。
 - **安全**：后台 HTML 带 `noindex`；请勿把 Token 提交进仓库或贴给别人。
 
 ## 本地开发
