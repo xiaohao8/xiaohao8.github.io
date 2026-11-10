@@ -168,7 +168,8 @@ const token = getToken();
 
 const repo = repoOverride || (() => {
   const url = git(["remote", "get-url", remote]);
-  const m = url.match(/github\.com[:/]([^/]+)\/([^/.]+?)(\.git)?$/);
+  // 兼容 gh-proxy 重写后的 URL（…/https://github.com/o/r.git）与带点的仓库名
+  const m = url.match(/github\.com[:/]([^/]+)\/(.+?)(?:\.git)?\/?$/);
   if (!m) fail(`无法从 remote URL 推断仓库: ${url}，请用 --repo owner/name`);
   return `${m[1]}/${m[2]}`;
 })();
