@@ -1,10 +1,10 @@
 /* app.js — Qexo 风格后台入口：会话 / 路由 / 骨架 / 通用 UI */
 
-import { GitHubAPI } from "./github.js";
+import { GitHubAPI, setMediaConfig, mediaFallbackUrls } from "./github.js";
 import { NetlifyAPI } from "./netlify.js";
 import { DemoAPI } from "./demo.js";
 
-export const VERSION = "4.0.1";
+export const VERSION = "4.0.2";
 export const ADMIN_TITLE = "醉里博客";
 
 const LS_SESSION = "qexo4_session";
@@ -15,6 +15,13 @@ const DEFAULT_SETTINGS = {
   branch: "main",
   siteUrl: "https://202271.xyz",
   netlify: { siteId: "", token: "", buildHook: "" },
+  imageSource: {
+    type: "gitee",
+    giteeOwner: "xiaohao3",
+    giteeRepo: "xiaohao8.github.io",
+    giteeBranch: "main",
+    customPrefix: "",
+  },
 };
 
 /* ============ 存取 ============ */
@@ -24,7 +31,12 @@ export const store = {
     try {
       const raw = localStorage.getItem(LS_SETTINGS);
       const s = raw ? JSON.parse(raw) : {};
-      return { ...DEFAULT_SETTINGS, ...s, netlify: { ...DEFAULT_SETTINGS.netlify, ...(s.netlify || {}) } };
+      return {
+        ...DEFAULT_SETTINGS,
+        ...s,
+        netlify: { ...DEFAULT_SETTINGS.netlify, ...(s.netlify || {}) },
+        imageSource: { ...DEFAULT_SETTINGS.imageSource, ...(s.imageSource || {}) },
+      };
     } catch (_) {
       return { ...DEFAULT_SETTINGS };
     }
@@ -181,6 +193,44 @@ export function confirmDialog({ title = "确认操作", text, okLabel = "确认"
   });
 }
 
+/**
+ * 按上下文取预览候选链：演示模式用本地 data URI；
+ * 真实模式按当前预览源 → Gitee → 本站相对 → 本站绝对 → 自定义前缀依次兜底。
+ */
+export function previewSrcsFor(ctx, path) {
+  if (ctx && ctx.api && ctx.api.mode === "demo") return [ctx.api.mediaUrl(path)];
+  return mediaFallbackUrls(path);
+}
+
+/* ---------- 图片兜底加载 ---------- */
+
+/**
+ * 创建带候选源兜底的 <img>：依次尝试 srcs，全部失败时标记 data-failed 并触发 onFail。
+ * Gitee 主力预览场景：Gitee 没同步上时自动切回本站。
+ */
+export function imgWithFallback(srcs, { cls = "", alt = "", onFail } = {}) {
+  const img = document.createElement("img");
+  img.loading = "lazy";
+  img.referrerPolicy = "no-referrer";
+  img.alt = alt;
+  if (cls) img.className = cls;
+  const list = (srcs || []).filter(Boolean);
+  let i = 0;
+  const fail = () => {
+    img.onerror = null;
+    img.dataset.failed = "1";
+    if (onFail) onFail(img);
+  };
+  img.onerror = () => {
+    i += 1;
+    if (i < list.length) img.src = list[i];
+    else fail();
+  };
+  if (list.length) img.src = list[0];
+  else fail();
+  return img;
+}
+
 /* ---------- 图标弹层 ---------- */
 
 export function lightbox(src) {
@@ -216,6 +266,8 @@ function createApi(session, settings) {
 
 function buildContext(session) {
   const settings = store.getSettings();
+  // 图片预览源（Gitee 主力）注入
+  setMediaConfig({ ...settings.imageSource, siteUrl: settings.siteUrl });
   const api = createApi(session, settings);
   const nl = new NetlifyAPI(settings);
   return {

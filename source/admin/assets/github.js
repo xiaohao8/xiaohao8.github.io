@@ -3,6 +3,67 @@
 const API = "https://api.github.com";
 const RATE_SAFE = 30; // 剩余请求数低于该值时提示
 
+/* 图片预览源配置（Gitee 主力，本站兜底）——app.js 启动时注入，设置页可实时切换 */
+export const mediaConfig = {
+  type: "gitee", // gitee | site | custom
+  giteeOwner: "xiaohao3",
+  giteeRepo: "xiaohao8.github.io",
+  giteeBranch: "main",
+  siteUrl: "",
+  customPrefix: "",
+};
+
+export function setMediaConfig(src) {
+  if (!src) return;
+  mediaConfig.type = src.type || "gitee";
+  mediaConfig.giteeOwner = src.giteeOwner || "xiaohao3";
+  mediaConfig.giteeRepo = src.giteeRepo || "xiaohao8.github.io";
+  mediaConfig.giteeBranch = src.giteeBranch || "main";
+  mediaConfig.siteUrl = String(src.siteUrl || "").replace(/\/+$/, "");
+  mediaConfig.customPrefix = String(src.customPrefix || "").replace(/\/+$/, "");
+}
+
+function encRepoPath(path) {
+  return String(path).replace(/^\/+/, "").split("/").map(encodeURIComponent).join("/");
+}
+
+/** 仓库路径 → 站点对外路径：Hexo 把 source/ 下的静态文件输出到站点根 */
+function sitePublicPath(path) {
+  const p = String(path).replace(/^\/+/, "").replace(/^source\//, "");
+  return "/" + p.split("/").map(encodeURIComponent).join("/");
+}
+
+/** Gitee 镜像 raw 直链（不受当前预览源影响，供复制链接使用） */
+export function mediaGiteeUrl(path) {
+  return `https://gitee.com/${mediaConfig.giteeOwner}/${mediaConfig.giteeRepo}/raw/${mediaConfig.giteeBranch}/${encRepoPath(path)}`;
+}
+
+/** 仓库路径 → 预览直链（按当前预览源设置） */
+export function mediaPreviewUrl(path) {
+  const enc = encRepoPath(path);
+  if (mediaConfig.type === "custom" && mediaConfig.customPrefix) {
+    return mediaConfig.customPrefix + "/" + enc;
+  }
+  if (mediaConfig.type === "gitee") return mediaGiteeUrl(path);
+  // site：后台可能与站点不同域，有站点地址时用绝对地址，否则退回同源相对路径
+  const rel = sitePublicPath(path);
+  return mediaConfig.siteUrl ? mediaConfig.siteUrl + rel : rel;
+}
+
+/** 候选兜底链：当前源 → Gitee → 本站相对 → 本站绝对 → 自定义前缀（自动去重） */
+export function mediaFallbackUrls(path) {
+  const list = [];
+  const push = (u) => { if (u && !list.includes(u)) list.push(u); };
+  const enc = encRepoPath(path);
+  const rel = sitePublicPath(path);
+  push(mediaPreviewUrl(path));
+  push(mediaGiteeUrl(path));
+  push(rel);
+  if (mediaConfig.siteUrl) push(mediaConfig.siteUrl + rel);
+  if (mediaConfig.customPrefix) push(mediaConfig.customPrefix + "/" + enc);
+  return list;
+}
+
 export class GitHubError extends Error {
   constructor(message, status) {
     super(message);
@@ -161,7 +222,7 @@ export class GitHubAPI {
   /* ---------- 便捷方法 ---------- */
 
   mediaUrl(path) {
-    return "/" + String(path).replace(/^\/+/, "");
+    return mediaPreviewUrl(path);
   }
 
   async listPosts() {

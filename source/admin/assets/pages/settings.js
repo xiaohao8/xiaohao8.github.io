@@ -4,6 +4,7 @@ import {
   ic, esc, el, toast, loading, store,
 } from "../app.js";
 import { NetlifyAPI } from "../netlify.js";
+import { setMediaConfig, mediaFallbackUrls } from "../github.js";
 import { loadYaml, dumpYaml } from "../yaml.js";
 
 const SITE_META_PATH = "source/_data/site_meta.yml";
@@ -50,6 +51,89 @@ export default async function settings(view, ctx, params, handleErr) {
       </div>
     </div>`);
   view.appendChild(nlCard);
+
+  /* ---------- 2.5 图片预览源 ---------- */
+  const imgSrc = settings.imageSource || {};
+  const imgCard = el(`<div class="card settings-section">
+      <div class="card-header">${ic("image")}<h2>图片预览源</h2><div class="sub">后台图库/说说缩略图走哪里加载（国内建议 Gitee）</div></div>
+      <div class="field" style="max-width:360px">
+        <label>预览源</label>
+        <select class="input" id="is-type">
+          <option value="gitee">Gitee 镜像（国内快，推荐）</option>
+          <option value="site">本站直连</option>
+          <option value="custom">自定义前缀（如其他 CDN）</option>
+        </select>
+        <div class="hint">Gitee 加载失败会自动切回本站，不影响使用</div>
+      </div>
+      <div id="is-gitee-fields">
+        <div class="grid-2" style="gap:1rem">
+          <div class="field" style="margin:0"><label>Gitee 用户名</label><input class="input" id="is-owner" value="${esc(imgSrc.giteeOwner || "xiaohao3")}" /></div>
+          <div class="field" style="margin:0"><label>Gitee 仓库</label><input class="input" id="is-repo" value="${esc(imgSrc.giteeRepo || "xiaohao8.github.io")}" /></div>
+        </div>
+        <div class="field" style="max-width:260px"><label>分支</label><input class="input" id="is-branch" value="${esc(imgSrc.giteeBranch || "main")}" /></div>
+      </div>
+      <div id="is-custom-fields" style="display:none">
+        <div class="field"><label>自定义前缀</label>
+          <input class="input input-mono" id="is-prefix" value="${esc(imgSrc.customPrefix || "")}" placeholder="https://cdn.jsdelivr.net/gh/xiaohao8/xiaohao8.github.io@main" />
+          <div class="hint">图片将按 前缀/source/images/uploads/文件名 拼接（须镜像整个仓库）</div>
+        </div>
+      </div>
+      <div class="field" style="max-width:520px">
+        <button class="btn" id="is-test">${ic("eye")}测试预览链接</button>
+        <span class="small muted" id="is-test-out" style="margin-left:.6rem;word-break:break-all"></span>
+      </div>
+      <div class="settings-actions"><button class="btn btn-primary" id="save-imgsrc">${ic("save")}保存预览源设置</button></div>
+    </div>`);
+  view.appendChild(imgCard);
+
+  const isType = imgCard.querySelector("#is-type");
+  isType.value = imgSrc.type || "gitee";
+  function syncImgFields() {
+    imgCard.querySelector("#is-gitee-fields").style.display = isType.value === "gitee" ? "" : "none";
+    imgCard.querySelector("#is-custom-fields").style.display = isType.value === "custom" ? "" : "none";
+  }
+  isType.addEventListener("change", syncImgFields);
+  syncImgFields();
+
+  imgCard.querySelector("#is-test").addEventListener("click", async () => {
+    const saved = store.getSettings();
+    setMediaConfig({ ...readImgSrc(), siteUrl: saved.siteUrl }); // 临时套用表单里的值
+    const out = imgCard.querySelector("#is-test-out");
+    const urls = mediaFallbackUrls("source/images/uploads/1000.jpg");
+    out.textContent = `正在依次测试 ${urls.length} 个候选源…`;
+    let hit = "";
+    for (const url of urls) {
+      const ok = await new Promise((resolve) => {
+        const probe = new Image();
+        probe.referrerPolicy = "no-referrer";
+        const timer = setTimeout(() => { probe.onload = probe.onerror = null; resolve(false); }, 6000);
+        probe.onload = () => { clearTimeout(timer); resolve(true); };
+        probe.onerror = () => { clearTimeout(timer); resolve(false); };
+        probe.src = url;
+      });
+      if (ok) { hit = url; break; }
+    }
+    setMediaConfig({ ...saved.imageSource, siteUrl: saved.siteUrl }); // 测试不改动已保存的配置
+    out.textContent = hit ? "✓ 可用：" + hit : "✗ 全部候选源都失败（检查 Gitee 同步、站点地址与网络）";
+  });
+
+  function readImgSrc() {
+    return {
+      type: isType.value,
+      giteeOwner: imgCard.querySelector("#is-owner").value.trim() || "xiaohao3",
+      giteeRepo: imgCard.querySelector("#is-repo").value.trim() || "xiaohao8.github.io",
+      giteeBranch: imgCard.querySelector("#is-branch").value.trim() || "main",
+      customPrefix: imgCard.querySelector("#is-prefix").value.trim(),
+    };
+  }
+
+  imgCard.querySelector("#save-imgsrc").addEventListener("click", () => {
+    const s = store.getSettings();
+    s.imageSource = readImgSrc();
+    store.saveSettings(s);
+    setMediaConfig({ ...s.imageSource, siteUrl: s.siteUrl }); // 立即生效（后续打开的页面）
+    toast("预览源已保存并生效；已打开的图库页刷新后使用新源", "success");
+  });
 
   /* ---------- 3. 站点资料 ---------- */
   const metaCard = el(`<div class="card settings-section">
@@ -99,6 +183,7 @@ export default async function settings(view, ctx, params, handleErr) {
     s.branch = repoCard.querySelector("#s-branch").value.trim() || "main";
     s.siteUrl = repoCard.querySelector("#s-siteurl").value.trim();
     store.saveSettings(s);
+    setMediaConfig({ ...s.imageSource, siteUrl: s.siteUrl }); // 站点地址变更立即作用于图片兜底链
     toast("仓库设置已保存，刷新页面后生效", "success");
   });
 

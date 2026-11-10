@@ -1,8 +1,9 @@
 /* pages/images.js — 图库：上传 / 网格浏览 / 复制链接 / 删除（source/images/uploads） */
 
 import {
-  ic, esc, el, toast, loading, confirmDialog, lightbox, copyText, fmtSize,
+  ic, esc, el, toast, loading, confirmDialog, lightbox, copyText, fmtSize, imgWithFallback, previewSrcsFor,
 } from "../app.js";
+import { mediaGiteeUrl } from "../github.js";
 
 const DIR = "source/images/uploads";
 const IMG_RE = /\.(png|jpe?g|gif|webp|svg|avif|bmp|ico)$/i;
@@ -78,9 +79,9 @@ export default async function images(view, ctx, params, handleErr) {
     return String(name || "image.png").replace(/[^\w\u4e00-\u9fa5.-]+/g, "-");
   }
 
-  function previewSrc(item) {
-    if (item.blobUrl) return item.blobUrl;
-    return ctx.api.mediaUrl(item.path);
+  function previewSrcs(item) {
+    if (item.blobUrl) return [item.blobUrl];
+    return previewSrcsFor(ctx, item.path);
   }
 
   function render() {
@@ -94,7 +95,7 @@ export default async function images(view, ctx, params, handleErr) {
     }
     gridEl.innerHTML = "";
     for (const item of rows) {
-      const src = previewSrc(item);
+      const srcs = previewSrcs(item);
       const card = el(`<div class="img-card">
           <div class="img-thumb"></div>
           <div class="img-meta">
@@ -111,12 +112,14 @@ export default async function images(view, ctx, params, handleErr) {
           </div>
         </div>`);
       const thumb = card.querySelector(".img-thumb");
-      thumb.style.backgroundImage = `url("${src}")`;
-      thumb.addEventListener("click", () => lightbox(src));
+      const img = imgWithFallback(srcs, { alt: item.name });
+      img.style.cssText = "width:100%;height:100%;object-fit:cover;cursor:zoom-in;display:block";
+      img.addEventListener("click", () => lightbox(img.currentSrc || img.src));
+      thumb.appendChild(img);
       const [mdBtn, urlBtn, eyeBtn, delBtn] = card.querySelectorAll(".ops .icon-btn");
       mdBtn.addEventListener("click", () => copyText(`![${item.name}](${publicUrl(item)})`));
       urlBtn.addEventListener("click", () => copyMenu(item));
-      eyeBtn.addEventListener("click", () => lightbox(src));
+      eyeBtn.addEventListener("click", () => lightbox(img.currentSrc || img.src));
       delBtn.addEventListener("click", async () => {
         const ok = await confirmDialog({
           title: "删除图片",
@@ -143,17 +146,22 @@ export default async function images(view, ctx, params, handleErr) {
   }
 
   function copyMenu(item) {
-    const rel = "/images/uploads/" + item.name;
+    const rel = "/images/uploads/" + encodeURIComponent(item.name);
     const abs = publicUrl(item);
+    const rows = [
+      ["相对路径（博客内推荐）", rel],
+      ["完整 URL（本站）", abs],
+    ];
+    // Gitee 直链始终可复制，不受当前「预览源」设置影响；演示模式的图片仓库里不存在，不展示
+    if (!(ctx.api && ctx.api.mode === "demo")) {
+      rows.push(["Gitee 直链（国内快）", mediaGiteeUrl(item.path)]);
+    }
+    rows.push(["Markdown", `![${item.name}](${rel})`]);
     modal({
       title: "复制图片链接",
-      body: `<div class="fm-list">
-          <div class="fm-row"><label>相对路径（博客内推荐）</label>
-            <div class="flex"><input class="input input-mono" readonly value="${esc(rel)}" /><button class="btn btn-sm" data-copy="${esc(rel)}">${ic("copy")}复制</button></div></div>
-          <div class="fm-row"><label>完整 URL</label>
-            <div class="flex"><input class="input input-mono" readonly value="${esc(abs)}" /><button class="btn btn-sm" data-copy="${esc(abs)}">${ic("copy")}复制</button></div></div>
-          <div class="fm-row"><label>Markdown</label>
-            <div class="flex"><input class="input input-mono" readonly value="${esc(`![${item.name}](${rel})`)}" /><button class="btn btn-sm" data-copy="${esc(`![${item.name}](${rel})`)}">${ic("copy")}复制</button></div></div>
+      body: `<div class="fm-list">${rows.map(([label, val]) => `
+          <div class="fm-row"><label>${esc(label)}</label>
+            <div class="flex"><input class="input input-mono" readonly value="${esc(val)}" /><button class="btn btn-sm" data-copy="${esc(val)}">${ic("copy")}复制</button></div></div>`).join("")}
         </div>`,
       actions: [{ label: "关闭" }],
     }).querySelectorAll("[data-copy]").forEach((b) => {

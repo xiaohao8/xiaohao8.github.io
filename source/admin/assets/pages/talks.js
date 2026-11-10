@@ -1,7 +1,7 @@
 /* pages/talks.js — 说说：快发框 + 时间线（写 source/_data/talks.yml） */
 
 import {
-  ic, esc, el, toast, loading, fmtTime, confirmDialog, lightbox,
+  ic, esc, el, toast, loading, fmtTime, confirmDialog, lightbox, imgWithFallback, previewSrcsFor,
 } from "../app.js";
 import { loadYaml, dumpYaml, splitFrontMatter } from "../yaml.js";
 import { ensureVditorLibFor } from "./editor-shared.js";
@@ -69,17 +69,27 @@ export default async function talks(view, ctx, params, handleErr) {
   const p2 = (n) => (n < 10 ? "0" + n : "" + n);
   timeInput.value = `${now.getFullYear()}-${p2(now.getMonth() + 1)}-${p2(now.getDate())}T${p2(now.getHours())}:${p2(now.getMinutes())}:${p2(now.getSeconds())}`;
 
+  /** 说说里存的图片串 → 预览候选链；只有站内 /images/... 才需要映射到仓库路径，外链原样使用 */
+  function talkImgSrcs(s) {
+    const str = String(s || "");
+    if (/^(https?:|data:|blob:)/i.test(str)) return [str];
+    return previewSrcsFor(ctx, str.replace(/^\//, "").replace(/^images\//, "source/images/"));
+  }
+
   function renderImages() {
     imagesHolder.innerHTML = "";
     for (const img of images) {
-      const chip = el(`<div class="talk-image-chip" style="background-image:url('${img.preview}')" title="${esc(img.name)}">
+      const chip = el(`<div class="talk-image-chip" title="${esc(img.name)}">
           <span class="x">${ic("close")}</span>
         </div>`);
+      const im = imgWithFallback(img.fallback || [img.publicPath], { alt: img.name });
+      im.style.cssText = "width:100%;height:100%;object-fit:cover;border-radius:.6rem;display:block";
+      chip.appendChild(im);
       chip.querySelector(".x").addEventListener("click", () => {
         images = images.filter((x) => x !== img);
         renderImages();
       });
-      chip.addEventListener("click", (e) => { if (e.target === chip) lightbox(img.preview); });
+      chip.addEventListener("click", (e) => { if (e.target === im) lightbox(im.currentSrc || im.src); });
       imagesHolder.appendChild(chip);
     }
     imgCount.textContent = images.length ? `已添加 ${images.length} 张配图` : "未添加配图";
@@ -150,10 +160,20 @@ export default async function talks(view, ctx, params, handleErr) {
               <button class="icon-btn danger act-del" title="删除">${ic("trash")}</button>
             </div>
             <div class="talk-content">${renderInlineMd(item.content)}</div>
-            ${imgs.length ? `<div class="talk-images" style="margin-top:.6rem">${imgs.map((s) => `<img src="${esc(s)}" style="max-width:150px;border-radius:.6rem;cursor:zoom-in" loading="lazy" />`).join("")}</div>` : ""}
+            ${imgs.length ? `<div class="talk-images" style="margin-top:.6rem" data-talk-imgs></div>` : ""}
           </div>
         </div>`);
-      node.querySelectorAll(".talk-content img, .talk-images img").forEach((img) => {
+      const talkImgsBox = node.querySelector("[data-talk-imgs]");
+      if (talkImgsBox) {
+        for (const s of imgs) {
+          const im = imgWithFallback(talkImgSrcs(s), { alt: "" });
+          im.style.cssText = "max-width:150px;border-radius:.6rem;cursor:zoom-in";
+          im.addEventListener("click", () => lightbox(im.currentSrc || im.src));
+          talkImgsBox.appendChild(im);
+        }
+      }
+      // .talk-images 里的图已有自己的点击监听，这里只处理正文 Markdown 内联图
+      node.querySelectorAll(".talk-content img").forEach((img) => {
         img.addEventListener("click", () => lightbox(img.src));
       });
       node.querySelector(".act-del").addEventListener("click", async () => {
@@ -178,7 +198,11 @@ export default async function talks(view, ctx, params, handleErr) {
         editing = item;
         if (vditor) vditor.setValue(String(item.content || ""));
         timeInput.value = String(item.date || "").replace(" ", "T");
-        images = imgs.map((s) => ({ name: s.split("/").pop(), preview: s, publicPath: s }));
+        images = imgs.map((s) => ({
+          name: String(s).split("/").pop(),
+          fallback: talkImgSrcs(s),
+          publicPath: s,
+        }));
         renderImages();
         composerCard.querySelector("#talk-publish").innerHTML = `${ic("save")}保存修改`;
         composerCard.scrollIntoView({ behavior: "smooth" });
@@ -268,10 +292,12 @@ export default async function talks(view, ctx, params, handleErr) {
     const finalName = Date.now() + "-" + name;
     const path = "source/images/uploads/" + finalName;
     await ctx.api.uploadFile(path, fileObj, `Upload Image ${finalName} by Qexo`);
-    const preview = ctx.api.mode === "demo" && /\.svg$/.test(name)
-      ? ctx.api.mediaUrl(path)
-      : "/images/uploads/" + finalName;
-    return { name, path, publicPath: "/images/uploads/" + finalName, preview };
+    return {
+      name,
+      path,
+      publicPath: "/images/uploads/" + finalName, // 写进 yml 的对外路径
+      fallback: previewSrcsFor(ctx, path),        // 预览候选链（Gitee → 本站）
+    };
   };
 
   await loadTalks();

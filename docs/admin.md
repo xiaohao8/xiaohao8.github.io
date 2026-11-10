@@ -3,6 +3,9 @@
 > v4.0.0：完全重写。不再使用 Netlify CMS / Netlify Identity / Git Gateway，
 > 改为 **Qexo 同款模式**：浏览器用 GitHub Token 直连 GitHub API 读写仓库，
 > 保存即提交到 `main`，Netlify 自动构建发布。界面按 Qexo 的 Argon Dashboard 风格实现。
+>
+> v4.0.2：后台图片预览改为 **Gitee 镜像主力 + 本站自动兜底**，设置页可实时切换预览源，
+> 图库复制链接新增 Gitee 直链选项。
 
 ## 入口
 
@@ -42,6 +45,29 @@ Token 过期或失效时后台会提示重新登录。
 新后台不再使用 Identity / Git Gateway。可在 Netlify 后台
 （Integrations → Netlify Identity）关闭它，不影响新后台。
 
+### 5.（可选）图片预览源（v4.0.2）
+
+国内访问 Cloudflare 上的大图当缩略图偏慢，所以后台缩略图默认走 Gitee 镜像：
+
+```
+https://gitee.com/xiaohao3/xiaohao8.github.io/raw/main/source/images/uploads/1000.jpg
+```
+
+raw 地址会 302 到签名直链，`<img>` 会自动跟随。Gitee 镜像尚未同步到刚上传的图片时，
+预览会依次回退到本站 `/images/uploads/1000.jpg`、站点绝对地址、自定义前缀，全部失败才显示破图。
+注意：仓库里的 `source/` 前缀在部署产物里会被去掉，**本站路径是 `/images/uploads/...`，不是 `/source/images/uploads/...`**。
+
+「设置 → 图片预览源」可切换：
+
+| 预览源 | 说明 |
+| --- | --- |
+| Gitee 镜像（推荐） | 国内加载快；可改 Gitee 用户名 / 仓库 / 分支 |
+| 本站直连 | 走站点地址，大图可能偏慢 |
+| 自定义前缀 | 例如 `https://cdn.jsdelivr.net/gh/xiaohao8/xiaohao8.github.io@main`，按 `前缀/source/...` 拼接（须镜像整个仓库） |
+
+「测试预览链接」会按候选链逐条探测并报告第一个可用地址；保存后立即生效，已打开的图库页刷新即可。
+图库「复制链接」始终提供 Gitee 直链（演示模式不显示），可用于外链引用；文章正文仍建议写相对路径。
+
 ## 功能与数据位置
 
 | 模块 | 功能 | 数据位置 |
@@ -52,17 +78,18 @@ Token 过期或失效时后台会提示重新登录。
 | 页面管理 | 关于 / 友链页 / 说说页 / 朋友圈 / 计划清单 | `source/about/index.md` 等对应 md |
 | 说说 | 快发框（Markdown + 配图 + 时间）、时间线编辑/删除 | `source/_data/talks.yml` |
 | 友链 | 表格增删改 | `source/_data/fluid_config.yml` → `links.items` |
-| 图库 | 拖拽多图上传、缩略图预览、复制相对路径/URL/Markdown、删除 | `source/images/uploads/` |
-| 设置 | 仓库连接、Netlify、站点资料、导航菜单、首页外观 | localStorage + `site_meta.yml` + `fluid_config.yml` |
+| 图库 | 拖拽多图上传、缩略图预览（Gitee + 本站兜底）、复制相对路径/本站 URL/Gitee 直链/Markdown、删除 | `source/images/uploads/` |
+| 设置 | 仓库连接、Netlify、图片预览源、站点资料、导航菜单、首页外观 | localStorage + `site_meta.yml` + `fluid_config.yml` |
 
 ## 注意事项
 
 - **保存即发布**：所有写操作都会直接 commit 到 `main` 分支并触发 Netlify 生产构建；
   部署约 1-2 分钟完成。想先看看效果可以用 `?demo=1` 演示模式。
 - **abbrlink 勿动**：编辑旧文章时 `abbrlink` 为只读展示，不要清空，否则旧链接 404。
-- **图片路径**：编辑器/图库上传的图片在文章里写相对路径 `/images/uploads/文件名`。
-- **缓存**：`/admin/assets/*`、`/admin/vendor/*` 有一年强缓存（netlify.toml），
-  代码更新会带 `?v=版本号` 参数刷新。本地调试请用无痕窗口或 `hexo server`。
+- **图片路径**：编辑器/图库上传的图片在文章里写相对路径 `/images/uploads/文件名`；
+  后台预览另走 Gitee 镜像（仓库路径 `source/images/uploads/文件名`），二者不是同一条 URL。
+- **缓存**：`/admin/assets/*`、`/admin/vendor/*` 有缓存头（netlify.toml），
+  代码更新会带 `?v=版本号` 参数刷新（v4.0.2）。本地调试请用无痕窗口或 `hexo server`。
 - **安全**：后台 HTML 带 `noindex`；请勿把 Token 提交进仓库或贴给别人。
 
 ## 本地开发

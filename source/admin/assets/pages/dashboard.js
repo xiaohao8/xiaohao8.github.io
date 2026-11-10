@@ -1,7 +1,7 @@
 /* pages/dashboard.js — 工作台：统计卡 / 快捷操作 / 最近文章 / Netlify 部署状态 */
 
 import {
-  ic, esc, el, toast, fmtTime, fmtAgo, confirmDialog, lightbox,
+  ic, esc, el, toast, fmtTime, fmtAgo, confirmDialog, lightbox, imgWithFallback, previewSrcsFor,
 } from "../app.js";
 import { loadYaml, splitFrontMatter } from "../yaml.js";
 import { deployState } from "../netlify.js";
@@ -150,10 +150,11 @@ export default async function dashboard(view, ctx, params, handleErr) {
         </div>`);
       const holder = imgCard.querySelector("#dash-imgs");
       for (const img of recentImgs) {
-        const src = ctx.api.mediaUrl(img.path);
-        const cell = el(`<div style="height:86px;border-radius:.6rem;background:#f2f4f9 center/cover no-repeat;cursor:zoom-in"></div>`);
-        cell.style.backgroundImage = `url("${src}")`;
-        cell.addEventListener("click", () => lightbox(src));
+        const cell = el(`<div style="height:86px;border-radius:.6rem;background:#f2f4f9;overflow:hidden;cursor:zoom-in"></div>`);
+        const im = imgWithFallback(previewSrcsFor(ctx, img.path), { alt: img.name });
+        im.style.cssText = "width:100%;height:100%;object-fit:cover;display:block";
+        cell.appendChild(im);
+        cell.addEventListener("click", () => lightbox(im.currentSrc || im.src));
         holder.appendChild(cell);
       }
       right.insertBefore(imgCard, quickCard);
