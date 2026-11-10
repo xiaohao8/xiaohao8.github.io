@@ -225,7 +225,7 @@ color:
 # Font
 font:
   font_size: 16px
-  font_family: DingTalkJinBuTi-Regular
+  font_family:
   letter_spacing: 0.02em
   code_font_size: 85%
 
