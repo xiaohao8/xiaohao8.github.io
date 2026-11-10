@@ -209,7 +209,9 @@ async function ensureBlob(sha) {
   if (await api("GET", `/repos/${repo}/git/blobs/${sha}`) !== null) { uploaded.add(sha); return; }
   const content = git(["cat-file", "blob", sha], { raw: true });
   if (content.length > 50 * 1024 * 1024) fail(`blob ${sha.slice(0, 7)} 超过 50MB，请走 LFS 或正常 git push`);
-  await api("POST", `/repos/${repo}/git/blobs`, { content: content.toString("base64") });
+  // 注意：create-blob 默认 encoding 是 utf-8，必须显式声明 base64，否则会把 base64 文本当正文存储
+  const created = await api("POST", `/repos/${repo}/git/blobs`, { content: content.toString("base64"), encoding: "base64" });
+  if (created.sha !== sha) fail(`blob 上传后 SHA 不一致：API ${created.sha} vs 本地 ${sha}，中止`);
   uploaded.add(sha);
   process.stdout.write(`  blob ${sha.slice(0, 7)} ✓\n`);
 }
