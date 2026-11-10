@@ -1,12 +1,16 @@
 /* pages/talks.js — 说说：快发框 + 时间线（写 source/_data/talks.yml） */
 
 import {
-  ic, esc, el, toast, loading, fmtTime, confirmDialog, lightbox, imgWithFallback, previewSrcsFor,
+  ic, esc, el, toast, loading, fmtTime, confirmDialog, lightbox, imgWithFallback, previewSrcsFor, safeImgUrl,
 } from "../app.js";
-import { loadYaml, dumpYaml, splitFrontMatter } from "../yaml.js";
-import { ensureVditorLibFor } from "./editor-shared.js";
+import { loadYaml, dumpYaml } from "../yaml.js";
+import { ensureVditorLib } from "./editor-shared.js";
+import { uploadImage, runUploadQueue } from "../upload.js";
 
 const TALKS_PATH = "source/_data/talks.yml";
+
+const UNESC = { "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&amp;": "&" };
+const unesc = (s) => s.replace(/&(lt|gt|quot|#39|amp);/g, (m) => UNESC[m]);
 
 function renderInlineMd(md) {
   // 极简内联渲染：段落 / 图片 / 加粗 / 行内代码 / 引用 —— 仅供后台预览
@@ -23,7 +27,11 @@ function renderInlineMd(md) {
 
   function inline(s) {
     s = esc(s);
-    s = s.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (m, alt, src) => `<img src="${src}" alt="${alt}" loading="lazy" />`);
+    s = s.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (m, alt, src) => {
+      // 捕获组是已转义文本：先还原再校验协议，避免实体在属性内解码造成注入
+      const safe = safeImgUrl(unesc(src));
+      return safe ? `<img src="${esc(safe)}" alt="${alt}" loading="lazy" />` : alt;
+    });
     s = s.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
     s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
     return s;
@@ -113,22 +121,15 @@ export default async function talks(view, ctx, params, handleErr) {
   });
 
   async function uploadImages(files) {
-    loading.show(`上传图片 0/${files.length}…`);
-    let i = 0;
-    for (const f of files) {
-      loading.show(`上传图片 ${i + 1}/${files.length}：${f.name}`);
-      try {
-        const r = await ctx.pagesUpload(f);
-        images.push(r);
-      } catch (err) {
-        toast("图片上传失败：" + (err.message || f.name), "error");
-      }
-      i++;
+    const { ok } = await runUploadQueue(files, (f) => uploadImage(ctx, f));
+    if (ok.length) {
+      images.push(...ok);
+      renderImages();
+      toast(`已上传 ${ok.length} 张配图`, "success");
     }
-    loading.hide();
-    renderImages();
-    toast("配图已上传", "success");
   }
+
+  let loadFailed = false;
 
   async function loadTalks() {
     const listEl = listCard.querySelector("#talk-list");
@@ -136,9 +137,22 @@ export default async function talks(view, ctx, params, handleErr) {
       const raw = await ctx.api.readFile(TALKS_PATH);
       const data = loadYaml(raw) || {};
       items = Array.isArray(data.items) ? data.items.slice() : [];
+      loadFailed = false;
     } catch (e) {
-      handleErr(e);
-      items = [];
+      if (e.status === 404 || ctx.demo) {
+        items = [];
+        loadFailed = false;
+      } else {
+        handleErr(e);
+        items = [];
+        loadFailed = true;
+      }
+    }
+    composerCard.querySelector("#talk-publish").disabled = loadFailed;
+    if (loadFailed) {
+      listEl.innerHTML = `<div class="empty">${ic("alert")}<p>说说加载失败，为避免覆盖仓库数据已禁用发布，请刷新重试。</p></div>`;
+      listCard.querySelector("#talk-total").textContent = "";
+      return;
     }
     items.sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
     listCard.querySelector("#talk-total").textContent = `共 ${items.length} 条`;
@@ -196,7 +210,7 @@ export default async function talks(view, ctx, params, handleErr) {
       node.querySelector(".act-edit").addEventListener("click", () => {
         // 载入到快发框（编辑模式）
         editing = item;
-        if (vditor) vditor.setValue(String(item.content || ""));
+        setContent(String(item.content || ""));
         timeInput.value = String(item.date || "").replace(" ", "T");
         images = imgs.map((s) => ({
           name: String(s).split("/").pop(),
@@ -231,7 +245,7 @@ export default async function talks(view, ctx, params, handleErr) {
   }
 
   composerCard.querySelector("#talk-publish").addEventListener("click", async () => {
-    const content = vditor ? vditor.getValue() : "";
+    const content = getContent();
     if (!String(content).trim()) {
       toast("先写点什么吧", "error");
       return;
@@ -254,7 +268,7 @@ export default async function talks(view, ctx, params, handleErr) {
       loading.hide();
       toast(editing ? "说说已更新" : "说说已发布，Netlify 构建已触发", "success");
       editing = null;
-      vditor.setValue("");
+      setContent("");
       images = [];
       renderImages();
       composerCard.querySelector("#talk-publish").innerHTML = `${ic("deploy")}发布说说`;
@@ -267,8 +281,15 @@ export default async function talks(view, ctx, params, handleErr) {
 
   /* ---------- 初始化编辑器 ---------- */
 
+  let fallbackTa = null;
+  const getContent = () => vditor ? vditor.getValue() : (fallbackTa ? fallbackTa.value : "");
+  const setContent = (v) => {
+    if (vditor) vditor.setValue(v);
+    else if (fallbackTa) fallbackTa.value = v;
+  };
+
   try {
-    await ensureVditorLibFor();
+    await ensureVditorLib();
     vditor = new window.Vditor(composerCard.querySelector("#talk-editor"), {
       cdn: "/admin/vendor/vditor",
       lang: "zh_CN",
@@ -282,22 +303,14 @@ export default async function talks(view, ctx, params, handleErr) {
       input: () => {},
     });
   } catch (e) {
-    composerCard.querySelector("#talk-editor").innerHTML =
-      `<textarea class="input" rows="4" id="talk-fallback"></textarea>`;
+    fallbackTa = el(`<textarea class="input" rows="4" placeholder="此刻的想法…"></textarea>`);
+    const holder = composerCard.querySelector("#talk-editor");
+    holder.innerHTML = "";
+    holder.appendChild(fallbackTa);
   }
 
-  // 统一的图片上传入口（页面拖拽 / 编辑器内部共用）
-  ctx.pagesUpload = async (fileObj) => {
-    const name = (fileObj.name || "image.png").replace(/[^\w\u4e00-\u9fa5.-]+/g, "-");
-    const finalName = Date.now() + "-" + name;
-    const path = "source/images/uploads/" + finalName;
-    await ctx.api.uploadFile(path, fileObj, `Upload Image ${finalName} by Qexo`);
-    return {
-      name,
-      path,
-      publicPath: "/images/uploads/" + finalName, // 写进 yml 的对外路径
-      fallback: previewSrcsFor(ctx, path),        // 预览候选链（Gitee → 本站）
-    };
+  ctx._onLeave = () => {
+    if (vditor && vditor.destroy) vditor.destroy();
   };
 
   await loadTalks();

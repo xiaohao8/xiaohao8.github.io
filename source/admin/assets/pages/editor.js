@@ -1,53 +1,15 @@
 /* pages/editor.js — 文章/页面编辑器：Vditor + front-matter 侧栏（Qexo 同款布局） */
 
 import {
-  ic, esc, el, toast, loading, copyText, confirmDialog, fmtSize,
+  ic, esc, el, toast, loading, confirmDialog,
 } from "../app.js";
 import {
   splitFrontMatter, buildFrontMatter, toInputDate, fromInputDate,
   nowLocal, extractExcerpt,
 } from "../yaml.js";
-
-const VDITOR_BASE = "/admin/vendor/vditor";
-let vditorLibPromise = null;
-
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = src;
-    s.onload = resolve;
-    s.onerror = () => reject(new Error("脚本加载失败：" + src));
-    document.head.appendChild(s);
-  });
-}
-
-function loadCss(href) {
-  if (document.querySelector(`link[href="${href}"]`)) return;
-  const l = document.createElement("link");
-  l.rel = "stylesheet";
-  l.href = href;
-  document.head.appendChild(l);
-}
-
-async function ensureVditorLib() {
-  loadCss(VDITOR_BASE + "/dist/index.css?v=4.0.0");
-  if (window.Vditor) return;
-  if (!vditorLibPromise) {
-    vditorLibPromise = loadScript(VDITOR_BASE + "/dist/index.min.js?v=4.0.0");
-  }
-  await vditorLibPromise;
-  if (!window.Vditor) throw new Error("Vditor 加载失败");
-}
-
-/** 图片文件名净化：保留中文/字母/数字，其余转 - */
-function safeImageName(name) {
-  const ext = (name.match(/\.[a-z0-9]+$/i) || [""])[0];
-  const base = name.slice(0, name.length - ext.length)
-    .replace(/[^\w\u4e00-\u9fa5-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "") || "image";
-  return base + ext.toLowerCase();
-}
+import { ensureVditorLib, VDITOR_BASE } from "./editor-shared.js";
+import { uploadImage, runUploadQueue } from "../upload.js";
+import { invalidatePostsCache } from "./posts.js";
 
 export default async function editor(view, ctx, params, handleErr) {
   const isPage = location.hash.startsWith("#/editpage");
@@ -91,7 +53,6 @@ export default async function editor(view, ctx, params, handleErr) {
   await ensureVditorLib();
 
   view.innerHTML = "";
-  const originalFm = JSON.parse(JSON.stringify(fm));
 
   const grid = el(`<div class="grid-editor">
       <div class="card editor-card" style="margin-bottom:0">
@@ -248,8 +209,9 @@ export default async function editor(view, ctx, params, handleErr) {
   /* ---------- Vditor ---------- */
 
   let vditor;
+  let fallbackTa = null;
   const editorEl = grid.querySelector("#vditor");
-  const uploadPromiseQueue = [];
+  const getContent = () => vditor ? vditor.getValue() : (fallbackTa ? fallbackTa.value : body);
 
   const toolbarConfig = [
     "headings", "bold", "italic", "strike", "|",
@@ -288,46 +250,23 @@ export default async function editor(view, ctx, params, handleErr) {
     });
   } catch (e) {
     handleErr(e);
-    editorEl.innerHTML = `<textarea class="input" rows="18" style="width:100%">${esc(body)}</textarea>`;
+    fallbackTa = el(`<textarea class="input" rows="18" style="width:100%"></textarea>`);
+    fallbackTa.value = body;
+    fallbackTa.addEventListener("input", markDirty);
+    editorEl.innerHTML = "";
+    editorEl.appendChild(fallbackTa);
   }
 
   /* ---------- 图片上传 ---------- */
 
-  async function uploadFileOne(fileObj) {
-    const name = safeImageName(fileObj.name || "image.png");
-    const stamp = Date.now();
-    const finalName = stamp + "-" + name;
-    const path = "source/images/uploads/" + finalName;
-    await ctx.api.uploadFile(path, fileObj, `Upload Image ${finalName} by Qexo`);
-    return { path, publicPath: "/images/uploads/" + finalName, size: fileObj.size };
-  }
-
   async function uploadFiles(fileList) {
-    const files = Array.from(fileList || []).filter((f) => f.type && f.type.startsWith("image/"));
-    if (!files.length) {
-      toast("只支持图片文件", "error");
-      return;
-    }
-    loading.show(`上传图片 0/${files.length}…`);
-    const inserted = [];
-    let i = 0;
-    for (const f of files) {
-      loading.show(`上传图片 ${i + 1}/${files.length}：${f.name}`);
-      try {
-        const r = await uploadFileOne(f);
-        inserted.push(r);
-      } catch (e) {
-        toast("图片上传失败：" + (e.message || f.name), "error");
-      }
-      i++;
-    }
-    loading.hide();
-    if (inserted.length && vditor) {
-      const md = inserted.map((r) => `![${r.path.split("/").pop().replace(/^\d+-/, "")}](${r.publicPath})`).join("\n\n");
+    const { ok } = await runUploadQueue(fileList, (f) => uploadImage(ctx, f));
+    if (ok.length && vditor) {
+      const md = ok.map((r) => `![${r.publicPath.split("/").pop().replace(/^\d+-/, "")}](${r.publicPath})`).join("\n\n");
       if (vditor.getSelection && vditor.getSelection()) vditor.insertValue(md);
       else vditor.insertValue("\n" + md + "\n");
       markDirty();
-      toast(`已上传 ${inserted.length} 张图片`, "success");
+      toast(`已上传 ${ok.length} 张图片`, "success");
     }
   }
 
@@ -350,6 +289,23 @@ export default async function editor(view, ctx, params, handleErr) {
     if (e.target.closest(".pill .x") || e.target.closest(".pill-add")) markDirty();
   });
 
+  /** 新建文章/页面时按标题生成路径；同名已存在则加时间戳，避免覆盖 */
+  async function makeNewPath() {
+    const title = String(fm.title || "").trim();
+    const base = title.replace(/[^\w\u4e00-\u9fa5-]+/g, "-")
+      .replace(/-+/g, "-").replace(/^-|-$/g, "") || (isPage ? "page" : "post");
+    const path = isPage ? "source/" + base + "/index.md" : "source/_posts/" + base + ".md";
+    try {
+      await ctx.api.readFile(path);
+      return isPage
+        ? "source/" + base + "-" + Date.now() + "/index.md"
+        : "source/_posts/" + base + "-" + Date.now() + ".md";
+    } catch (e) {
+      if (e.status === 404 || ctx.demo) return path;
+      throw e;
+    }
+  }
+
   async function doSave() {
     collectFm();
     const title = String(fm.title || "").trim();
@@ -359,22 +315,23 @@ export default async function editor(view, ctx, params, handleErr) {
     }
     // 自动摘要
     if (!isPage && !fm.excerpt) {
-      const ex = extractExcerpt(vditor ? vditor.getValue() : body);
+      const ex = extractExcerpt(getContent());
       if (ex) fm.excerpt = ex;
     }
     if (!isPage && !fm.updated) fm.updated = nowLocal();
 
-    const content = buildFrontMatter(fm, vditor ? vditor.getValue() : body);
+    const content = buildFrontMatter(fm, getContent());
     const msg = isPage
       ? `Update Page ${title} by Qexo`
       : `Save Post ${title} by Qexo`;
     loading.show("正在保存到 GitHub…");
     try {
+      if (!origPath) origPath = await makeNewPath();
       await ctx.api.writeFile(origPath, content, msg);
       markClean();
       loading.hide();
       toast(isPage ? "页面已保存，Netlify 构建已触发" : "文章已保存，Netlify 构建已触发", "success");
-      try { sessionStorage.removeItem("qexo4_cache_posts"); } catch (_) {}
+      invalidatePostsCache();
       // 更新浏览器地址（新文件 → 指向真实 file）
       if (isNew) {
         history.replaceState(null, "", (isPage ? "#/editpage?file=" : "#/edit?file=") + encodeURIComponent(origPath));
@@ -387,16 +344,20 @@ export default async function editor(view, ctx, params, handleErr) {
 
   grid.querySelector("#ed-save").addEventListener("click", doSave);
 
-  document.addEventListener("keydown", function onSaveKey(e) {
+  const onSaveKey = (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
       e.preventDefault();
-      if (document.body.contains(grid)) doSave();
-      else document.removeEventListener("keydown", onSaveKey);
+      doSave();
     }
-  });
+  };
+  document.addEventListener("keydown", onSaveKey);
+  ctx._onLeave = () => {
+    document.removeEventListener("keydown", onSaveKey);
+    if (vditor && vditor.destroy) vditor.destroy();
+  };
 
   grid.querySelector("#ed-excerpt").addEventListener("click", () => {
-    const ex = extractExcerpt(vditor ? vditor.getValue() : body);
+    const ex = extractExcerpt(getContent());
     if (!ex) { toast("正文为空，无法生成摘要", "error"); return; }
     const f = fields.find((x) => x.key === "excerpt");
     if (f) {

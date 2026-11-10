@@ -1,4 +1,8 @@
-/* pages/editor-shared.js — Vditor 资源加载器（编辑器 / 说说页共用） */
+/* editor-shared.js — Vditor 资源加载器（编辑器 / 说说页共用） */
+
+import { VERSION } from "../app.js";
+
+export const VDITOR_BASE = "/admin/vendor/vditor";
 
 let libPromise = null;
 
@@ -12,29 +16,20 @@ function loadScript(src) {
   });
 }
 
-/** 确保 Vditor 库可用（自动注入 css/js），返回 Promise */
-export function ensureVditorLibFor() {
-  if (!document.querySelector('link[href*="vditor/dist/index.css"]')) {
+/** 确保 Vditor 库可用（自动注入 css/js） */
+export function ensureVditorLib() {
+  if (!document.querySelector("link[data-vditor-css]")) {
     const l = document.createElement("link");
     l.rel = "stylesheet";
-    l.href = "/admin/vendor/vditor/dist/index.css?v=4.0.0";
+    l.dataset.vditorCss = "1";
+    l.href = VDITOR_BASE + "/dist/index.css?v=" + VERSION;
     document.head.appendChild(l);
   }
   if (window.Vditor) return Promise.resolve();
   if (!libPromise) {
-    libPromise = loadScript("/admin/vendor/vditor/dist/index.min.js?v=4.0.0");
+    libPromise = loadScript(VDITOR_BASE + "/dist/index.min.js?v=" + VERSION);
   }
   return libPromise.then(() => {
     if (!window.Vditor) throw new Error("Vditor 加载失败");
   });
-}
-
-/** 图片文件名净化 */
-export function safeImageName(name) {
-  const ext = (name.match(/\.[a-z0-9]+$/i) || [""])[0];
-  const base = name.slice(0, name.length - ext.length)
-    .replace(/[^\w\u4e00-\u9fa5-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "") || "image";
-  return base + ext.toLowerCase();
 }

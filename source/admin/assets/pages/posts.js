@@ -6,12 +6,21 @@ import { splitFrontMatter, nowLocal } from "../yaml.js";
 const CACHE_KEY = "qexo4_cache_posts";
 const CACHE_TTL = 5 * 60 * 1000;
 
+/** 缓存按仓库+分支隔离，换仓库后不会串数据 */
+function cacheScope(ctx) {
+  return ctx.demo ? "demo" : ctx.settings.owner + "/" + ctx.settings.repo + "#" + ctx.settings.branch;
+}
+
+export function invalidatePostsCache() {
+  try { sessionStorage.removeItem(CACHE_KEY); } catch (_) { /* ignore */ }
+}
+
 /** 读取全部文章 front-matter（带 sessionStorage 缓存） */
 export async function loadAllPosts(ctx, { force = false } = {}) {
   if (!force) {
     try {
       const cache = JSON.parse(sessionStorage.getItem(CACHE_KEY) || "null");
-      if (cache && Date.now() - cache.ts < CACHE_TTL && cache.mode === ctx.api.mode) return cache.data;
+      if (cache && Date.now() - cache.ts < CACHE_TTL && cache.scope === cacheScope(ctx)) return cache.data;
     } catch (_) { /* ignore */ }
   }
   const api = ctx.api;
@@ -43,7 +52,7 @@ export async function loadAllPosts(ctx, { force = false } = {}) {
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
   data.sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || a.name.localeCompare(b.name));
   try {
-    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), mode: ctx.api.mode, data }));
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), scope: cacheScope(ctx), data }));
   } catch (_) { /* ignore */ }
   return data;
 }
@@ -118,7 +127,7 @@ export default async function posts(view, ctx, params, handleErr) {
         loading.show("正在删除…");
         try {
           await ctx.api.deleteFile(p.path, `Delete Post ${p.name} by Qexo`);
-          sessionStorage.removeItem(CACHE_KEY);
+          invalidatePostsCache();
           all = all.filter((x) => x.path !== p.path);
           render();
           toast("已删除《" + p.title + "》", "success");
@@ -166,7 +175,7 @@ export default async function posts(view, ctx, params, handleErr) {
             try {
               const path = "source/_posts/" + name;
               await ctx.api.writeFile(path, text, `New Post ${name} by Qexo`);
-              sessionStorage.removeItem(CACHE_KEY);
+              invalidatePostsCache();
               loading.hide();
               toast("文章已创建", "success");
               location.hash = "#/edit?file=" + encodeURIComponent(path);

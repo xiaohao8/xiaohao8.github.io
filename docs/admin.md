@@ -1,5 +1,10 @@
 # 后台使用与维护（Qexo 风格 · Netlify 版）
 
+> v4.1.0：修复高优先级 bug（图片/链接 XSS、GitHub 限流误判登出、路由切换竞态、
+> 友链/说说/设置保存覆盖仓库最新改动、图库复制弹窗缺 import）；后台重构
+> （统一上传模块与 Vditor 加载器、缓存隔离与资源回收、版本号单一来源）；
+> 构建链升级 **Hexo 8** 与插件、Fluid 主题内置 vendored。
+>
 > v4.0.0：完全重写。不再使用 Netlify CMS / Netlify Identity / Git Gateway，
 > 改为 **Qexo 同款模式**：浏览器用 GitHub Token 直连 GitHub API 读写仓库，
 > 保存即提交到 `main`，Netlify 自动构建发布。界面按 Qexo 的 Argon Dashboard 风格实现。
@@ -89,7 +94,7 @@ raw 地址会 302 到签名直链，`<img>` 会自动跟随。Gitee 镜像尚未
 - **图片路径**：编辑器/图库上传的图片在文章里写相对路径 `/images/uploads/文件名`；
   后台预览另走 Gitee 镜像（仓库路径 `source/images/uploads/文件名`），二者不是同一条 URL。
 - **缓存**：`/admin/vendor/*` 长期强缓存；`/admin/assets/*` 设为 `max-age=0`（每次 ETag 验证，
-  命中走 304），保证模块间静态 import 也能在发布后立即更新；入口资源另带 `?v=版本号`（v4.0.2）。
+  命中走 304），保证模块间静态 import 也能在发布后立即更新；入口资源另带 `?v=版本号`（v4.1.0）。
   本地调试请用无痕窗口或 `hexo server`。
 - **安全**：后台 HTML 带 `noindex`；请勿把 Token 提交进仓库或贴给别人。
 

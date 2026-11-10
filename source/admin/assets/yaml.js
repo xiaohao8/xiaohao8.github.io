@@ -35,10 +35,11 @@ export function splitFrontMatter(text) {
   const isDate = (v) => Object.prototype.toString.call(v) === "[object Date]";
   for (const key of Object.keys(data)) {
     if (isDate(data[key])) {
-      const line = raw.match(new RegExp("^" + key + ":\\s*(.+)$", "m"));
+      const line = raw.match(new RegExp("^" + key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ":\\s*(.+)$", "m"));
       data[key] = line ? line[1].trim().replace(/^['"]|['"]$/g, "") : isoToLocal(data[key]);
     }
   }
+  reviveDates(data);
   const body = t.slice(m[0].length).replace(/^\r?\n/, "");
   return { data, body, hasFm: true };
 }
@@ -68,12 +69,20 @@ export function dumpYaml(obj) {
   });
 }
 
-/** 通用 load */
+/** 通用 load（嵌套日期也还原为本地字符串，避免 dump 时格式漂移） */
 export function loadYaml(text) {
-  return jsYaml().load(text, { json: true });
+  return reviveDates(jsYaml().load(text, { json: true }));
 }
 
-function pad(n) { return n < 10 ? "0" + n : "" + n; }
+function reviveDates(v) {
+  if (v instanceof Date) return isoToLocal(v);
+  if (Array.isArray(v)) return v.map(reviveDates);
+  if (v && typeof v === "object") {
+    for (const k of Object.keys(v)) v[k] = reviveDates(v[k]);
+    return v;
+  }
+  return v;
+}
 
 export function isoToLocal(d) {
   if (!(d instanceof Date)) return String(d || "");

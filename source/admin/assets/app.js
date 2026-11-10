@@ -4,7 +4,7 @@ import { GitHubAPI, setMediaConfig, mediaFallbackUrls } from "./github.js";
 import { NetlifyAPI } from "./netlify.js";
 import { DemoAPI } from "./demo.js";
 
-export const VERSION = "4.0.2";
+export const VERSION = "4.1.0";
 export const ADMIN_TITLE = "醉里博客";
 
 const LS_SESSION = "qexo4_session";
@@ -75,6 +75,19 @@ export function esc(s) {
   return String(s == null ? "" : s)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+/** 仅允许 http(s) 链接，拦截 javascript: 等协议；非法返回 "" */
+export function safeHttpUrl(u) {
+  const s = String(u == null ? "" : u).trim();
+  return /^https?:\/\//i.test(s) ? s : "";
+}
+
+/** 图片地址：http(s) / 站内绝对路径 / data:image，其余返回 "" */
+export function safeImgUrl(u) {
+  const s = String(u == null ? "" : u).trim();
+  if (/^https?:\/\//i.test(s) || /^\/[^/]/.test(s) || /^data:image\//i.test(s)) return s;
+  return "";
 }
 
 export function el(html) {
@@ -234,7 +247,8 @@ export function imgWithFallback(srcs, { cls = "", alt = "", onFail } = {}) {
 /* ---------- 图标弹层 ---------- */
 
 export function lightbox(src) {
-  const box = el(`<div class="lightbox"><img src="${esc(src)}" alt="preview" /></div>`);
+  const box = el(`<div class="lightbox"><img alt="preview" /></div>`);
+  box.querySelector("img").src = safeImgUrl(src);
   box.addEventListener("click", () => box.remove());
   document.body.appendChild(box);
 }
@@ -282,13 +296,34 @@ function buildContext(session) {
 }
 
 function handleErr(e) {
+  if (e && e.rateLimited) {
+    const wait = e.retryAfter ? `，请 ${e.retryAfter} 秒后再试` : "，请稍后再试";
+    toast("GitHub API 请求已限流" + wait, "error", 6000);
+    return;
+  }
   if (e && (e.status === 401 || e.status === 403)) {
     toast("登录状态已失效（" + (e.message || "") + "），请重新登录", "error", 5000);
     store.clearSession();
+    endSession();
     renderLogin();
     return;
   }
   toast((e && e.message) || "操作失败", "error", 4200);
+}
+
+/** 结束当前会话：触发页面清理钩子，停止路由 */
+function endSession() {
+  runLeave(ctx);
+  ctx = null;
+}
+
+function runLeave(c) {
+  if (c && typeof c._onLeave === "function") {
+    try { c._onLeave(); } catch (_) { /* ignore */ }
+  }
+  if (c) c._onLeave = null;
+  // 关闭遗留的悬浮模态（模态挂 body 全局层，不在页面容器内）
+  document.querySelectorAll("body > .modal-overlay").forEach((ov) => ov.remove());
 }
 
 /* ---------- 登录页 ---------- */
@@ -470,8 +505,13 @@ function renderShell(c) {
   // 用户信息
   const user = (c.session && c.session.user) || {};
   const avatar = shell.querySelector("#side-avatar");
-  if (user.avatar) avatar.innerHTML = `<img src="${esc(user.avatar)}" alt="" referrerpolicy="no-referrer" />`;
-  else avatar.textContent = (user.name || "U").slice(0, 1).toUpperCase();
+  if (user.avatar) {
+    const im = document.createElement("img");
+    im.src = user.avatar;
+    im.alt = "";
+    im.referrerPolicy = "no-referrer";
+    avatar.appendChild(im);
+  } else avatar.textContent = (user.name || "U").slice(0, 1).toUpperCase();
   shell.querySelector("#side-name").textContent = user.name || "用户";
   shell.querySelector("#side-sub").textContent =
     c.demo ? "演示模式 · 数据为本地模拟" : "@" + (user.login || "");
@@ -479,6 +519,7 @@ function renderShell(c) {
   shell.querySelector("#side-logout").addEventListener("click", async () => {
     if (await confirmDialog({ title: "退出登录", text: "将清除本机保存的登录状态，确定退出？", okLabel: "退出", danger: true })) {
       store.clearSession();
+      endSession();
       location.hash = "";
       renderLogin();
     }
@@ -573,6 +614,7 @@ async function route(c) {
     c.dirty = false;
   }
   c._lastHash = location.hash;
+  runLeave(c);
 
   if (!loader) {
     view.innerHTML = "";
@@ -580,17 +622,19 @@ async function route(c) {
     return;
   }
 
-  view.innerHTML = "";
-  view.appendChild(el(`<div class="inline-loading"><span class="ring"></span>加载中…</div>`));
+  // 每次导航用独立容器：旧页面的异步回调只会写入已脱离 DOM 的旧容器，不会清掉新页面
+  const pageView = document.createElement("div");
+  view.replaceChildren(pageView);
+  pageView.appendChild(el(`<div class="inline-loading"><span class="ring"></span>加载中…</div>`));
   try {
     const mod = await loader();
     if (navTokenMine !== navToken) return;
-    view.innerHTML = "";
-    await mod.default(view, c, params, handleErr);
+    pageView.innerHTML = "";
+    await mod.default(pageView, c, params, handleErr);
   } catch (e) {
     if (navTokenMine !== navToken) return;
-    view.innerHTML = "";
-    view.appendChild(el(`<div class="card"><div class="empty">${ic("alert")}<p>${esc(e.message || "页面加载失败")}</p></div></div>`));
+    pageView.innerHTML = "";
+    pageView.appendChild(el(`<div class="card"><div class="empty">${ic("alert")}<p>${esc(e.message || "页面加载失败")}</p></div></div>`));
   }
 }
 
@@ -607,19 +651,21 @@ function bootApp(session, opts = {}) {
       }, 1600);
     }
   }
-  if (!location.hash) location.hash = "#/";
-  window.addEventListener("hashchange", () => route(ctx));
+  // replaceState 不触发 hashchange，避免首屏路由执行两次
+  if (!location.hash) history.replaceState(null, "", "#/");
   route(ctx);
+}
 
+function init() {
+  // 全局只注册一次，退出再登录不会叠加监听
+  window.addEventListener("hashchange", () => { if (ctx) route(ctx); });
   window.addEventListener("beforeunload", (e) => {
     if (ctx && ctx.dirty) {
       e.preventDefault();
       e.returnValue = "";
     }
   });
-}
 
-function init() {
   const params = new URLSearchParams(location.search);
   let session = store.getSession();
   if (params.get("logout") === "1") {
@@ -633,15 +679,22 @@ function init() {
     new GitHubAPI(session.token, settings)
       .validate()
       .then((user) => {
+        if (!ctx || ctx.session !== session) return;
         session.user = { ...session.user, ...user };
         if (session.user.name) {
-          document.querySelector("#side-name").textContent = session.user.name;
-          document.querySelector("#side-sub").textContent = "@" + session.user.login;
+          const nameEl = document.querySelector("#side-name");
+          const subEl = document.querySelector("#side-sub");
+          if (nameEl) nameEl.textContent = session.user.name;
+          if (subEl) subEl.textContent = "@" + session.user.login;
         }
       })
       .catch((e) => {
-        if (e.status === 401 || e.status === 403) {
+        if (!ctx || ctx.session !== session) return;
+        if (e.rateLimited) {
+          toast("GitHub API 限流，稍后自动恢复；本次跳过 Token 校验", "info", 5000);
+        } else if (e.status === 401 || e.status === 403) {
           store.clearSession();
+          endSession();
           renderLogin("登录状态已失效，请重新输入 Token");
         } else {
           toast("GitHub 连接异常：" + e.message, "error", 5000);

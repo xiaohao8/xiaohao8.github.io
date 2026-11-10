@@ -1,7 +1,7 @@
 /* pages/settings.js — 设置：仓库 / Netlify / 站点资料 / 导航菜单 / 首页外观 */
 
 import {
-  ic, esc, el, toast, loading, store,
+  ic, esc, el, toast, loading, store, safeHttpUrl,
 } from "../app.js";
 import { NetlifyAPI } from "../netlify.js";
 import { setMediaConfig, mediaFallbackUrls } from "../github.js";
@@ -178,10 +178,15 @@ export default async function settings(view, ctx, params, handleErr) {
 
   repoCard.querySelector("#save-repo").addEventListener("click", () => {
     const s = store.getSettings();
+    const siteUrl = repoCard.querySelector("#s-siteurl").value.trim();
+    if (siteUrl && !safeHttpUrl(siteUrl)) {
+      toast("站点地址需以 http:// 或 https:// 开头", "error");
+      return;
+    }
     s.owner = repoCard.querySelector("#s-owner").value.trim() || s.owner;
     s.repo = repoCard.querySelector("#s-repo").value.trim() || s.repo;
     s.branch = repoCard.querySelector("#s-branch").value.trim() || "main";
-    s.siteUrl = repoCard.querySelector("#s-siteurl").value.trim();
+    s.siteUrl = siteUrl;
     store.saveSettings(s);
     setMediaConfig({ ...s.imageSource, siteUrl: s.siteUrl }); // 站点地址变更立即作用于图片兜底链
     toast("仓库设置已保存，刷新页面后生效", "success");
@@ -259,12 +264,22 @@ export default async function settings(view, ctx, params, handleErr) {
 
   /* 站点资料 */
   let meta = {};
+  let metaLoaded = true;
   loading.show("正在加载配置文件…");
   try {
     meta = loadYaml(await ctx.api.readFile(SITE_META_PATH)) || {};
   } catch (e) {
-    handleErr(e);
-    meta = {};
+    if (e.status === 404 || ctx.demo) meta = {};
+    else {
+      handleErr(e);
+      meta = {};
+      metaLoaded = false;
+    }
+  }
+  if (!metaLoaded) {
+    metaCard.querySelector("#save-meta").disabled = true;
+    metaCard.querySelector(".card-header").appendChild(
+      el(`<div class="sub" style="color:var(--danger)">加载失败，已禁用保存以免覆盖仓库配置</div>`));
   }
 
   metaCard.querySelector("#m-title").value = meta.title || "";
@@ -275,18 +290,26 @@ export default async function settings(view, ctx, params, handleErr) {
   metaCard.querySelector("#m-lang").value = meta.language || "zh-CN";
 
   metaCard.querySelector("#save-meta").addEventListener("click", async () => {
-    const next = {
-      ...meta,
-      title: metaCard.querySelector("#m-title").value.trim(),
-      subtitle: metaCard.querySelector("#m-subtitle").value.trim(),
-      description: metaCard.querySelector("#m-desc").value.trim(),
-      keywords: metaCard.querySelector("#m-kw").value.split(/[,，]/).map((s) => s.trim()).filter(Boolean),
-      author: metaCard.querySelector("#m-author").value.trim(),
-      language: metaCard.querySelector("#m-lang").value.trim() || "zh-CN",
-    };
     loading.show("正在保存站点资料…");
     try {
+      // 写前重读，保留表单之外的未知键
+      let fresh = {};
+      try {
+        fresh = loadYaml(await ctx.api.readFile(SITE_META_PATH)) || {};
+      } catch (e) {
+        if (!(e.status === 404 || ctx.demo)) throw e;
+      }
+      const next = {
+        ...fresh,
+        title: metaCard.querySelector("#m-title").value.trim(),
+        subtitle: metaCard.querySelector("#m-subtitle").value.trim(),
+        description: metaCard.querySelector("#m-desc").value.trim(),
+        keywords: metaCard.querySelector("#m-kw").value.split(/[,，]/).map((s) => s.trim()).filter(Boolean),
+        author: metaCard.querySelector("#m-author").value.trim(),
+        language: metaCard.querySelector("#m-lang").value.trim() || "zh-CN",
+      };
       await ctx.api.writeFile(SITE_META_PATH, dumpYaml(next), "Update Site Meta by Qexo");
+      meta = next;
       toast("站点资料已保存，Netlify 构建已触发", "success");
     } catch (e) { handleErr(e); }
     loading.hide();
@@ -294,10 +317,21 @@ export default async function settings(view, ctx, params, handleErr) {
 
   /* 导航菜单 + 首页外观（同一个 fluid_config.yml） */
   let fluid = {};
+  let fluidLoaded = true;
   try {
     fluid = loadYaml(await ctx.api.readFile(FLUID_PATH)) || {};
   } catch (e) {
-    fluid = {};
+    if (e.status === 404 || ctx.demo) fluid = {};
+    else {
+      fluid = {};
+      fluidLoaded = false;
+    }
+  }
+  if (!fluidLoaded) {
+    navCard.querySelector("#save-nav").disabled = true;
+    indexCard.querySelector("#save-index").disabled = true;
+    navCard.querySelector(".card-header").appendChild(
+      el(`<div class="sub" style="color:var(--danger)">加载失败，已禁用保存以免覆盖仓库配置</div>`));
   }
   const navbar = fluid.navbar || {};
   const menu = Array.isArray(navbar.menu) ? navbar.menu.map((m) => ({ ...m })) : [];
@@ -341,20 +375,36 @@ export default async function settings(view, ctx, params, handleErr) {
   indexCard.querySelector("#i-blogtitle").value = navbar.blog_title || "";
   indexCard.querySelector("#i-slogan").value = ((indexCfg.slogan || {}).text || "");
 
-  async function saveFluid(extraMessage) {
-    navbar.menu = menu.filter((m) => m.key && m.link);
-    navbar.blog_title = indexCard.querySelector("#i-blogtitle").value.trim();
-    fluid.navbar = navbar;
-    fluid.index = {
-      ...(fluid.index || {}),
-      banner_img: indexCard.querySelector("#i-banner").value.trim(),
-      banner_img_height: Number(indexCard.querySelector("#i-height").value) || undefined,
-      slogan: { ...((fluid.index || {}).slogan || {}), text: indexCard.querySelector("#i-slogan").value },
-    };
-    if (fluid.index.banner_img_height == null) delete fluid.index.banner_img_height;
+  async function saveFluid() {
+    if (!fluidLoaded) {
+      toast("配置未成功加载，已禁用保存以免覆盖", "error");
+      return;
+    }
     loading.show("正在保存…");
     try {
-      await ctx.api.writeFile(FLUID_PATH, dumpYaml(fluid), "Update Fluid Config by Qexo");
+      // 写前重读远端配置，只改 navbar.menu / blog_title / index 段，其余键原样保留
+      let fresh;
+      try {
+        fresh = loadYaml(await ctx.api.readFile(FLUID_PATH)) || {};
+      } catch (e) {
+        if (e.status === 404 || ctx.demo) fresh = {};
+        else throw e;
+      }
+      const freshNavbar = fresh.navbar || {};
+      freshNavbar.menu = menu.filter((m) => m.key && m.link);
+      freshNavbar.blog_title = indexCard.querySelector("#i-blogtitle").value.trim();
+      fresh.navbar = freshNavbar;
+      const hRaw = indexCard.querySelector("#i-height").value.trim();
+      const height = hRaw !== "" && !isNaN(Number(hRaw)) ? Number(hRaw) : undefined;
+      fresh.index = {
+        ...(fresh.index || {}),
+        banner_img: indexCard.querySelector("#i-banner").value.trim(),
+        banner_img_height: height,
+        slogan: { ...((fresh.index || {}).slogan || {}), text: indexCard.querySelector("#i-slogan").value },
+      };
+      if (fresh.index.banner_img_height == null) delete fresh.index.banner_img_height;
+      await ctx.api.writeFile(FLUID_PATH, dumpYaml(fresh), "Update Fluid Config by Qexo");
+      fluid = fresh;
       toast("配置已保存，Netlify 构建已触发", "success");
     } catch (e) { handleErr(e); }
     loading.hide();

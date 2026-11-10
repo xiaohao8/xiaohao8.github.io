@@ -105,7 +105,15 @@ export class GitHubAPI {
         const j = await res.json();
         if (j && j.message) msg = j.message + " (" + res.status + ")";
       } catch (_) { /* ignore */ }
-      throw new GitHubError(msg, res.status);
+      const err = new GitHubError(msg, res.status);
+      // 限流也会返回 403，不能当成 Token 失效
+      if ((res.status === 403 || res.status === 429) &&
+          (remain === "0" || /rate limit/i.test(msg))) {
+        err.rateLimited = true;
+        const retry = res.headers.get("retry-after");
+        err.retryAfter = retry ? Number(retry) : null;
+      }
+      throw err;
     }
     if (res.status === 204) return null;
     if (raw) return res.text();
@@ -140,14 +148,14 @@ export class GitHubAPI {
 
   async listDir(path) {
     const items = await this.req(
-      "/repos/" + this.repoPath + "/contents/" + encodePath(path) + "?ref=" + this.branch
+      "/repos/" + this.repoPath + "/contents/" + encodePath(path) + "?ref=" + encodeURIComponent(this.branch)
     );
     return Array.isArray(items) ? items : [];
   }
 
   async readFile(path) {
     return this.req(
-      "/repos/" + this.repoPath + "/contents/" + encodePath(path) + "?ref=" + this.branch,
+      "/repos/" + this.repoPath + "/contents/" + encodePath(path) + "?ref=" + encodeURIComponent(this.branch),
       { raw: true }
     );
   }
@@ -156,7 +164,7 @@ export class GitHubAPI {
     let sha = null;
     try {
       const cur = await this.req(
-        "/repos/" + this.repoPath + "/contents/" + encodePath(path) + "?ref=" + this.branch
+        "/repos/" + this.repoPath + "/contents/" + encodePath(path) + "?ref=" + encodeURIComponent(this.branch)
       );
       if (cur && cur.sha) sha = cur.sha;
     } catch (e) {
@@ -177,7 +185,7 @@ export class GitHubAPI {
 
   async deleteFile(path, message) {
     const cur = await this.req(
-      "/repos/" + this.repoPath + "/contents/" + encodePath(path) + "?ref=" + this.branch
+      "/repos/" + this.repoPath + "/contents/" + encodePath(path) + "?ref=" + encodeURIComponent(this.branch)
     );
     await this.req("/repos/" + this.repoPath + "/contents/" + encodePath(path), {
       method: "DELETE",
@@ -187,22 +195,17 @@ export class GitHubAPI {
 
   async uploadFile(path, blobOrFile, message) {
     const buf = await blobOrFile.arrayBuffer();
-    let binary = "";
-    const bytes = new Uint8Array(buf);
-    const chunk = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunk) {
-      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
-    }
+    const content = bytesToB64(new Uint8Array(buf));
     let sha = null;
     try {
       const cur = await this.req(
-        "/repos/" + this.repoPath + "/contents/" + encodePath(path) + "?ref=" + this.branch
+        "/repos/" + this.repoPath + "/contents/" + encodePath(path) + "?ref=" + encodeURIComponent(this.branch)
       );
       if (cur && cur.sha) sha = cur.sha;
     } catch (e) {
       if (e.status !== 404) throw e;
     }
-    const body = { message, content: btoa(binary), branch: this.branch };
+    const body = { message, content, branch: this.branch };
     if (sha) body.sha = sha;
     await this.req("/repos/" + this.repoPath + "/contents/" + encodePath(path), {
       method: "PUT",
@@ -214,7 +217,7 @@ export class GitHubAPI {
 
   async tree(ref) {
     const data = await this.req(
-      "/repos/" + this.repoPath + "/git/trees/" + (ref || this.branch) + "?recursive=1"
+      "/repos/" + this.repoPath + "/git/trees/" + encodeURIComponent(ref || this.branch) + "?recursive=1"
     );
     return data.tree || [];
   }
@@ -253,5 +256,15 @@ function encodePath(p) {
 }
 
 function btoaUtf8(str) {
-  return btoa(String.fromCharCode(...new TextEncoder().encode(str)));
+  return bytesToB64(new TextEncoder().encode(str));
+}
+
+/** 分块转 base64，避免 spread 大数组抛 RangeError（长文/大图） */
+function bytesToB64(bytes) {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
 }

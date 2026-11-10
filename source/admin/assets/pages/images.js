@@ -1,9 +1,10 @@
 /* pages/images.js — 图库：上传 / 网格浏览 / 复制链接 / 删除（source/images/uploads） */
 
 import {
-  ic, esc, el, toast, loading, confirmDialog, lightbox, copyText, fmtSize, imgWithFallback, previewSrcsFor,
+  ic, esc, el, toast, loading, confirmDialog, modal, lightbox, copyText, fmtSize, imgWithFallback, previewSrcsFor,
 } from "../app.js";
 import { mediaGiteeUrl } from "../github.js";
+import { runUploadQueue } from "../upload.js";
 
 const DIR = "source/images/uploads";
 const IMG_RE = /\.(png|jpe?g|gif|webp|svg|avif|bmp|ico)$/i;
@@ -51,26 +52,18 @@ export default async function images(view, ctx, params, handleErr) {
   });
 
   async function uploadFiles(files) {
-    loading.show(`上传图片 0/${files.length}…`);
-    let ok = 0;
-    let i = 0;
-    for (const f of files) {
-      loading.show(`上传图片 ${i + 1}/${files.length}：${f.name}`);
-      try {
-        let name = safeName(f.name);
-        if (items.some((it) => it.name === name)) name = Date.now() + "-" + name;
-        const path = DIR + "/" + name;
-        await ctx.api.uploadFile(path, f, `Upload Image ${name} by Qexo`);
-        items.unshift({ name, path, size: f.size, blobUrl: URL.createObjectURL(f) });
-        ok++;
-      } catch (e) {
-        toast("上传失败：" + (e.message || f.name), "error");
-      }
-      i++;
-    }
-    loading.hide();
-    if (ok) {
-      toast(`已上传 ${ok} 张图片，Netlify 构建已触发`, "success");
+    const used = new Set(items.map((it) => it.name));
+    const { ok } = await runUploadQueue(files, async (f) => {
+      let name = safeName(f.name);
+      if (used.has(name)) name = Date.now() + "-" + name;
+      used.add(name);
+      const path = DIR + "/" + name;
+      await ctx.api.uploadFile(path, f, `Upload Image ${name} by Qexo`);
+      return { name, path, size: f.size, blobUrl: URL.createObjectURL(f) };
+    });
+    if (ok.length) {
+      items.unshift(...ok);
+      toast(`已上传 ${ok.length} 张图片，Netlify 构建已触发`, "success");
       render();
     }
   }
@@ -131,6 +124,7 @@ export default async function images(view, ctx, params, handleErr) {
         loading.show("正在删除…");
         try {
           await ctx.api.deleteFile(item.path, `Delete Image ${item.name} by Qexo`);
+          if (item.blobUrl) URL.revokeObjectURL(item.blobUrl);
           items = items.filter((x) => x !== item);
           render();
           toast("图片已删除", "success");
@@ -176,9 +170,14 @@ export default async function images(view, ctx, params, handleErr) {
   });
   toolbar.querySelector("#img-search").addEventListener("input", render);
 
+  ctx._onLeave = () => {
+    for (const it of items) if (it.blobUrl) URL.revokeObjectURL(it.blobUrl);
+  };
+
   async function load() {
     try {
       const list = await ctx.api.listDir(DIR);
+      for (const it of items) if (it.blobUrl) URL.revokeObjectURL(it.blobUrl);
       items = list
         .filter((it) => it.type === "file" && IMG_RE.test(it.name))
         .map((it) => ({ name: it.name, path: it.path, size: it.size }))

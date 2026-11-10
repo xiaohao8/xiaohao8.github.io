@@ -212,8 +212,9 @@ export class DemoAPI {
   }
 
   async writeFile(path, text, message) {
+    const created = !this.repo.has(path);
     await this._write(path, text);
-    return { created: !this.repo.has(path), demo: true };
+    return { created, demo: true };
   }
 
   async deleteFile(path) {

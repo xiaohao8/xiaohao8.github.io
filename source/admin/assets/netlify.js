@@ -22,6 +22,7 @@ export class NetlifyAPI {
     this.siteId = nl.siteId || "";
     this.token = nl.token || "";
     this.buildHook = nl.buildHook || "";
+    this.nameHint = String(settings.owner || "").toLowerCase();
     this.mode = "netlify";
   }
 
@@ -95,7 +96,9 @@ export class NetlifyAPI {
           (s.custom_domains || []).some((d) => d.toLowerCase() === want) ||
           hostOf(s.ssl_url) === want || hostOf(s.url) === want)
       : null;
-    const byName = sites.find((s) => String(s.name || "").toLowerCase().includes("xiaohao8"));
+    const byName = this.nameHint
+      ? sites.find((s) => String(s.name || "").toLowerCase().includes(this.nameHint))
+      : null;
     const pick = byDomain || byName || sites[0];
     return {
       siteId: pick.id,

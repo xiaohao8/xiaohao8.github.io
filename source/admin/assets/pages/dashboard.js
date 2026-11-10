@@ -1,10 +1,11 @@
 /* pages/dashboard.js — 工作台：统计卡 / 快捷操作 / 最近文章 / Netlify 部署状态 */
 
 import {
-  ic, esc, el, toast, fmtTime, fmtAgo, confirmDialog, lightbox, imgWithFallback, previewSrcsFor,
+  ic, esc, el, fmtTime, fmtAgo, lightbox, imgWithFallback, previewSrcsFor,
 } from "../app.js";
-import { loadYaml, splitFrontMatter } from "../yaml.js";
+import { loadYaml } from "../yaml.js";
 import { deployState } from "../netlify.js";
+import { loadAllPosts } from "./posts.js";
 
 export default async function dashboard(view, ctx, params, handleErr) {
   const settings = ctx.settings;
@@ -69,7 +70,7 @@ export default async function dashboard(view, ctx, params, handleErr) {
   async function loadStats() {
     const api = ctx.api;
     const [posts, talksYaml, fluidYaml, metaYaml, images] = await Promise.all([
-      api.listPosts().catch(() => []),
+      loadAllPosts(ctx).catch(() => []),
       api.readFile("source/_data/talks.yml").catch(() => "items: []"),
       api.readFile("source/_data/fluid_config.yml").catch(() => "links: {}"),
       api.readFile("source/_data/site_meta.yml").catch(() => ""),
@@ -106,26 +107,15 @@ export default async function dashboard(view, ctx, params, handleErr) {
         <tr><td class="cell-muted">线上地址</td><td><a href="${esc(settings.siteUrl)}" target="_blank" rel="noopener">${esc(settings.siteUrl)} ${ic("external")}</a></td></tr>
       </tbody></table>`;
 
-    // 最近文章（读取每篇 front-matter 取标题/日期）
-    const rows = await Promise.all(
-      posts.slice(0, 8).map(async (p) => {
-        try {
-          const text = await api.readFile(p.path);
-          const { data } = splitFrontMatter(text);
-          return {
-            title: data.title || p.name.replace(/\.md$/, ""),
-            date: data.date || data.updated || "",
-            path: p.path,
-            name: p.name,
-            sticky: data.sticky,
-            tags: data.tags || [],
-          };
-        } catch (_) {
-          return { title: p.name, date: "", path: p.path, name: p.name, sticky: null, tags: [] };
-        }
-      })
-    );
-    rows.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    // 最近文章（复用文章列表的 front-matter 缓存，已按日期排序）
+    const rows = posts.slice(0, 8).map((p) => ({
+      title: p.title,
+      date: p.date || p.updated || "",
+      path: p.path,
+      name: p.name,
+      sticky: p.sticky,
+      tags: p.tags || [],
+    }));
     const tb = recentCard.querySelector("tbody");
     if (!rows.length) {
       tb.innerHTML = `<tr><td><div class="empty">${ic("post")}<p>还没有文章</p></div></td></tr>`;
@@ -163,7 +153,12 @@ export default async function dashboard(view, ctx, params, handleErr) {
 
   /* ---------- Netlify 部署 ---------- */
 
+  let pollTimer = null;
+  ctx._onLeave = () => { if (pollTimer) clearTimeout(pollTimer); };
+
   async function loadDeploys() {
+    if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+    if (!document.body.contains(deployCard)) return;
     const body = deployCard.querySelector("#deploy-body");
     if (ctx.demo) {
       renderDeploys(ctx.api.deployFixtures());
@@ -201,7 +196,7 @@ export default async function dashboard(view, ctx, params, handleErr) {
     }).join("");
     const first = list[0];
     if (first && (first.state === "building" || first.state === "enqueued" || first.state === "processing")) {
-      setTimeout(loadDeploys, 15000);
+      pollTimer = setTimeout(loadDeploys, 15000);
     }
   }
 
