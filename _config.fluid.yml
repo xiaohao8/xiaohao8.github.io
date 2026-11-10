@@ -117,9 +117,9 @@ fun_features:
   # 加载进度条
   # Progress bar when loading
   progressbar:
-    enable: false
+    enable: true
     height_px: 3
-    color: "#29d"
+    color: "#8d7be0"
     # See: https://github.com/rstacruz/nprogress
     options: { showSpinner: false, trickleSpeed: 100 }
 
@@ -237,6 +237,7 @@ custom_js:
 # The usage is the same as custom_js
 custom_css: 
   - /css/fonts.css
+  - /css/custom.css
 # 网页访问统计
 # Analysis of website visitors
 web_analytics:  # 网页访问统计

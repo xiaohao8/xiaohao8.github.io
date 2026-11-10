@@ -1,0 +1,241 @@
+/* ============================================================
+   醉里博客 · 前台 UI 升级皮肤 v1（2026 refresh）
+   挂载于 Fluid 主题之上，只做视觉层，不改主题结构。
+   明暗双态：亮色默认，html[data-user-color-scheme="dark"] 覆盖。
+   ============================================================ */
+
+:root {
+  --zui-primary: #7c6fd9;        /* 主紫（较原 #A593E0 更深，正文可读） */
+  --zui-primary-soft: #a593e0;
+  --zui-gradient: linear-gradient(135deg, #8d7be0, #a593e0);
+  --zui-card-radius: 16px;
+  --zui-shadow: 0 1px 2px rgba(35, 35, 80, 0.05), 0 6px 20px rgba(35, 35, 80, 0.06);
+  --zui-shadow-hover: 0 4px 10px rgba(35, 35, 80, 0.08), 0 16px 36px rgba(35, 35, 80, 0.12);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* ---------- 顶部导航：半透明毛玻璃 ---------- */
+.navbar {
+  backdrop-filter: saturate(1.4) blur(10px);
+  -webkit-backdrop-filter: saturate(1.4) blur(10px);
+  background-color: rgba(124, 111, 217, 0.88) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset, 0 2px 12px rgba(60, 50, 120, 0.18);
+  transition: background-color 0.3s ease;
+}
+.navbar .nav-link,
+.navbar .navbar-brand {
+  transition: opacity 0.2s ease;
+}
+.navbar .nav-link:hover { opacity: 0.82; }
+
+/* ---------- 首页 Banner：底部渐变压暗，文字更清晰 ---------- */
+.banner {
+  position: relative;
+  overflow: hidden;
+}
+.banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(20, 16, 46, 0.08) 0%, rgba(20, 16, 46, 0.22) 62%, rgba(20, 16, 46, 0.46) 100%);
+  pointer-events: none;
+}
+.banner-title,
+.banner-subtitle,
+#subtitle {
+  text-shadow: 0 2px 14px rgba(20, 16, 46, 0.55);
+}
+
+/* ---------- 首页文章卡片 ---------- */
+.index-card {
+  border-radius: var(--zui-card-radius);
+  overflow: hidden;
+  box-shadow: var(--zui-shadow);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.index-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--zui-shadow-hover);
+}
+.index-card .index-img {
+  overflow: hidden;
+}
+.index-card .index-img img {
+  border-radius: 0;
+  transition: transform 0.45s ease;
+}
+.index-card:hover .index-img img {
+  transform: scale(1.04);
+}
+.index-header .post-title,
+.index-header h1,
+.index-header h2 {
+  transition: color 0.2s ease;
+}
+.index-card:hover .index-header .post-title {
+  color: var(--zui-primary);
+}
+.index-header .post-meta .iconfont {
+  color: var(--zui-primary-soft);
+}
+
+/* ---------- 通用卡片 / 内容板 ---------- */
+#board {
+  border-radius: var(--zui-card-radius);
+  box-shadow: var(--zui-shadow);
+}
+
+/* ---------- 正文排版 ---------- */
+.markdown-body {
+  line-height: 1.85;
+  letter-spacing: 0.01em;
+}
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.markdown-body h2 {
+  position: relative;
+  padding-left: 0.9em;
+  margin-top: 2.2em;
+}
+.markdown-body h2::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.18em;
+  width: 5px;
+  height: 1.05em;
+  border-radius: 3px;
+  background: var(--zui-gradient);
+}
+.markdown-body a:not(.no-underline) {
+  text-decoration: none;
+  border-bottom: 1px solid rgba(124, 111, 217, 0.4);
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+.markdown-body a:not(.no-underline):hover {
+  color: var(--zui-primary);
+  border-bottom-color: var(--zui-primary);
+}
+.markdown-body img {
+  border-radius: 10px;
+  box-shadow: 0 2px 14px rgba(35, 35, 80, 0.1);
+}
+.markdown-body blockquote {
+  border-left: 4px solid var(--zui-primary-soft);
+  border-radius: 0 10px 10px 0;
+  background: rgba(165, 147, 224, 0.08);
+  padding: 0.6rem 1.1rem;
+}
+.markdown-body blockquote p {
+  margin: 0.25rem 0;
+}
+.markdown-body hr {
+  height: 1px;
+  border: 0;
+  background: linear-gradient(90deg, transparent, var(--line-color), transparent);
+}
+.markdown-body code {
+  border-radius: 6px;
+  padding: 0.15em 0.45em;
+}
+.markdown-body .highlight,
+.markdown-body pre {
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(35, 35, 80, 0.08);
+}
+.markdown-body table {
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* ---------- 目录 ---------- */
+.toc {
+  border-left: 2px solid var(--line-color);
+  padding-left: 0.6rem;
+  font-size: 0.92em;
+}
+.toc a {
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+/* ---------- 按钮 / 分页 ---------- */
+.btn {
+  border-radius: 999px;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+.btn:hover { transform: translateY(-1px); }
+.pagination .page-number {
+  border-radius: 999px;
+  min-width: 2.1rem;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* ---------- 回到顶部 ---------- */
+#scroll-top-button,
+.scroll-top-button {
+  border-radius: 999px !important;
+  box-shadow: var(--zui-shadow-hover) !important;
+  transition: transform 0.2s ease, opacity 0.2s ease !important;
+}
+#scroll-top-button:hover,
+.scroll-top-button:hover { transform: translateY(-2px); }
+
+/* ---------- 页脚 ---------- */
+footer .footer-container,
+footer {
+  opacity: 0.92;
+}
+footer .iconfont { transition: transform 0.2s ease, color 0.2s ease; }
+footer .iconfont:hover { transform: translateY(-2px); color: var(--zui-primary); }
+
+/* ---------- 微交互 ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  .index-card,
+  #board,
+  .navbar,
+  .markdown-body img {
+    will-change: transform;
+  }
+}
+
+/* ============================================================
+   暗色模式
+   ============================================================ */
+html[data-user-color-scheme="dark"] .navbar {
+  background-color: rgba(31, 49, 68, 0.86) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 2px 14px rgba(0, 0, 0, 0.35);
+}
+html[data-user-color-scheme="dark"] .banner::after {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.12) 0%, rgba(0, 0, 0, 0.3) 62%, rgba(0, 0, 0, 0.55) 100%);
+}
+html[data-user-color-scheme="dark"] .index-card,
+html[data-user-color-scheme="dark"] #board {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+html[data-user-color-scheme="dark"] .index-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), 0 18px 40px rgba(0, 0, 0, 0.4);
+}
+html[data-user-color-scheme="dark"] .markdown-body blockquote {
+  background: rgba(165, 147, 224, 0.12);
+}
+html[data-user-color-scheme="dark"] .markdown-body h2::before {
+  background: linear-gradient(135deg, #a593e0, #8d7be0);
+}
+html[data-user-color-scheme="dark"] .markdown-body img {
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.45);
+}
+
+/* ---------- 小屏微调 ---------- */
+@media (max-width: 767.98px) {
+  :root { --zui-card-radius: 12px; }
+  .index-card:hover { transform: none; }   /* 触屏不要浮起 */
+  .navbar { background-color: rgba(124, 111, 217, 0.94) !important; }
+}
