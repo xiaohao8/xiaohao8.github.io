@@ -12,6 +12,29 @@
   root.classList.add("zui-js");
   if (reduceMotion) root.classList.add("zui-no-motion");
 
+  /* ---------- 0. 默认封面按文章轮换（打破同图单调） ----------
+     无自设封面的文章由 Fluid 填 default-cover；这里按文章链接哈希
+     从 5 色品牌封面中稳定选一张，同一篇文章每次都是同一张。 */
+  function setupCoverVariants() {
+    var variants = [
+      "/images/uploads/covers/cover-ocean.svg",
+      "/images/uploads/covers/cover-emerald.svg",
+      "/images/uploads/covers/cover-sunset.svg",
+      "/images/uploads/covers/cover-midnight.svg",
+      "/images/uploads/covers/cover-rose.svg",
+    ];
+    var hash = function (s) {
+      var h = 0;
+      for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+      return h;
+    };
+    document.querySelectorAll(".index-card .index-img img").forEach(function (img) {
+      if (!/default-cover/.test(img.getAttribute("src") || "")) return;
+      var a = img.closest("a");
+      var key = a ? a.getAttribute("href") : img.alt || Math.random();
+      img.src = variants[hash(String(key)) % variants.length];
+    });
+  }
   /* ---------- 1. 滚动入场动画（IntersectionObserver） ---------- */
   var revealSel = ".index-card, #board, .widget, .pagination";
   function setupReveal() {
@@ -130,6 +153,7 @@
 
   /* ---------- 启动 ---------- */
   function boot() {
+    setupCoverVariants();
     // 首页的 #board 只是卡片容器：去掉面板底，让卡片直接浮在页面渐变上
     var board = document.getElementById("board");
     if (board && board.querySelector(".index-card")) board.classList.add("zui-board-flat");

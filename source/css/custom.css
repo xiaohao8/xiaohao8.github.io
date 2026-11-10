@@ -575,3 +575,114 @@ html[data-user-color-scheme="dark"] .license-box {
   .banner .banner-title,
   .banner #subtitle { font-size: 1.35rem; }
 }
+
+/* ============================================================
+   v2.3 审美精修
+   ============================================================ */
+
+/* Banner 主标题：更大、更有排版气质 */
+.banner .banner-title,
+#banner .banner-title {
+  font-size: clamp(1.7rem, 3.6vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.5;
+}
+#subtitle,
+.banner-subtitle {
+  font-size: clamp(1.3rem, 2.6vw, 1.75rem);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  opacity: 0.97;
+  line-height: 1.75;
+}
+.banner-text,
+.banner-title,
+#banner .container {
+  text-align: center !important;
+}
+.banner-text {
+  width: 100% !important;
+  max-width: 920px !important;
+  margin: 0 auto !important;
+  flex: none !important;
+}
+
+/* 下滑指示器：玻璃圆点 + 弹跳 */
+.scroll-down-bar {
+  position: relative;
+  z-index: 2;
+}
+.scroll-down-bar .iconfont {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: #fff;
+  animation: zui-bounce 2.2s var(--zui-ease) infinite;
+}
+@keyframes zui-bounce {
+  0%, 100% { transform: translateY(0); opacity: 0.9; }
+  50% { transform: translateY(7px); opacity: 1; }
+}
+
+/* 卡片排版：标题更醒目，meta 点分隔 */
+.index-header .post-title,
+.index-header h1 a {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.index-btm .post-meta + .post-meta::before {
+  content: "·";
+  margin: 0 0.45rem 0 0.1rem;
+  color: var(--zui-primary-2);
+  font-weight: 700;
+}
+.index-btm .post-meta { color: var(--sec-text-color); }
+.index-btm .post-meta .iconfont {
+  transition: color 0.2s ease, transform 0.2s var(--zui-ease);
+}
+.index-card:hover .index-btm .post-meta .iconfont {
+  color: var(--zui-primary-2);
+  transform: translateY(-1px);
+}
+
+/* 分类胶囊 */
+.category-chain-item {
+  background: rgba(165, 147, 224, 0.1);
+  border-radius: 999px;
+  padding: 0.05rem 0.6rem;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.category-chain-item:hover {
+  background: rgba(165, 147, 224, 0.22);
+  color: var(--zui-primary) !important;
+}
+
+/* 页脚：渐变发丝线 + 品牌感 */
+footer {
+  background: linear-gradient(180deg, transparent, rgba(165, 147, 224, 0.06));
+}
+
+/* 键盘可达性 */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--zui-primary-2);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Banner 内容纵向堆叠居中（修复满宽兄弟元素把标语挤到左侧） */
+#banner .mask {
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+#banner .mask > * { max-width: 100%; }
