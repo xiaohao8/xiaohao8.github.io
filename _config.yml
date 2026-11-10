@@ -136,13 +136,6 @@ abbrlink:
 sitemap:
   path: sitemap.xml
 
-# hexo-filter-nofollow
-# https://github.com/hexojs/hexo-filter-nofollow
-nofollow:
-  enable: false
-  field: site
-  exclude:
-
 # hexo-all-minifier
 # https://github.com/chenzhutian/hexo-all-minifier
 all_minifier: true
@@ -170,7 +163,8 @@ js_concator:
   front: false
   silent: false
 image_minifier:
-  enable: true
+  # 依赖 gifsicle/jpegtran 等外部二进制，本地/CI 常下载失败；上传图已压缩，构建不再处理图片
+  enable: false
   interlaced: false
   multipass: false
   optimizationLevel: 2

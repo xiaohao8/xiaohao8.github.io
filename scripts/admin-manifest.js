@@ -1,5 +1,18 @@
 "use strict";
 
+const fs = require("fs");
+const path = require("path");
+
+/** 后台版本号单一来源：source/admin/assets/app.js 的 VERSION 常量 */
+function readAdminVersion() {
+  try {
+    const appJs = fs.readFileSync(path.join(hexo.source_dir, "admin", "assets", "app.js"), "utf8");
+    const m = appJs.match(/export const VERSION = "([^"]+)"/);
+    if (m) return m[1];
+  } catch (_) { /* ignore */ }
+  return "unknown";
+}
+
 hexo.extend.generator.register("admin-manifest", function (locals) {
   const data = hexo.locals.get("data") || {};
   const fluidConfig = data.fluid_config || {};
@@ -19,7 +32,7 @@ hexo.extend.generator.register("admin-manifest", function (locals) {
   });
 
   const manifest = {
-    adminVersion: "4.0.0",
+    adminVersion: readAdminVersion(),
     generatedAt: new Date().toISOString(),
     hexoVersion: hexo.version,
     site: {

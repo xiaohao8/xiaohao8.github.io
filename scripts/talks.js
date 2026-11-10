@@ -13,6 +13,11 @@ function escapeAttr(value) {
   return escapeHtml(value).replace(/`/g, "&#96;");
 }
 
+function talkTime(value) {
+  const time = new Date(value || 0).getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
 function renderImages(images) {
   if (!Array.isArray(images) || images.length === 0) {
     return "";
@@ -59,7 +64,7 @@ hexo.extend.tag.register("qexo_talks", function () {
   }
 
   const sorted = items.slice().sort(function (left, right) {
-    return new Date(right.date || 0).getTime() - new Date(left.date || 0).getTime();
+    return talkTime(right.date) - talkTime(left.date);
   });
 
   return (
