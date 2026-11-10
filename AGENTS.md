@@ -37,3 +37,16 @@
 - Hexo 8.1.2 + fluid 主题已 vendor 进 `themes/fluid`（不再用子模块）。
 - `source/admin/` 是纯 ESM 后台 SPA（当前 v4.1.0），**无构建步骤**：hexo-all-minifier 的 uglify 会跳过 ES 模块，原样拷贝即正确，不要引入打包器。
 - `image_minifier` 在 `_config.yml` 中保持关闭（沙箱缺 gifsicle 二进制）。
+
+## 后台性能约定（勿回退）
+
+- `/admin/assets/*` 必须是 `max-age=600, stale-while-revalidate=86400`；**不要改回 `max-age=0`**——
+  后台每个页面有 8–12 个 ESM 模块请求，改回后每次切页都要为每个模块发一次条件请求（实测 0.4–1.3s/次），
+  用户会明显感到「读取很久」。入口 `/admin/` 保持 `max-age=0`，入口脚本带 `?v=VERSION`。
+- `GitHubAPI.req` 的 GET 结果在实例内缓存 30 秒（切页复用 talks.yml / fluid_config.yml / site_meta.yml）；
+  写操作自动清空缓存，**新增任何「写前重读」必须显式传 `readFile(path, { fresh: true })`**，
+  否则会读到展示缓存、覆盖仓库最新改动（v4.1.0 修过的高危 bug）。
+- 文章列表缓存放 `localStorage`（`qexo4_cache_posts`，TTL 5 分钟，跨标签页复用），
+  由 `invalidatePostsCache()` 在新增/编辑/删除后清除；不要换回 `sessionStorage`（新标签页会重复拉 52 篇文章）。
+- 工作台首次打开仍会读 52 篇文章 front-matter，属于已知开销；更彻底的方案是让 dashboard 先用
+  `/admin/manifest.json` 渲染首屏再后台刷新，需要时再评估。

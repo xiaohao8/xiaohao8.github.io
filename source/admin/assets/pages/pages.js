@@ -28,7 +28,7 @@ export default async function pagesList(view, ctx, params, handleErr) {
   loading.show("正在读取页面…");
   for (const p of PAGE_FILES) {
     try {
-      const text = await ctx.api.readFile(p.file);
+      const text = await ctx.api.readFile(p.file, { fresh: true });
       const { data } = splitFrontMatter(text);
       rows.push({ ...p, title: String(data.title || p.label), size: text.length });
     } catch (e) {

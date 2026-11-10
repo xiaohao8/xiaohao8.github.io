@@ -232,7 +232,7 @@ export default async function talks(view, ctx, params, handleErr) {
     const data = { items };
     // 保留 talks.yml 中 items 之外的原有键
     try {
-      const raw = await ctx.api.readFile(TALKS_PATH);
+      const raw = await ctx.api.readFile(TALKS_PATH, { fresh: true });
       const parsed = loadYaml(raw) || {};
       const rest = { ...parsed };
       delete rest.items;

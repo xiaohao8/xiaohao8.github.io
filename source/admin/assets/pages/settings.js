@@ -263,6 +263,9 @@ export default async function settings(view, ctx, params, handleErr) {
   });
 
   /* 站点资料 */
+  // 两个配置文件并行发起，避免串行等两次 GitHub API 往返
+  let fluidReadError = null;
+  const fluidRawPromise = ctx.api.readFile(FLUID_PATH).catch((e) => { fluidReadError = e; return null; });
   let meta = {};
   let metaLoaded = true;
   loading.show("正在加载配置文件…");
@@ -295,7 +298,7 @@ export default async function settings(view, ctx, params, handleErr) {
       // 写前重读，保留表单之外的未知键
       let fresh = {};
       try {
-        fresh = loadYaml(await ctx.api.readFile(SITE_META_PATH)) || {};
+        fresh = loadYaml(await ctx.api.readFile(SITE_META_PATH, { fresh: true })) || {};
       } catch (e) {
         if (!(e.status === 404 || ctx.demo)) throw e;
       }
@@ -319,7 +322,9 @@ export default async function settings(view, ctx, params, handleErr) {
   let fluid = {};
   let fluidLoaded = true;
   try {
-    fluid = loadYaml(await ctx.api.readFile(FLUID_PATH)) || {};
+    const fluidRaw = await fluidRawPromise;
+    if (fluidReadError) throw fluidReadError;
+    fluid = loadYaml(fluidRaw) || {};
   } catch (e) {
     if (e.status === 404 || ctx.demo) fluid = {};
     else {
@@ -385,7 +390,7 @@ export default async function settings(view, ctx, params, handleErr) {
       // 写前重读远端配置，只改 navbar.menu / blog_title / index 段，其余键原样保留
       let fresh;
       try {
-        fresh = loadYaml(await ctx.api.readFile(FLUID_PATH)) || {};
+        fresh = loadYaml(await ctx.api.readFile(FLUID_PATH, { fresh: true })) || {};
       } catch (e) {
         if (e.status === 404 || ctx.demo) fresh = {};
         else throw e;

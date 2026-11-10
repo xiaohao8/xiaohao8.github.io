@@ -2,6 +2,7 @@
 
 const API = "https://api.github.com";
 const RATE_SAFE = 30; // 剩余请求数低于该值时提示
+const GET_CACHE_TTL = 30 * 1000; // 会话内 GET 结果缓存 30 秒：切页不再重复拉取同一份配置
 
 /* 图片预览源配置（Gitee 主力，本站兜底）——app.js 启动时注入，设置页可实时切换 */
 export const mediaConfig = {
@@ -79,11 +80,19 @@ export class GitHubAPI {
     this.branch = settings.branch || "main";
     this.siteUrl = (settings.siteUrl || "").replace(/\/$/, "");
     this.mode = "github";
+    // 仅缓存 GET（展示用）；写操作、写前重读一律绕过，避免覆盖仓库最新改动
+    this._getCache = new Map();
   }
 
   get repoPath() { return this.owner + "/" + this.repo; }
 
-  async req(path, { method = "GET", body, raw = false } = {}) {
+  async req(path, { method = "GET", body, raw = false, fresh = false } = {}) {
+    const isGet = method === "GET";
+    const cacheKey = (raw ? "raw|" : "json|") + path;
+    if (isGet && !fresh) {
+      const hit = this._getCache.get(cacheKey);
+      if (hit && Date.now() - hit.ts < GET_CACHE_TTL) return hit.value;
+    }
     const headers = {
       Accept: raw ? "application/vnd.github.raw+json" : "application/vnd.github+json",
       Authorization: "Bearer " + this.token,
@@ -115,9 +124,11 @@ export class GitHubAPI {
       }
       throw err;
     }
-    if (res.status === 204) return null;
-    if (raw) return res.text();
-    return res.json();
+    let value = null;
+    if (res.status !== 204) value = raw ? await res.text() : await res.json();
+    if (!isGet) this._getCache.clear();               // 写后立刻失效全部展示缓存
+    else if (!fresh) this._getCache.set(cacheKey, { ts: Date.now(), value });
+    return value;
   }
 
   /** 登录校验：Token 有效 + 对仓库有 push 权限 */
@@ -153,10 +164,11 @@ export class GitHubAPI {
     return Array.isArray(items) ? items : [];
   }
 
-  async readFile(path) {
+  /** fresh=true 用于「写前重读」：绕过展示缓存，确保拿到仓库最新版本 */
+  async readFile(path, { fresh = false } = {}) {
     return this.req(
       "/repos/" + this.repoPath + "/contents/" + encodePath(path) + "?ref=" + encodeURIComponent(this.branch),
-      { raw: true }
+      { raw: true, fresh }
     );
   }
 
@@ -164,7 +176,8 @@ export class GitHubAPI {
     let sha = null;
     try {
       const cur = await this.req(
-        "/repos/" + this.repoPath + "/contents/" + encodePath(path) + "?ref=" + encodeURIComponent(this.branch)
+        "/repos/" + this.repoPath + "/contents/" + encodePath(path) + "?ref=" + encodeURIComponent(this.branch),
+        { fresh: true }
       );
       if (cur && cur.sha) sha = cur.sha;
     } catch (e) {
@@ -185,7 +198,8 @@ export class GitHubAPI {
 
   async deleteFile(path, message) {
     const cur = await this.req(
-      "/repos/" + this.repoPath + "/contents/" + encodePath(path) + "?ref=" + encodeURIComponent(this.branch)
+      "/repos/" + this.repoPath + "/contents/" + encodePath(path) + "?ref=" + encodeURIComponent(this.branch),
+      { fresh: true }
     );
     await this.req("/repos/" + this.repoPath + "/contents/" + encodePath(path), {
       method: "DELETE",
@@ -199,7 +213,8 @@ export class GitHubAPI {
     let sha = null;
     try {
       const cur = await this.req(
-        "/repos/" + this.repoPath + "/contents/" + encodePath(path) + "?ref=" + encodeURIComponent(this.branch)
+        "/repos/" + this.repoPath + "/contents/" + encodePath(path) + "?ref=" + encodeURIComponent(this.branch),
+        { fresh: true }
       );
       if (cur && cur.sha) sha = cur.sha;
     } catch (e) {

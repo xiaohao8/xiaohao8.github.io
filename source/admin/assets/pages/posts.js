@@ -12,14 +12,14 @@ function cacheScope(ctx) {
 }
 
 export function invalidatePostsCache() {
-  try { sessionStorage.removeItem(CACHE_KEY); } catch (_) { /* ignore */ }
+  try { localStorage.removeItem(CACHE_KEY); } catch (_) { /* ignore */ }
 }
 
-/** 读取全部文章 front-matter（带 sessionStorage 缓存） */
+/** 读取全部文章 front-matter（带 localStorage 缓存，跨标签页复用 5 分钟） */
 export async function loadAllPosts(ctx, { force = false } = {}) {
   if (!force) {
     try {
-      const cache = JSON.parse(sessionStorage.getItem(CACHE_KEY) || "null");
+      const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
       if (cache && Date.now() - cache.ts < CACHE_TTL && cache.scope === cacheScope(ctx)) return cache.data;
     } catch (_) { /* ignore */ }
   }
@@ -52,7 +52,7 @@ export async function loadAllPosts(ctx, { force = false } = {}) {
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
   data.sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || a.name.localeCompare(b.name));
   try {
-    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), scope: cacheScope(ctx), data }));
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), scope: cacheScope(ctx), data }));
   } catch (_) { /* ignore */ }
   return data;
 }

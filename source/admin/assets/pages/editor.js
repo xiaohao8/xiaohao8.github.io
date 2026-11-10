@@ -29,7 +29,7 @@ export default async function editor(view, ctx, params, handleErr) {
   let origPath = file;
   try {
     if (!isNew) {
-      const text = await ctx.api.readFile(file);
+      const text = await ctx.api.readFile(file, { fresh: true });
       const split = splitFrontMatter(text);
       fm = split.data;
       body = split.body;
@@ -296,7 +296,7 @@ export default async function editor(view, ctx, params, handleErr) {
       .replace(/-+/g, "-").replace(/^-|-$/g, "") || (isPage ? "page" : "post");
     const path = isPage ? "source/" + base + "/index.md" : "source/_posts/" + base + ".md";
     try {
-      await ctx.api.readFile(path);
+      await ctx.api.readFile(path, { fresh: true });
       return isPage
         ? "source/" + base + "-" + Date.now() + "/index.md"
         : "source/_posts/" + base + "-" + Date.now() + ".md";

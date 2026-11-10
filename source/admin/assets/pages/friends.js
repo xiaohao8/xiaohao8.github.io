@@ -96,7 +96,7 @@ export default async function friends(view, ctx, params, handleErr) {
     // 写前重读远端配置，只替换 links.items，避免用过期本地数据覆盖其他键
     let fresh;
     try {
-      fresh = loadYaml(await ctx.api.readFile(CONFIG_PATH)) || {};
+      fresh = loadYaml(await ctx.api.readFile(CONFIG_PATH, { fresh: true })) || {};
     } catch (e) {
       if (e.status === 404 || ctx.demo) fresh = {};
       else throw e;

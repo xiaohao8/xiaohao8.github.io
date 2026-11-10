@@ -93,9 +93,13 @@ raw 地址会 302 到签名直链，`<img>` 会自动跟随。Gitee 镜像尚未
 - **abbrlink 勿动**：编辑旧文章时 `abbrlink` 为只读展示，不要清空，否则旧链接 404。
 - **图片路径**：编辑器/图库上传的图片在文章里写相对路径 `/images/uploads/文件名`；
   后台预览另走 Gitee 镜像（仓库路径 `source/images/uploads/文件名`），二者不是同一条 URL。
-- **缓存**：`/admin/vendor/*` 长期强缓存；`/admin/assets/*` 设为 `max-age=0`（每次 ETag 验证，
-  命中走 304），保证模块间静态 import 也能在发布后立即更新；入口资源另带 `?v=版本号`（v4.1.0）。
-  本地调试请用无痕窗口或 `hexo server`。
+- **缓存**：`/admin/vendor/*` 长期强缓存；`/admin/assets/*` 用 `max-age=600, stale-while-revalidate=86400`
+  （切页直接命中本地缓存，不再为每个模块发一次 304）；入口 `/admin/` 保持 `max-age=0`，
+  入口脚本带 `?v=版本号`（v4.1.0），大版本更新立即生效。
+- **数据读取**：GitHub API 的 GET 结果在会话内缓存 30 秒，写操作自动清空；
+  **写前重读必须传 `readFile(path, { fresh: true })`**，否则可能覆盖仓库最新改动。
+  文章列表 front-matter 缓存在 `localStorage`（5 分钟，跨标签页复用），保存/删除后自动失效。
+- 本地调试请用无痕窗口或 `hexo server`。
 - **安全**：后台 HTML 带 `noindex`；请勿把 Token 提交进仓库或贴给别人。
 
 ## 本地开发
