@@ -421,3 +421,96 @@ footer .iconfont:hover { transform: translateY(-3px); color: var(--zui-primary-2
   html { scroll-behavior: auto; }
   .index-card, .btn, .index-card .index-img img { transition: none !important; }
 }
+
+/* ============================================================
+   v2.1 打磨
+   ============================================================ */
+
+/* 首页 #board 只是容器：去掉面板底，卡片直接浮在页面渐变上
+   （:has 现代浏览器直用；custom.js 同时补 zui-board-flat 兜底） */
+#board:has(.index-card),
+#board.zui-board-flat {
+  background: transparent;
+  box-shadow: none;
+  border: none;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* 导航：桌面端隐藏图标，纯文字更利落 */
+@media (min-width: 992px) {
+  .navbar .nav-link .iconfont { display: none; }
+  .navbar .nav-link { font-size: 13.5px; letter-spacing: 0.03em; }
+  .navbar .navbar-nav { gap: 0.15rem; }
+}
+
+/* Banner 文章大标题与元信息徽章 */
+.banner #seo-header,
+.banner .post-title {
+  font-size: clamp(1.9rem, 4.5vw, 2.8rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.banner .post-meta {
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  padding: 0.18rem 0.7rem;
+  margin: 0.2rem 0.25rem;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.banner .post-meta .iconfont { color: #ffd9f2; }
+
+/* 上下篇：卡片化 hover */
+.post-prevnext .post-prev a,
+.post-prevnext .post-next a {
+  display: block;
+  border-radius: 12px;
+  padding: 0.55rem 0.8rem;
+  background: rgba(165, 147, 224, 0.06);
+  transition: background-color 0.2s ease, transform 0.2s var(--zui-ease), box-shadow 0.2s ease;
+}
+.post-prevnext .post-prev a:hover,
+.post-prevnext .post-next a:hover {
+  background: rgba(165, 147, 224, 0.16);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(30, 25, 70, 0.1);
+  color: var(--zui-primary);
+}
+html[data-user-color-scheme="dark"] .post-prevnext .post-prev a,
+html[data-user-color-scheme="dark"] .post-prevnext .post-next a {
+  background: rgba(255, 255, 255, 0.05);
+}
+html[data-user-color-scheme="dark"] .post-prevnext .post-prev a:hover,
+html[data-user-color-scheme="dark"] .post-prevnext .post-next a:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* CC 版权框 */
+.license-box {
+  border-radius: 12px;
+  background: rgba(165, 147, 224, 0.07);
+  border: 1px solid rgba(165, 147, 224, 0.18);
+  padding: 0.9rem 1.1rem !important;
+}
+html[data-user-color-scheme="dark"] .license-box {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* 归档/分类列表条目 hover（Fluid 通用列表结构） */
+.list-group-item,
+.archive-item {
+  transition: background-color 0.2s ease, transform 0.2s var(--zui-ease);
+}
+.list-group-item:hover {
+  background: rgba(165, 147, 224, 0.07);
+}
+
+/* 搜索弹层圆角 */
+.search-popup,
+#search-modal .modal-content {
+  border-radius: 16px;
+  overflow: hidden;
+}

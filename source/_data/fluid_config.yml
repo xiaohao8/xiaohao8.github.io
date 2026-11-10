@@ -23,7 +23,7 @@ index:
 post:
   banner_img: https://imgapi.xl0408.top/index.php
   banner_img_height: 70
-  default_index_img: /images/uploads/default-cover.png
+  default_index_img: /images/uploads/default-cover.svg
 archive:
   banner_img: https://imgapi.xl0408.top/index.php
   banner_img_height: 80

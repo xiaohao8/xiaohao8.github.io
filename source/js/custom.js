@@ -130,6 +130,9 @@
 
   /* ---------- 启动 ---------- */
   function boot() {
+    // 首页的 #board 只是卡片容器：去掉面板底，让卡片直接浮在页面渐变上
+    var board = document.getElementById("board");
+    if (board && board.querySelector(".index-card")) board.classList.add("zui-board-flat");
     setupReveal();
     setupRing();
     setupCardGlow();
