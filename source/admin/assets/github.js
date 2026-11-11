@@ -99,10 +99,20 @@ export class GitHubAPI {
       "X-GitHub-Api-Version": "2022-11-28",
     };
     if (body !== undefined) headers["Content-Type"] = "application/json";
-    const res = await fetch(API + path, {
+    // 同一个 contents URL 会被 raw（纯文本）与 json（含 sha 的元数据）两种 Accept
+    // 连续请求：写操作先 readFile(fresh) 拿原文、再 GET 元数据取 sha。GitHub 虽返回
+    // Vary: Accept，但部分浏览器缓存 / 国内代理不严格按 Vary 区分，会把上一次的
+    // YAML 原文回给需要 JSON 的请求，触发 "Unexpected token ... is not valid JSON"
+    // （v4.1.1 删除友链失败的根因）。两层隔离：raw 请求换一个 URL，且所有请求
+    // 一律不走 HTTP 缓存（会话内 30 秒 GET 缓存已足够，不会再增加回源次数）。
+    const url = API + path + (raw && isGet
+      ? (path.includes("?") ? "&" : "?") + "raw=1"
+      : "");
+    const res = await fetch(url, {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      cache: "no-store",
     });
     const remain = res.headers.get("x-ratelimit-remaining");
     if (remain && Number(remain) < RATE_SAFE) {
@@ -111,8 +121,11 @@ export class GitHubAPI {
     if (!res.ok) {
       let msg = "GitHub API 错误 " + res.status;
       try {
-        const j = await res.json();
+        const text = await res.text();
+        let j = null;
+        try { j = text ? JSON.parse(text) : null; } catch (_) { /* 错误体是 HTML/纯文本 */ }
         if (j && j.message) msg = j.message + " (" + res.status + ")";
+        else if (text) msg += "：" + text.slice(0, 80).replace(/\s+/g, " ").trim();
       } catch (_) { /* ignore */ }
       const err = new GitHubError(msg, res.status);
       // 限流也会返回 403，不能当成 Token 失效
@@ -125,7 +138,26 @@ export class GitHubAPI {
       throw err;
     }
     let value = null;
-    if (res.status !== 204) value = raw ? await res.text() : await res.json();
+    if (res.status !== 204) {
+      const text = await res.text();
+      if (raw) {
+        value = text;
+      } else {
+        // 先取文本再解析：任何「响应不是 JSON」的情况都转成可读错误，
+        // 不要把浏览器原生的 "Unexpected token ..." 直接抛给用户。
+        try {
+          value = text ? JSON.parse(text) : null;
+        } catch (_) {
+          const ctype = res.headers.get("content-type") || "未知类型";
+          const snippet = text.slice(0, 60).replace(/\s+/g, " ").trim();
+          throw new GitHubError(
+            `GitHub API 返回内容不是 JSON（HTTP ${res.status}，${ctype}）："${snippet}…"；` +
+            "通常是缓存/代理把上一次的文件原文回给了元数据请求，请硬刷新后台后重试",
+            res.status
+          );
+        }
+      }
+    }
     if (!isGet) this._getCache.clear();               // 写后立刻失效全部展示缓存
     else if (!fresh) this._getCache.set(cacheKey, { ts: Date.now(), value });
     return value;

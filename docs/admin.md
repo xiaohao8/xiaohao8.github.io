@@ -1,5 +1,12 @@
 # 后台使用与维护（Qexo 风格 · Netlify 版）
 
+> v4.1.2：修复「删除 / 编辑友链等写操作报 `Unexpected token ... is not valid JSON`」。
+> 根因是同一个 `contents` URL 先后以 raw（文件原文）与 json（含 sha 的元数据）两种
+> `Accept` 连续请求，部分浏览器缓存 / 代理不按 `Vary: Accept` 区分，把 YAML 原文回给了
+> 需要 JSON 的请求。现在 raw 请求走独立 URL（`&raw=1`）、所有 API 请求 `cache: no-store`，
+> 非 JSON 响应会给出带状态码与内容片段的可读错误；对 `github.js` 的静态 import 统一加
+> `?v=版本号`，避免 SWR 缓存下新旧模块混用。
+>
 > v4.1.0：修复高优先级 bug（图片/链接 XSS、GitHub 限流误判登出、路由切换竞态、
 > 友链/说说/设置保存覆盖仓库最新改动、图库复制弹窗缺 import）；后台重构
 > （统一上传模块与 Vditor 加载器、缓存隔离与资源回收、版本号单一来源）；
@@ -95,8 +102,11 @@ raw 地址会 302 到签名直链，`<img>` 会自动跟随。Gitee 镜像尚未
   后台预览另走 Gitee 镜像（仓库路径 `source/images/uploads/文件名`），二者不是同一条 URL。
 - **缓存**：`/admin/vendor/*` 长期强缓存；`/admin/assets/*` 用 `max-age=600, stale-while-revalidate=86400`
   （切页直接命中本地缓存，不再为每个模块发一次 304）；入口 `/admin/` 保持 `max-age=0`，
-  入口脚本带 `?v=版本号`（v4.1.0），大版本更新立即生效。
+  入口脚本带 `?v=版本号`（v4.1.2），大版本更新立即生效；引用 `github.js` 的静态 import
+  也带同一版本号，保证只加载一份模块实例。
 - **数据读取**：GitHub API 的 GET 结果在会话内缓存 30 秒，写操作自动清空；
+  所有 API 请求禁用浏览器 HTTP 缓存（`cache: no-store`），raw 读取额外带 `&raw=1`，
+  避免文件原文与元数据响应被缓存串用。
   **写前重读必须传 `readFile(path, { fresh: true })`**，否则可能覆盖仓库最新改动。
   文章列表 front-matter 缓存在 `localStorage`（5 分钟，跨标签页复用），保存/删除后自动失效。
 - 本地调试请用无痕窗口或 `hexo server`。

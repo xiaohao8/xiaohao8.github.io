@@ -42,7 +42,10 @@
 
 - 部署路径是 Netlify（https://202271.xyz，`netlify.toml` → `npm run build`）；**不要添加或修改 GitHub Pages 相关 workflow**（用户明确要求，原 jekyll-gh-pages.yml 已删除）。
 - Hexo 8.1.2 + fluid 主题已 vendor 进 `themes/fluid`（不再用子模块）。
-- `source/admin/` 是纯 ESM 后台 SPA（当前 v4.1.0），**无构建步骤**：hexo-all-minifier 的 uglify 会跳过 ES 模块，原样拷贝即正确，不要引入打包器。
+- `source/admin/` 是纯 ESM 后台 SPA（当前 v4.1.2），**无构建步骤**：hexo-all-minifier 的 uglify 会跳过 ES 模块，原样拷贝即正确，不要引入打包器。
+  动态路由 import 由 `app.js` 的 `VERSION` 带 `?v=`，`github.js` 的**所有**静态 import 必须带同一个版本号
+  （`/admin/assets/*` 是 `max-age=600 + SWR`，不带版本会拿到旧模块；带与不带版本又会加载两份实例、
+  让 `setMediaConfig` 只改到其中一份）。升级 `VERSION` 时，`index.html` 三处与这三处 import 必须同步。
 - `image_minifier` 在 `_config.yml` 中保持关闭（沙箱缺 gifsicle 二进制）。
 
 ## 后台性能约定（勿回退）
@@ -57,3 +60,9 @@
   由 `invalidatePostsCache()` 在新增/编辑/删除后清除；不要换回 `sessionStorage`（新标签页会重复拉 52 篇文章）。
 - 工作台首次打开仍会读 52 篇文章 front-matter，属于已知开销；更彻底的方案是让 dashboard 先用
   `/admin/manifest.json` 渲染首屏再后台刷新，需要时再评估。
+- **GitHub API raw / json 响应隔离（勿回退）**：`GET /contents/{path}` 会先以 `Accept: raw+json`
+  读文件原文、再以 `+json` 读含 sha 的元数据，两个请求 URL 相同。GitHub 虽有 `Vary: Accept`，
+  浏览器缓存 / 国内代理未必遵守，曾导致写操作把 YAML 原文交给 `JSON.parse`，报
+  `Unexpected token ... is not valid JSON`（v4.1.1 删除友链失败）。`req()` 必须保持
+  raw 请求追加 `&raw=1`、所有请求 `cache: "no-store"`，并用 `res.text()` + `JSON.parse`
+  容错给出可读错误；不要把 `await res.json()` 直接写回去。

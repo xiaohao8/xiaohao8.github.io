@@ -4,7 +4,7 @@ import {
   ic, esc, el, toast, loading, store, safeHttpUrl,
 } from "../app.js";
 import { NetlifyAPI } from "../netlify.js";
-import { setMediaConfig, mediaFallbackUrls } from "../github.js";
+import { setMediaConfig, mediaFallbackUrls } from "../github.js?v=4.1.2";
 import { loadYaml, dumpYaml } from "../yaml.js";
 
 const SITE_META_PATH = "source/_data/site_meta.yml";

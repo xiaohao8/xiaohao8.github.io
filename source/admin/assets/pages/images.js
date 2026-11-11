@@ -3,7 +3,7 @@
 import {
   ic, esc, el, toast, loading, confirmDialog, modal, lightbox, copyText, fmtSize, imgWithFallback, previewSrcsFor,
 } from "../app.js";
-import { mediaGiteeUrl } from "../github.js";
+import { mediaGiteeUrl } from "../github.js?v=4.1.2";
 import { runUploadQueue } from "../upload.js";
 
 const DIR = "source/images/uploads";
