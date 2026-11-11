@@ -445,7 +445,7 @@ footer .iconfont:hover { transform: translateY(-3px); color: var(--zui-primary-2
 }
 
 /* Banner 文章大标题与元信息徽章 */
-.banner #seo-header,
+#seo-header,
 .banner .post-title {
   font-size: clamp(1.9rem, 4.5vw, 2.8rem);
   font-weight: 800;
@@ -839,4 +839,130 @@ html[data-user-color-scheme="dark"] .zui-apply-grid input {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ============================================================
+   v2.5 全站审美——衬线标题 + 归档/标签/关于/页脚精修
+   ============================================================ */
+:root {
+  --zui-font-display: "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
+}
+
+/* 品牌与各级标题用衬线 */
+.navbar-brand,
+#seo-header,
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.about-name,
+.list-group .h5 {
+  font-family: var(--zui-font-display);
+}
+
+/* 品牌小印章 */
+.navbar-brand::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 4px;
+  vertical-align: 2px;
+  background: #c0392b;
+  border-radius: 1px;
+  opacity: 0.9;
+}
+
+/* ---------- 归档页 ---------- */
+.list-group .h4 {
+  color: var(--sec-text-color);
+  font-size: 0.9em;
+  letter-spacing: 0.05em;
+}
+.list-group .h5 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--post-heading-color);
+  margin: 1.6rem 0 0.6rem;
+  padding-left: 0.7em;
+  position: relative;
+}
+.list-group .h5::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.28em;
+  width: 4px;
+  height: 0.8em;
+  border-radius: 2px;
+  background: var(--zui-grad);
+}
+.list-group-item {
+  border-radius: 10px;
+  padding: 0.5rem 0.8rem;
+}
+.list-group-item time {
+  font-family: Consolas, monospace;
+  color: var(--sec-text-color);
+  font-size: 0.88em;
+}
+.list-group-item-title {
+  font-weight: 600;
+}
+.list-group-item:hover .list-group-item-title {
+  color: var(--zui-primary);
+}
+
+/* ---------- 标签云 ---------- */
+.tagcloud a {
+  border: 1px solid var(--line-color);
+  border-radius: 999px;
+  padding: 0.25em 0.9em !important;
+  margin: 0.25em 0.3em;
+  display: inline-block;
+  transition: all 0.2s var(--zui-ease);
+}
+.tagcloud a:hover {
+  background: var(--zui-grad);
+  border-color: transparent;
+  color: #fff !important;
+  transform: translateY(-2px);
+}
+
+/* ---------- 关于页 ---------- */
+.about-avatar img,
+img.about-avatar {
+  border-radius: 999px;
+  border: 3px solid #fff;
+  box-shadow: 0 6px 24px rgba(83, 72, 200, 0.28);
+}
+html[data-user-color-scheme="dark"] .about-avatar img,
+html[data-user-color-scheme="dark"] img.about-avatar {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.about-name {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+/* ---------- 页脚 ---------- */
+footer {
+  border-top: none;
+  position: relative;
+}
+footer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 15%;
+  right: 15%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--zui-primary-2), transparent);
+  opacity: 0.4;
+}
+
+/* ---------- 文章页大标题微调（衬线） ---------- */
+.banner #seo-header {
+  letter-spacing: 0.06em;
+  text-shadow: 0 2px 16px rgba(15, 12, 38, 0.6);
 }
