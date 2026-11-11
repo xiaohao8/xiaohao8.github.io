@@ -231,6 +231,13 @@ font:
 
 # 指定自定义 .js 文件路径，支持列表；路径是相对 source 目录，如 /js/custom.js 对应存放目录 source/js/custom.js
 # Specify the path of your custom js file, support list. The path is relative to the source directory, such as `/js/custom.js` corresponding to the directory `source/js/custom.js`
+# 注入 <head> 的自定义内容：关键第三方预连接，降低国内首次请求延迟
+custom_head: |
+  <link rel="preconnect" href="https://lib.baomitu.com" crossorigin>
+  <link rel="preconnect" href="https://at.alicdn.com" crossorigin>
+  <link rel="dns-prefetch" href="https://busuanzi.ibruce.info">
+  <link rel="dns-prefetch" href="https://gitee.com">
+
 custom_js:
   - /js/custom.js
 

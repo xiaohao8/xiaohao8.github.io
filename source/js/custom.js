@@ -151,8 +151,32 @@
     banner.appendChild(wave);
   }
 
-  /* ---------- 启动 ---------- */
+  /* ---------- 0.5 Service Worker：回访秒开 + 断网可读 ---------- */
+  function setupSW() {
+    if (!("serviceWorker" in navigator)) return;
+    if (location.protocol !== "https:" && location.hostname !== "localhost") return;
+    if (location.pathname.startsWith("/admin")) return; // 后台不走缓存
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("/sw.js").catch(function () {});
+    });
+  }
+
+  /* ---------- 0.6 站内图片挂掉自动切 Gitee 镜像 ---------- */
+  function setupImageMirror() {
+    window.addEventListener("error", function (e) {
+      var t = e.target;
+      if (!(t instanceof HTMLImageElement) || t.dataset.zuiMirror) return;
+      var src = t.getAttribute("src") || "";
+      if (src.indexOf("/images/uploads/") !== 0) return;
+      t.dataset.zuiMirror = "1";
+      t.src = "https://gitee.com/xiaohao3/xiaohao8.github.io/raw/main/source" + src;
+    }, true);
+  }
+
+0  /* ---------- 启动 ---------- */
   function boot() {
+    setupSW();
+    setupImageMirror();
     setupCoverVariants();
     // 首页的 #board 只是卡片容器：去掉面板底，让卡片直接浮在页面渐变上
     var board = document.getElementById("board");

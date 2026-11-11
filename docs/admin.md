@@ -147,3 +147,15 @@ source/admin/
 **保存报 403？** Token 的 Contents 权限需要是 Read and write，或 Token 已过期。
 **部署状态一直加载失败 / 填了 Token 没识别到站点？** 确认 Token 是账号级 Personal Access Token，且站点属于该账号。
 **编辑器空白？** Vditor 资源由 `/admin/vendor/vditor/` 提供，确认部署产物里有该目录。
+
+## 国内访问加速与稳定性（v2.4）
+
+- **Service Worker**（`source/sw.js`）：页面网络优先（新内容即时可见）、
+  静态资源缓存优先 + 后台更新（回访近乎秒开）、断网时整站照常可读。
+  `/admin/` 后台与访问统计脚本不经过 SW。
+  更新缓存：改 `sw.js` 顶部的 `VERSION` 常量即可全量刷新。
+- **Gitee 镜像兜底**：站内图片（`/images/uploads/*`）加载失败时，
+  custom.js 自动切换到 Gitee 仓库 raw 地址（依赖 Gitee 镜像保持同步；
+  在 Gitee 仓库页面可手动「强制同步」）。
+- **预连接**：`custom_head` 注入了 baomitu / alicdn 的 preconnect 与
+  busuanzi / gitee 的 dns-prefetch，降低首次请求延迟。
