@@ -61,7 +61,7 @@ self.addEventListener("fetch", (event) => {
   const isPage = req.mode === "navigate" || accept.includes("text/html");
 
   if (url.origin === self.location.origin) {
-    if (isPage) {
+    if (isPage && !isAdminStatic) {
       event.respondWith(networkFirst(req, PAGE_CACHE));
     } else {
       event.respondWith(staleWhileRevalidate(req, ASSET_CACHE));

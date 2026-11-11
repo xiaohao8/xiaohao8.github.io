@@ -1,6 +1,42 @@
 /* github.js — GitHub REST API 封装（Qexo 同款模式：Token 直连仓库） */
 
 const API = "https://api.github.com";
+const API_MIRRORS = {
+  "gh-proxy": "https://gh-proxy.com/https://api.github.com",
+};
+
+function normalizeBase(v) {
+  if (!v || v === "auto") return null; // 未定，测速后决定
+  if (v === "direct") return API;
+  if (API_MIRRORS[v]) return API_MIRRORS[v];
+  if (/^https?:\/\//.test(v)) return String(v).replace(/\/+$/, "");
+  return API;
+}
+
+/** 竞速测试：直连 vs 各镜像，返回更快的 base（结果缓存 12h） */
+async function pickFastestBase(token) {
+  try {
+    const cached = localStorage.getItem("qexo4_api_base");
+    if (cached) {
+      const c = JSON.parse(cached);
+      if (Date.now() - c.ts < 12 * 3600 * 1000) return c.base;
+    }
+  } catch (_) { /* ignore */ }
+  const probe = async (base) => {
+    const t0 = performance.now();
+    const res = await fetch(base + "/rate_limit", {
+      headers: token ? { Authorization: "Bearer " + token } : {},
+      signal: AbortSignal.timeout ? AbortSignal.timeout(2500) : undefined,
+    });
+    if (!res.ok) throw new Error(res.status);
+    return { base, ms: performance.now() - t0 };
+  };
+  const results = await Promise.allSettled([API, API_MIRRORS["gh-proxy"]].map((b) => probe(b)));
+  const ok = results.filter((r) => r.status === "fulfilled").map((r) => r.value);
+  const best = ok.length ? ok.sort((a, b) => a.ms - b.ms)[0].base : API;
+  try { localStorage.setItem("qexo4_api_base", JSON.stringify({ base: best, ts: Date.now() })); } catch (_) {}
+  return best;
+}
 const RATE_SAFE = 30; // 剩余请求数低于该值时提示
 const GET_CACHE_TTL = 30 * 1000; // 会话内 GET 结果缓存 30 秒：切页不再重复拉取同一份配置
 
@@ -80,8 +116,29 @@ export class GitHubAPI {
     this.branch = settings.branch || "main";
     this.siteUrl = (settings.siteUrl || "").replace(/\/$/, "");
     this.mode = "github";
+    // API 通道：auto=竞速选路（默认）| direct | gh-proxy | 自定义前缀
+    this.settings = settings;
+    this.apiBase = normalizeBase(settings.apiBase) || API;
     // 仅缓存 GET（展示用）；写操作、写前重读一律绕过，避免覆盖仓库最新改动
     this._getCache = new Map();
+  }
+
+  setApiBase(base) {
+    this.apiBase = normalizeBase(base) || API;
+  }
+
+  apiUrl(path) {
+    return this.apiBase === API ? API + path : this.apiBase + path;
+  }
+
+  /** 登录后异步竞速选路（auto 模式下自动切到最快通道，结果缓存 12h） */
+  async ensureFastest() {
+    if ((this.settings.apiBase || "auto") !== "auto") {
+      this.apiBase = normalizeBase(this.settings.apiBase) || API;
+      return this.apiBase;
+    }
+    this.apiBase = await pickFastestBase(this.token);
+    return this.apiBase;
   }
 
   get repoPath() { return this.owner + "/" + this.repo; }
@@ -105,7 +162,7 @@ export class GitHubAPI {
     // YAML 原文回给需要 JSON 的请求，触发 "Unexpected token ... is not valid JSON"
     // （v4.1.1 删除友链失败的根因）。两层隔离：raw 请求换一个 URL，且所有请求
     // 一律不走 HTTP 缓存（会话内 30 秒 GET 缓存已足够，不会再增加回源次数）。
-    const url = API + path + (raw && isGet
+    const url = this.apiUrl(path) + (raw && isGet
       ? (path.includes("?") ? "&" : "?") + "raw=1"
       : "");
     const res = await fetch(url, {

@@ -4,7 +4,7 @@ import {
   ic, esc, el, toast, loading, fmtTime, confirmDialog, lightbox, imgWithFallback, previewSrcsFor, safeImgUrl, safeHttpUrl,
 } from "../app.js?v=4.1.3";
 import { loadYaml, dumpYaml } from "../yaml.js?v=4.1.3";
-import { ensureVditorLib } from "./editor-shared.js?v=4.1.3";
+import { ensureVditorLib, getVditorBase } from "./editor-shared.js?v=4.1.3";
 import { uploadImage, runUploadQueue } from "../upload.js?v=4.1.3";
 
 const TALKS_PATH = "source/_data/talks.yml";
@@ -295,7 +295,7 @@ export default async function talks(view, ctx, params, handleErr) {
   try {
     await ensureVditorLib();
     vditor = new window.Vditor(composerCard.querySelector("#talk-editor"), {
-      cdn: "/admin/vendor/vditor",
+      cdn: getVditorBase(),
       lang: "zh_CN",
       icon: "ant",
       mode: "ir",

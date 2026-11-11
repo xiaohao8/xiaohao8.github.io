@@ -7,7 +7,7 @@ import {
   splitFrontMatter, buildFrontMatter, toInputDate, fromInputDate,
   nowLocal, extractExcerpt,
 } from "../yaml.js?v=4.1.3";
-import { ensureVditorLib, VDITOR_BASE } from "./editor-shared.js?v=4.1.3";
+import { ensureVditorLib, getVditorBase } from "./editor-shared.js?v=4.1.3";
 import { uploadImage, runUploadQueue } from "../upload.js?v=4.1.3";
 import { invalidatePostsCache } from "./posts.js?v=4.1.3";
 
@@ -227,7 +227,7 @@ export default async function editor(view, ctx, params, handleErr) {
 
   try {
     vditor = new window.Vditor(editorEl, {
-      cdn: VDITOR_BASE,
+      cdn: getVditorBase(),
       lang: "zh_CN",
       icon: "ant",
       mode: "ir",
@@ -235,7 +235,7 @@ export default async function editor(view, ctx, params, handleErr) {
       cache: false,
       value: body,
       placeholder: "开始写点什么吧…（支持 Markdown / 粘贴 / 拖拽图片）",
-      preview: { theme: { path: VDITOR_BASE + "/dist/css/content-theme" } },
+      preview: { theme: { path: getVditorBase() + "/dist/css/content-theme" } },
       toolbar: toolbarConfig,
       counter: { enable: true },
       upload: {

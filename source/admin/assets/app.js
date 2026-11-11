@@ -15,6 +15,8 @@ const DEFAULT_SETTINGS = {
   branch: "main",
   siteUrl: "https://202271.xyz",
   netlify: { siteId: "", token: "", buildHook: "" },
+  apiBase: "auto",
+  vendorSource: "auto",
   imageSource: {
     type: "gitee",
     giteeOwner: "xiaohao3",
@@ -36,6 +38,8 @@ export const store = {
         ...s,
         netlify: { ...DEFAULT_SETTINGS.netlify, ...(s.netlify || {}) },
         imageSource: { ...DEFAULT_SETTINGS.imageSource, ...(s.imageSource || {}) },
+        apiBase: s.apiBase || "auto",
+        vendorSource: s.vendorSource || "auto",
       };
     } catch (_) {
       return { ...DEFAULT_SETTINGS };
@@ -676,7 +680,9 @@ function init() {
     // 先渲染骨架，再后台校验 Token
     bootApp(session);
     const settings = store.getSettings();
-    new GitHubAPI(session.token, settings)
+    const ghBoot = new GitHubAPI(session.token, settings);
+    ghBoot.ensureFastest().catch(function () {});
+    ghBoot
       .validate()
       .then((user) => {
         if (!ctx || ctx.session !== session) return;

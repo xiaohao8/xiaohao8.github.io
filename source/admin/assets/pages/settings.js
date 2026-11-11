@@ -54,6 +54,47 @@ export default async function settings(view, ctx, params, handleErr) {
 
   /* ---------- 2.5 图片预览源 ---------- */
   const imgSrc = settings.imageSource || {};
+  /* ---------- 2.4 网络优化 ---------- */
+  const netCard = el(`<div class="card settings-section">
+      <div class="card-header">${ic("info")}<h2>网络优化</h2><div class="sub">GitHub 通道与编辑器资源的智能选路（国内访问提速）</div></div>
+      <div class="grid-2" style="gap:1rem">
+        <div class="field" style="margin:0"><label>GitHub API 通道</label>
+          <select class="input" id="n-apibase">
+            <option value="auto">自动测速（推荐，12h 缓存）</option>
+            <option value="direct">直连 api.github.com</option>
+            <option value="gh-proxy">gh-proxy.com 镜像</option>
+            <option value="custom">自定义前缀</option>
+          </select>
+          <div class="hint">写操作与读取都走所选通道；自动模式在登录时竞速并记住最快线路</div>
+        </div>
+        <div class="field" style="margin:0"><label>编辑器资源源（Vditor ≈4.5MB）</label>
+          <select class="input" id="n-vendor">
+            <option value="auto">自动测速（推荐）</option>
+            <option value="site">本站</option>
+            <option value="gitee">Gitee 镜像</option>
+          </select>
+          <div class="hint">首次打开编辑器时按最快线路加载，失败自动切换</div>
+        </div>
+      </div>
+      <div class="field" style="max-width:520px;display:none" id="n-custom-wrap"><label>自定义 API 前缀</label>
+        <input class="input input-mono" id="n-custom" value="${esc(["auto","direct","gh-proxy"].includes(settings.apiBase) ? "" : (settings.apiBase || ""))}" placeholder="https://your-mirror.example/https://api.github.com" />
+      </div>
+      <div class="settings-actions"><button class="btn btn-primary" id="save-net">${ic("save")}保存网络设置</button></div>
+    </div>`);
+  view.appendChild(netCard);
+  const apiSel = netCard.querySelector("#n-apibase");
+  apiSel.value = ["auto","direct","gh-proxy","custom"].includes(settings.apiBase) ? settings.apiBase : "auto";
+  const customWrap = netCard.querySelector("#n-custom-wrap");
+  function syncNet() { customWrap.style.display = apiSel.value === "custom" ? "" : "none"; }
+  apiSel.addEventListener("change", syncNet); syncNet();
+  netCard.querySelector("#save-net").addEventListener("click", () => {
+    const s = store.getSettings();
+    s.apiBase = apiSel.value === "custom" ? (netCard.querySelector("#n-custom").value.trim() || "auto") : apiSel.value;
+    s.vendorSource = netCard.querySelector("#n-vendor").value;
+    localStorage.removeItem("qexo4_api_base"); // 重置测速缓存，保存后重新竞速
+    store.saveSettings(s);
+    toast("网络设置已保存，刷新页面后生效", "success");
+  });
   const imgCard = el(`<div class="card settings-section">
       <div class="card-header">${ic("image")}<h2>图片预览源</h2><div class="sub">后台图库/说说缩略图走哪里加载（国内建议 Gitee）</div></div>
       <div class="field" style="max-width:360px">
