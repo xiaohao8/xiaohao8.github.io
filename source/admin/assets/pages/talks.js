@@ -2,10 +2,10 @@
 
 import {
   ic, esc, el, toast, loading, fmtTime, confirmDialog, lightbox, imgWithFallback, previewSrcsFor, safeImgUrl, safeHttpUrl,
-} from "../app.js";
-import { loadYaml, dumpYaml } from "../yaml.js";
-import { ensureVditorLib } from "./editor-shared.js";
-import { uploadImage, runUploadQueue } from "../upload.js";
+} from "../app.js?v=4.1.3";
+import { loadYaml, dumpYaml } from "../yaml.js?v=4.1.3";
+import { ensureVditorLib } from "./editor-shared.js?v=4.1.3";
+import { uploadImage, runUploadQueue } from "../upload.js?v=4.1.3";
 
 const TALKS_PATH = "source/_data/talks.yml";
 

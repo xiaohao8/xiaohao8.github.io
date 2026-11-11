@@ -2,10 +2,10 @@
 
 import {
   ic, esc, el, toast, loading, store, safeHttpUrl,
-} from "../app.js";
-import { NetlifyAPI } from "../netlify.js";
-import { setMediaConfig, mediaFallbackUrls } from "../github.js?v=4.1.2";
-import { loadYaml, dumpYaml } from "../yaml.js";
+} from "../app.js?v=4.1.3";
+import { NetlifyAPI } from "../netlify.js?v=4.1.3";
+import { setMediaConfig, mediaFallbackUrls } from "../github.js?v=4.1.3";
+import { loadYaml, dumpYaml } from "../yaml.js?v=4.1.3";
 
 const SITE_META_PATH = "source/_data/site_meta.yml";
 const FLUID_PATH = "source/_data/fluid_config.yml";

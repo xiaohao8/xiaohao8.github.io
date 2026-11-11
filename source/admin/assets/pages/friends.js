@@ -2,8 +2,8 @@
 
 import {
   ic, esc, el, toast, loading, confirmDialog, modal, safeHttpUrl, safeImgUrl,
-} from "../app.js";
-import { loadYaml, dumpYaml } from "../yaml.js";
+} from "../app.js?v=4.1.3";
+import { loadYaml, dumpYaml } from "../yaml.js?v=4.1.3";
 
 const CONFIG_PATH = "source/_data/fluid_config.yml";
 
@@ -28,12 +28,13 @@ export default async function friends(view, ctx, params, handleErr) {
       </table></div>
     </div>`);
   /* ---------- 友链申请审批（GitHub Issue 自助提交） ---------- */
+
   const applyCard = el(`<div class="card" id="apply-card">
       <div class="card-header">${ic("post")}<h2>友链申请</h2><div class="sub">来自友链页表单的 GitHub Issue</div><div class="spacer"></div>
         <button class="icon-btn" id="apply-refresh" title="刷新">${ic("refresh")}</button></div>
       <div id="apply-list"><span class="inline-loading"><span class="ring"></span>加载中…</span></div>
     </div>`);
-  view.insertBefore(applyCard, card);
+  view.appendChild(applyCard);
 
   function parseApplyBody(body) {
     if (!body) return null;

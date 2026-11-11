@@ -1,6 +1,6 @@
 /* editor-shared.js — Vditor 资源加载器（编辑器 / 说说页共用） */
 
-import { VERSION } from "../app.js";
+import { VERSION } from "../app.js?v=4.1.3";
 
 export const VDITOR_BASE = "/admin/vendor/vditor";
 
