@@ -686,3 +686,53 @@ input:focus-visible {
   justify-content: center !important;
 }
 #banner .mask > * { max-width: 100%; }
+
+/* ============================================================
+   v2.4 导航去紫化：白玻璃 + 深色文字（整站观感质变的关键）
+   ============================================================ */
+.navbar {
+  background: rgba(255, 255, 255, 0.86) !important;
+  border-bottom: 1px solid rgba(43, 43, 69, 0.08);
+  box-shadow: none !important;
+}
+.navbar .navbar-brand,
+.navbar .nav-link,
+.navbar #color-toggle-btn {
+  color: #2c2c46 !important;
+}
+.navbar .navbar-brand { font-weight: 700; }
+.navbar .nav-link:hover,
+.navbar .nav-link:focus { color: var(--zui-primary) !important; }
+.navbar.zui-scrolled {
+  background: rgba(255, 255, 255, 0.94) !important;
+  box-shadow: 0 4px 20px rgba(30, 25, 70, 0.08) !important;
+}
+html[data-user-color-scheme="dark"] .navbar {
+  background: rgba(16, 18, 32, 0.8) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.07);
+  box-shadow: none !important;
+}
+html[data-user-color-scheme="dark"] .navbar .navbar-brand,
+html[data-user-color-scheme="dark"] .navbar .nav-link,
+html[data-user-color-scheme="dark"] .navbar #color-toggle-btn {
+  color: #c9cde2 !important;
+}
+html[data-user-color-scheme="dark"] .navbar .nav-link:hover { color: #a99cf5 !important; }
+html[data-user-color-scheme="dark"] .navbar.zui-scrolled {
+  background: rgba(16, 18, 32, 0.92) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* 卡片更轻：发丝线代替重阴影 */
+.index-card, #board {
+  box-shadow: 0 1px 2px rgba(30, 25, 70, 0.04) !important;
+  border: 1px solid var(--line-color);
+}
+.index-card:hover {
+  box-shadow: 0 10px 32px rgba(30, 25, 70, 0.1) !important;
+  border-color: rgba(141, 123, 224, 0.45);
+}
+html[data-user-color-scheme="dark"] .index-card,
+html[data-user-color-scheme="dark"] #board {
+  box-shadow: none !important;
+}

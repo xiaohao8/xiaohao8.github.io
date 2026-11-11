@@ -16,7 +16,7 @@ navbar:
     - { key: "links", link: "/links/", icon: "iconfont icon-link-fill" }
     - { key: "新友链", link: "/friends/", icon: "iconfont icon-link-fill" }
 index:
-  banner_img: /images/uploads/banner-home.jpg
+  banner_img: /images/uploads/banner-home.webp
   banner_img_height: 100
   slogan:
     text: " You are back it with all the good things in the world. 你逆光而来，配得上这世间所有的好。"
