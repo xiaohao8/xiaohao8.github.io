@@ -27,6 +27,104 @@ export default async function friends(view, ctx, params, handleErr) {
         <tbody id="friend-tbody"></tbody>
       </table></div>
     </div>`);
+  /* ---------- 友链申请审批（GitHub Issue 自助提交） ---------- */
+  const applyCard = el(`<div class="card" id="apply-card">
+      <div class="card-header">${ic("post")}<h2>友链申请</h2><div class="sub">来自友链页表单的 GitHub Issue</div><div class="spacer"></div>
+        <button class="icon-btn" id="apply-refresh" title="刷新">${ic("refresh")}</button></div>
+      <div id="apply-list"><span class="inline-loading"><span class="ring"></span>加载中…</span></div>
+    </div>`);
+  view.insertBefore(applyCard, card);
+
+  function parseApplyBody(body) {
+    if (!body) return null;
+    const m = body.match(/```yaml[\s\S]*?```/);
+    if (m) {
+      try {
+        const d = window.jsyaml ? window.jsyaml.load(m[0].replace(/```(yaml)?/g, "")) : null;
+        if (d && (d.title || d.link)) {
+          return { title: String(d.title || ""), link: String(d.link || ""), avatar: String(d.avatar || ""), intro: String(d.intro || "") };
+        }
+      } catch (_) { /* 落到正则兜底 */ }
+    }
+    const get = (k) => { const mm = body.match(new RegExp(k + "[:：]\\s*(\\S+)")); return mm ? mm[1] : ""; };
+    const t = get("title"), l = get("link");
+    return t && l ? { title: t, link: l, avatar: get("avatar"), intro: get("intro") } : null;
+  }
+
+  async function closeIssue(it, comment) {
+    try {
+      if (comment) await ctx.api.createIssueComment(it.number, comment);
+      await ctx.api.updateIssue(it.number, { state: "closed" });
+      return true;
+    } catch (e) {
+      toast("Issue 关闭失败（Token 缺少 Issues 权限？）请手动关闭：#" + it.number, "info", 6000);
+      return false;
+    }
+  }
+
+  async function adoptIssue(it, info) {
+    if (!safeHttpUrl(info.link)) { toast("申请中的链接无效，请手动处理", "error"); return; }
+    const item = { title: info.title, link: info.link, intro: info.intro || "", avatar: info.avatar || "" };
+    loading.show("正在采纳…");
+    try {
+      await save("Add Friend by Qexo (from issue #" + it.number + ")", items.concat([item]));
+      render();
+      loading.hide();
+      const ok = await closeIssue(it, "友链已采纳并展示，感谢交换！");
+      if (ok) toast("已采纳并关闭申请", "success");
+      renderApplications();
+    } catch (e) { loading.hide(); handleErr(e); }
+  }
+
+  async function rejectIssue(it) {
+    const ok = await confirmDialog({ title: "忽略申请", text: "将关闭该 Issue 且不添加友链，确定？", okLabel: "关闭申请", danger: true });
+    if (!ok) return;
+    loading.show("正在处理…");
+    const done = await closeIssue(it, "该申请未通过审核。");
+    loading.hide();
+    if (done) { toast("已关闭", "success"); renderApplications(); }
+  }
+
+  async function renderApplications() {
+    const listEl = applyCard.querySelector("#apply-list");
+    if (ctx.demo) {
+      listEl.innerHTML = `<div class="empty" style="padding:1rem">${ic("info")}<p>演示模式：申请来自 GitHub Issue，需真实登录查看</p></div>`;
+      return;
+    }
+    try {
+      const issues = await ctx.api.listOpenIssues(30);
+      const apps = (issues || []).filter((it) => !it.pull_request && String(it.title || "").startsWith("【友链申请】"));
+      if (!apps.length) {
+        listEl.innerHTML = `<div class="empty" style="padding:1rem">${ic("check")}<p>暂无待处理的申请</p></div>`;
+        return;
+      }
+      listEl.innerHTML = "";
+      for (const it of apps) {
+        const info = parseApplyBody(it.body) || { title: it.title.replace("【友链申请】", "").trim(), link: "", avatar: "", intro: "" };
+        const row = el(`<div class="zui-apply-item">
+            <div class="meta"><b>${esc(info.title || "（未解析）")}</b>
+              <span class="sub">${esc(info.link)}${info.intro ? " · " + esc(info.intro) : ""} · #${it.number}</span></div>
+            <button class="btn btn-sm" data-act="view">查看</button>
+            <button class="btn btn-sm btn-primary" data-act="adopt">采纳</button>
+            <button class="btn btn-sm btn-ghost" data-act="reject">忽略</button>
+          </div>`);
+        row.querySelector('[data-act="view"]').addEventListener("click", () => window.open(it.html_url, "_blank", "noopener"));
+        row.querySelector('[data-act="adopt"]').addEventListener("click", () => adoptIssue(it, info));
+        row.querySelector('[data-act="reject"]').addEventListener("click", () => rejectIssue(it));
+        listEl.appendChild(row);
+      }
+    } catch (e) {
+      if (/Issues has been disabled/.test(e.message)) {
+        listEl.innerHTML = `<div class="empty" style="padding:1rem">${ic("info")}<p>仓库未启用 Issues：GitHub 仓库 Settings → Features 勾选 Issues 后即可收到自助申请。</p></div>`;
+      } else {
+        listEl.innerHTML = `<div class="empty" style="padding:1rem">${ic("alert")}<p>申请列表加载失败：${esc(e.message)}</p></div>`;
+      }
+    }
+  }
+
+  applyCard.querySelector("#apply-refresh").addEventListener("click", renderApplications);
+  renderApplications();
+
   view.appendChild(card);
 
   const tbody = card.querySelector("#friend-tbody");

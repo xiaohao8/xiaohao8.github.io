@@ -206,3 +206,39 @@
     boot();
   }
 })();
+
+/* ---------- 友链自助申请（/friends/ 页表单 → GitHub Issue） ---------- */
+(function () {
+  function init() {
+    var box = document.getElementById("friend-apply");
+    if (!box) return;
+    var btn = document.getElementById("fa-submit");
+    var REPO = "xiaohao8/xiaohao8.github.io";
+    btn.addEventListener("click", function () {
+      var v = function (id) { return (document.getElementById(id).value || "").trim(); };
+      var title = v("fa-title"), link = v("fa-link"), avatar = v("fa-avatar"), intro = v("fa-intro");
+      if (!title) return alert("请填写站点名称");
+      if (!/^https?:\/\/.+/i.test(link)) return alert("站点链接需以 http(s):// 开头");
+      if (avatar && !/^https?:\/\/.+/i.test(avatar)) return alert("头像链接需以 http(s):// 开头（或留空）");
+      var body =
+        "```yaml\n" +
+        "title: " + title + "\n" +
+        "link: " + link + "\n" +
+        "avatar: " + (avatar || "") + "\n" +
+        "intro: " + (intro || "") + "\n" +
+        "```\n\n> 本 Issue 由友链页申请表单自动生成，博主在后台审核采纳。\n";
+      var url = "https://github.com/" + REPO + "/issues/new" +
+        "?title=" + encodeURIComponent("【友链申请】" + title) +
+        "&body=" + encodeURIComponent(body);
+      btn.disabled = true;
+      btn.textContent = "正在打开 GitHub…";
+      window.open(url, "_blank", "noopener");
+      setTimeout(function () {
+        btn.disabled = false;
+        btn.textContent = "提交申请";
+      }, 1200);
+    });
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
+})();

@@ -3,23 +3,45 @@ navbar:
   ground_glass:
     enable: true
   menu:
-    - { key: "home", link: "/", icon: "iconfont icon-home-fill" }
-    - { key: "archive", link: "/archives/", icon: "iconfont icon-archive-fill" }
-    - { key: "category", link: "/categories/", icon: "iconfont icon-category-fill" }
-    - { key: "tag", link: "/tags/", icon: "iconfont icon-tags-fill" }
-    - { key: "about", link: "/about/", icon: "iconfont icon-user-fill" }
-    - { key: "Admin", name: "管理后台", link: "/admin/", icon: "iconfont icon-users" }
-    - { key: "开往", link: "https://travellings.cn/go.html", icon: "iconfont icon-linkedin-fill" }
-    - { key: "个站商店~虫洞", link: "https://storeweb.cn/s/1562", icon: "iconfont icon-line-fill" }
-    - { key: "朋友圈", link: "/pyq/", icon: "iconfont icon-home-fill" }
-    - { key: "说说", link: "/talks/", icon: "iconfont icon-comment-fill" }
-    - { key: "links", link: "/links/", icon: "iconfont icon-link-fill" }
-    - { key: "新友链", link: "/friends/", icon: "iconfont icon-link-fill" }
+    - key: home
+      link: /
+      icon: iconfont icon-home-fill
+    - key: archive
+      link: /archives/
+      icon: iconfont icon-archive-fill
+    - key: category
+      link: /categories/
+      icon: iconfont icon-category-fill
+    - key: tag
+      link: /tags/
+      icon: iconfont icon-tags-fill
+    - key: about
+      link: /about/
+      icon: iconfont icon-user-fill
+    - key: Admin
+      name: 管理后台
+      link: /admin/
+      icon: iconfont icon-users
+    - key: 开往
+      link: https://travellings.cn/go.html
+      icon: iconfont icon-linkedin-fill
+    - key: 个站商店~虫洞
+      link: https://storeweb.cn/s/1562
+      icon: iconfont icon-line-fill
+    - key: 朋友圈
+      link: /pyq/
+      icon: iconfont icon-home-fill
+    - key: 说说
+      link: /talks/
+      icon: iconfont icon-comment-fill
+    - key: links
+      link: /friends/
+      icon: iconfont icon-link-fill
 index:
   banner_img: /images/uploads/banner-home.webp
   banner_img_height: 100
   slogan:
-    text: " You are back it with all the good things in the world. 你逆光而来，配得上这世间所有的好。"
+    text: ' You are back it with all the good things in the world. 你逆光而来，配得上这世间所有的好。'
 post:
   banner_img: https://imgapi.xl0408.top/index.php
   banner_img_height: 70
@@ -53,7 +75,7 @@ links:
       link: https://xiaolii.com/
       avatar: https://502.chat/Imagesource/icon.jpg
     - title: 安知鱼
-      link: "https://anzhiy.cn/ "
+      link: 'https://anzhiy.cn/ '
       intro: 生活明朗，万物可爱
       avatar: https://image.anzhiy.cn/adminuploads/1/2022/09/15/63232b7d91d22.jpg
     - title: Diary of LX
@@ -201,3 +223,18 @@ links:
       link: https://blog.zuilang.tk/
       avatar: https://image.zuilang.tk/avatar/avatar.png
       intro: 一只喜欢七彩球的枯叶蝶
+  custom:
+    enable: true
+    content: |-
+      <div id="friend-apply" class="zui-apply">
+        <h2>申请友链</h2>
+        <div class="zui-apply-tips"><b>申请前请确认：</b>本站已添加你的友链 · 站点可正常访问、无违法内容 · 原创内容为主</div>
+        <div class="zui-apply-grid">
+          <label>站点名称 *<input id="fa-title" maxlength="30" placeholder="例如：醉里博客" /></label>
+          <label>站点链接 *<input id="fa-link" maxlength="120" placeholder="https://…" /></label>
+          <label>头像图片链接<input id="fa-avatar" maxlength="200" placeholder="可留空，建议方形" /></label>
+          <label>一句话简介<input id="fa-intro" maxlength="60" placeholder="展示在友链卡片上" /></label>
+        </div>
+        <button id="fa-submit" class="zui-apply-btn" type="button">提交申请</button>
+        <p class="zui-apply-note">提交后会打开 GitHub Issue，确认无误即可发送；博主会在后台审核后展示。没有 GitHub 账号？发邮件到 <a href="mailto:xiaohao@202271.xyz">xiaohao@202271.xyz</a> 同样有效。</p>
+      </div>

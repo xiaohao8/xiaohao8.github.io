@@ -260,6 +260,28 @@ export class GitHubAPI {
     });
   }
 
+  /* ---------- issues（友链自助申请） ---------- */
+
+  async listOpenIssues(perPage = 30) {
+    return this.req(
+      '/repos/' + this.repoPath + '/issues?state=open&per_page=' + perPage
+    );
+  }
+
+  async updateIssue(number, patch) {
+    return this.req(
+      '/repos/' + this.repoPath + '/issues/' + number,
+      { method: 'PATCH', body: patch }
+    );
+  }
+
+  async createIssueComment(number, body) {
+    return this.req(
+      '/repos/' + this.repoPath + '/issues/' + number + '/comments',
+      { method: 'POST', body: { body } }
+    );
+  }
+
   /* ---------- git tree ---------- */
 
   async tree(ref) {

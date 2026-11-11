@@ -76,3 +76,14 @@
   from = "/friends/"
   to = "/friends.html"
   status = 200
+
+# 旧友链地址与历史书签 → 统一友链页
+[[redirects]]
+  from = "/links"
+  to = "/friends/"
+  status = 301
+
+[[redirects]]
+  from = "/links/"
+  to = "/friends/"
+  status = 301

@@ -32,7 +32,8 @@
 1. 打开 <https://github.com/settings/personal-access-tokens/new>（Fine-grained token）
 2. **Repository access** → Only select repositories → 选 `xiaohao8/xiaohao8.github.io`
 3. **Permissions → Repository permissions → Contents** 设为 `Read and write`（其他保持默认）
-4. 生成后复制 Token（`github_pat_` 开头）
+4. 建议同时勾选 **Issues: Read and write**（用于「友链自助申请」的后台审批）
+5. 生成后复制 Token（`github_pat_` 开头）
 
 ### 2. 登录
 
