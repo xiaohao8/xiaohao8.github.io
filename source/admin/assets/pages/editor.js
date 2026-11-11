@@ -9,7 +9,7 @@ import {
 } from "../yaml.js?v=4.1.3";
 import { ensureVditorLib, getVditorBase } from "./editor-shared.js?v=4.1.3";
 import { uploadImage, runUploadQueue } from "../upload.js?v=4.1.3";
-import { invalidatePostsCache } from "./posts.js?v=4.1.3";
+import { invalidatePostsCache, setPostOverride } from "./posts.js?v=4.1.3";
 
 export default async function editor(view, ctx, params, handleErr) {
   const isPage = location.hash.startsWith("#/editpage");
@@ -328,6 +328,8 @@ export default async function editor(view, ctx, params, handleErr) {
     try {
       if (!origPath) origPath = await makeNewPath();
       await ctx.api.writeFile(origPath, content, msg);
+      const entryFields = { name: origPath.split("/").pop(), path: origPath, size: content.length, title: String(fm.title || ""), date: String(fm.date || ""), updated: String(fm.updated || ""), sticky: fm.sticky == null ? null : Number(fm.sticky) || 0, tags: Array.isArray(fm.tags) ? fm.tags.map(String) : [], categories: Array.isArray(fm.categories) ? fm.categories.map(String) : [], password: Boolean(String(fm.password || "")), permalink: String(fm.permalink || ""), abbrlink: String(fm.abbrlink || "") };
+      setPostOverride(origPath, entryFields);
       markClean();
       loading.hide();
       toast(isPage ? "页面已保存，Netlify 构建已触发" : "文章已保存，Netlify 构建已触发", "success");

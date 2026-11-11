@@ -15,6 +15,49 @@ export function invalidatePostsCache() {
   try { localStorage.removeItem(CACHE_KEY); } catch (_) { /* ignore */ }
 }
 
+const OVERRIDE_KEY = "qexo4_post_overrides";
+
+/** 编辑/删除后的本地覆盖：索引（构建产物）未更新前保持列表真实 */
+export function setPostOverride(path, entry) {
+  try {
+    const o = JSON.parse(localStorage.getItem(OVERRIDE_KEY) || "{}");
+    if (entry) o[path] = entry;
+    else delete o[path];
+    localStorage.setItem(OVERRIDE_KEY, JSON.stringify(o));
+  } catch (_) { /* ignore */ }
+}
+
+function getOverrides() {
+  try { return JSON.parse(localStorage.getItem(OVERRIDE_KEY) || "{}"); } catch (_) { return {}; }
+}
+
+function applyOverrides(data, overrides) {
+  let list = data.map((p) => (overrides[p.path] ? overrides[p.path] : p)).filter(Boolean);
+  for (const [path, entry] of Object.entries(overrides)) {
+    if (entry && !list.some((p) => p.path === path)) list.push(entry);
+  }
+  list.sort((a, b) => dateValue(b.date || b.updated) - dateValue(a.date || a.updated) || a.name.localeCompare(b.name));
+  return list;
+}
+
+/** 从构建索引读取列表（1 个静态请求，替代逐篇 52 次 GitHub API） */
+async function loadFromIndex(ctx) {
+  if (ctx.demo) return null;
+  const res = await fetch("admin/posts-index.json", { cache: "no-cache" });
+  if (!res.ok) throw new Error(res.status);
+  const index = await res.json();
+  return index.map((p) => ({
+    name: p.name, path: p.path, size: p.size || null,
+    title: String(p.title || p.name.replace(/\.md$/, "")),
+    date: String(p.date || ""), updated: String(p.updated || ""),
+    sticky: p.sticky == null ? null : Number(p.sticky) || 0,
+    tags: Array.isArray(p.tags) ? p.tags.map(String) : [],
+    categories: Array.isArray(p.categories) ? p.categories.map(String) : [],
+    password: Boolean(p.password),
+    permalink: String(p.permalink || ""), abbrlink: String(p.abbrlink || ""),
+  }));
+}
+
 /** 日期字符串 → 排序用毫秒数；兼容补零/不补零/ISO 三种写法，无效返回 0 */
 export function dateValue(s) {
   if (!s) return 0;
@@ -37,7 +80,7 @@ export function postLink(p, siteUrl) {
   return base + "/";
 }
 
-/** 读取全部文章 front-matter（带 localStorage 缓存，跨标签页复用 5 分钟） */
+/** 读取全部文章列表：索引优先（1 请求）→ 覆盖合并 → GitHub 全量兜底 */
 export async function loadAllPosts(ctx, { force = false } = {}) {
   if (!force) {
     try {
@@ -46,6 +89,29 @@ export async function loadAllPosts(ctx, { force = false } = {}) {
     } catch (_) { /* ignore */ }
   }
   const api = ctx.api;
+  const finish = (data) => {
+    data.sort((a, b) => dateValue(b.date || b.updated) - dateValue(a.date || a.updated) || a.name.localeCompare(b.name));
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), scope: cacheScope(ctx), data }));
+    } catch (_) { /* ignore */ }
+    return data;
+  };
+
+  // 1) 构建索引（1 个静态请求）+ 本地覆盖合并
+  if (!force) {
+    try {
+      const indexed = await loadFromIndex(ctx);
+      if (indexed && indexed.length) {
+        const data = finish(applyOverrides(indexed, getOverrides()));
+        return data;
+      }
+    } catch (_) { /* 索引不可用 → 走 GitHub 兜底 */ }
+  }
+
+  // 2) GitHub 全量逐篇读取（兜底 / 强制刷新）
+  if (force) {
+    try { localStorage.removeItem(OVERRIDE_KEY); } catch (_) { /* ignore */ }
+  }
   const files = await api.listPosts();
   const data = [];
   const CONCURRENCY = 6;
@@ -74,11 +140,7 @@ export async function loadAllPosts(ctx, { force = false } = {}) {
     }
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
-  data.sort((a, b) => dateValue(b.date || b.updated) - dateValue(a.date || a.updated) || a.name.localeCompare(b.name));
-  try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), scope: cacheScope(ctx), data }));
-  } catch (_) { /* ignore */ }
-  return data;
+  return finish(data);
 }
 
 export default async function posts(view, ctx, params, handleErr) {
@@ -89,6 +151,7 @@ export default async function posts(view, ctx, params, handleErr) {
         <input class="input" id="post-search" type="search" placeholder="搜索标题 / 标签 / 分类 / 文件名…" />
       </div>
       <div class="spacer"></div>
+      <button class="btn" id="post-refresh" title="绕过缓存与索引，从 GitHub 全量刷新">${ic("refresh")}强制刷新</button>
       <button class="btn btn-primary" id="post-new">${ic("plus")}新建文章</button>
     </div>`);
   view.appendChild(toolbar);
@@ -151,6 +214,7 @@ export default async function posts(view, ctx, params, handleErr) {
         loading.show("正在删除…");
         try {
           await ctx.api.deleteFile(p.path, `Delete Post ${p.name} by Qexo`);
+          setPostOverride(p.path, null);
           invalidatePostsCache();
           all = all.filter((x) => x.path !== p.path);
           render();
@@ -162,6 +226,20 @@ export default async function posts(view, ctx, params, handleErr) {
   }
 
   search.addEventListener("input", render);
+
+  toolbar.querySelector("#post-refresh").addEventListener("click", async () => {
+    const btn = toolbar.querySelector("#post-refresh");
+    btn.disabled = true;
+    loading.show("正在从 GitHub 全量刷新…");
+    try {
+      all = await loadAllPosts(ctx, { force: true });
+      render();
+      toast("已从 GitHub 全量刷新", "success");
+    } catch (e) { handleErr(e); }
+    loading.hide();
+    btn.disabled = false;
+  });
+
 
   toolbar.querySelector("#post-new").addEventListener("click", () => {
     const body = el(`<div>
@@ -199,6 +277,7 @@ export default async function posts(view, ctx, params, handleErr) {
             try {
               const path = "source/_posts/" + name;
               await ctx.api.writeFile(path, text, `New Post ${name} by Qexo`);
+              setPostOverride(path, { name, path, size: text.length, title: fm.title, date: fm.date, updated: fm.updated, sticky: null, tags: [], categories: [], password: false, permalink: "", abbrlink: "" });
               invalidatePostsCache();
               loading.hide();
               toast("文章已创建", "success");
