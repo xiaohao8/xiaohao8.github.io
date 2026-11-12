@@ -11,6 +11,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 const SRC = path.join(__dirname, "..", "source");
 // 主题自带脚本（events / plugins / img-lazyload / local-search / boot）在 themes/fluid/source/，
@@ -107,6 +108,19 @@ const BUNDLE_ORDER = [
   "/js/boot.js",
 ];
 
+let bundleVer = null;
+/**
+ * 用合包内容生成版本号：内容不变则 URL 不变（继续吃 `/js/*` 的 1 小时缓存），
+ * 内容一变就换 URL。否则修了 bundle 但 URL 没变，浏览器会一直拿着旧文件不放。
+ */
+function bundleVersion() {
+  if (bundleVer) return bundleVer;
+  const h = crypto.createHash("sha1");
+  for (const f of BUNDLE_ORDER) h.update(f).update(readFileCached(f) || "");
+  bundleVer = h.digest("hex").slice(0, 10);
+  return bundleVer;
+}
+
 hexo.extend.generator.register("fluid-bundle", function () {
   let out = "/* fluid bundle @ " + new Date().toISOString() + " */\n";
   for (const f of BUNDLE_ORDER) {
@@ -132,7 +146,7 @@ function bundleTailScripts(html) {
   const srcs = found.map((x) => x.src);
   const expect = BUNDLE_ORDER.filter((f) => srcs.includes(f));
   if (JSON.stringify(srcs) !== JSON.stringify(expect)) return html;
-  html = html.replace(found[0].tag, '<script src="/js/fluid-bundle.js" defer></script>');
+  html = html.replace(found[0].tag, '<script src="/js/fluid-bundle.js?v=' + bundleVersion() + '" defer></script>');
   for (let i = 1; i < found.length; i++) html = html.replace(found[i].tag, "");
   return html;
 }
@@ -143,6 +157,14 @@ hexo.extend.filter.register("after_render:html", async function (html) {
   out = await inlineCss(out);
   out = inlineHeadScripts(out);
   out = bundleTailScripts(out);
+  // custom_head 里的 preload 必须与 script 用同一个带版本 URL，
+  // 否则会重复下载，甚至 preload 到旧版本。
+  if (out.includes('href="/js/fluid-bundle.js"')) {
+    out = out.replace(
+      /(<link rel="preload" href="\/js\/fluid-bundle\.js)(\?[^"]*)?(" as="script">)/g,
+      "$1?v=" + bundleVersion() + "$3"
+    );
+  }
   out = inlineBanner(out);
   return out;
 });

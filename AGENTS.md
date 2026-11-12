@@ -54,6 +54,9 @@
   但 6 个 `<script>` 标签照样被删，`img-lazyload.js` 不执行，首页图片永远停在
   `/img/loading.gif` 转圈。替换标签前必须校验每个脚本都读到了源码，
   读不到就整段保留原标签（宁可多几个请求，也不能让 JS 静默消失）。
+  bundle URL 必须带内容 hash 版本参数（`?v=`），且 `custom_head` 的 preload 与
+  script 用同一个值；否则修完 bundle 后浏览器仍拿 `/js/*`（`max-age=3600`）里
+  缓存的旧文件，看起来就像「没修好」。
 
 ## 后台性能约定（勿回退）
 
