@@ -966,3 +966,36 @@ footer::before {
   letter-spacing: 0.06em;
   text-shadow: 0 2px 16px rgba(15, 12, 38, 0.6);
 }
+
+/* ============================================================
+   v2.6 参考站风格——滚动感知导航 + 更新提示条精修
+   ============================================================ */
+
+/* 在 Banner 上：导航融入画面（透明 + 白字），滚离后换白玻璃/深夜蓝 */
+.navbar.zui-on-banner {
+  background: linear-gradient(180deg, rgba(10, 8, 30, 0.38), rgba(10, 8, 30, 0)) !important;
+  border-bottom-color: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.navbar.zui-on-banner .navbar-brand,
+.navbar.zui-on-banner .nav-link,
+.navbar.zui-on-banner #color-toggle-btn,
+.navbar.zui-on-banner .navbar-toggler { color: #fff !important; }
+.navbar.zui-on-banner .nav-link::after { background: #fff; }
+html[data-user-color-scheme="dark"] .navbar.zui-on-banner {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0)) !important;
+}
+
+/* 更新提示条：淡薰衣草信息条（与参考站一致的信息位） */
+#updated-time {
+  border-radius: 10px;
+  border-left: 3px solid var(--zui-primary-2);
+  background: linear-gradient(90deg, rgba(141, 123, 224, 0.14), rgba(141, 123, 224, 0.04));
+  padding: 0.55rem 1rem;
+  margin-bottom: 1.6rem;
+}
+html[data-user-color-scheme="dark"] #updated-time {
+  background: linear-gradient(90deg, rgba(139, 124, 240, 0.16), rgba(139, 124, 240, 0.04));
+}

@@ -72,6 +72,9 @@
   function onNavScroll() {
     if (!navbar) return;
     navbar.classList.toggle("zui-scrolled", window.scrollY > 24);
+    var banner = document.getElementById("banner");
+    if (!banner) return;
+    navbar.classList.toggle("zui-on-banner", banner.getBoundingClientRect().bottom > 64);
   }
 
   /* ---------- 3. 回到顶部：环形阅读进度 ---------- */

@@ -2,12 +2,18 @@
   <%- js_ex(theme.static_prefix.typed, '/typed.min.js') %>
   <script>
     (function (window, document) {
-      var typing = Fluid.plugins.typing;
       var subtitle = document.getElementById('subtitle');
-      if (!subtitle || !typing) {
+      if (!subtitle) {
         return;
       }
       var text = subtitle.getAttribute('data-typed-text');
+      // 等待流体工具与插件就绪后再启动打字机（合包脚本下 plugins 与本内联脚本
+      // 的执行顺序不再保证），window load 后必然全部就绪
+      function startTyping() {
+        var typing = window.Fluid && window.Fluid.plugins && window.Fluid.plugins.typing;
+        if (!typing) {
+          return;
+        }
       <% if (is_home() && theme.index.slogan.api && theme.index.slogan.api.enable) { %>
         jQuery.ajax({
           type: '<%= theme.index.slogan.api.method %>',
@@ -47,6 +53,12 @@
       <% } else { %>
         typing(text);
       <% } %>
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', startTyping);
+      } else {
+        window.addEventListener('load', startTyping);
+      }
     })(window, document);
   </script>
 <% } %>
