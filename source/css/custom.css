@@ -1071,3 +1071,114 @@ html[data-user-color-scheme="dark"] #updated-time {
 .zui-stat-row a:hover { color: var(--zui-primary); }
 .zui-stat-row b { color: var(--zui-primary); flex-shrink: 0; margin-left: 1rem; }
 .markdown-body h3 { font-family: var(--font-family-base, inherit); margin-top: 1.8rem; }
+
+/* ============================================================
+   v3 全站收尾——分类折叠卡 / 标签单页 / 朋友圈 / 计划清单 / 404
+   ============================================================ */
+
+/* 分类页：折叠手风琴卡片化 */
+.category-list > .category.row {
+  margin: 0 0 0.6rem;
+  border: 1px solid var(--line-color);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.category-list > .category.row:hover {
+  border-color: rgba(141, 123, 224, 0.45);
+  box-shadow: 0 4px 16px rgba(30, 25, 70, 0.08);
+}
+.category-list .category-item {
+  background: transparent;
+  font-weight: 600;
+  padding: 0.7rem 1.1rem;
+  transition: color 0.2s ease;
+}
+.category-list .category-item:hover { color: var(--zui-primary); }
+.category-list .list-group-count {
+  background: var(--zui-grad);
+  color: #fff;
+  border-radius: 999px;
+  padding: 0 0.55em;
+  font-size: 0.8em;
+  margin-left: 0.3em;
+}
+.category-list .category-item i { color: var(--zui-primary-2); }
+.category-list .category-subitem {
+  border-top: 1px dashed var(--line-color);
+  padding-left: 2.2rem !important;
+}
+.category-list .category-subitem:hover { background: rgba(165, 147, 224, 0.06); }
+
+/* 分类侧栏（文章内分类栏） */
+.category-bar .category-list > .category-sub > a { color: var(--zui-primary); }
+
+/* 标签单页（tag 下文章列表）：与归档同风格 */
+.tag-page .list-group-item,
+[class*="tag"] .list-group-item {
+  border-radius: 10px;
+  padding: 0.5rem 0.8rem;
+}
+.list-group-item time {
+  font-family: Consolas, monospace;
+  color: var(--sec-text-color);
+}
+.list-group-item-title { font-weight: 600; }
+.list-group-item:hover .list-group-item-title { color: var(--zui-primary); }
+
+/* 朋友圈页 */
+.page-content .fcircle-item,
+.page-content img { border-radius: 10px; }
+#fcircleApp a { transition: color 0.2s ease; }
+#fcircleApp a:hover { color: var(--zui-primary); }
+
+/* 计划清单页：checkbox 任务卡 */
+.markdown-body ul li {
+  list-style-type: none;
+  padding-left: 0.2em;
+}
+.markdown-body ul { padding-left: 1.2em; }
+.markdown-body ul li::before {
+  content: "•";
+  color: var(--zui-primary-2);
+  font-weight: 700;
+  display: inline-block;
+  width: 0.8em;
+  margin-left: -0.8em;
+}
+.markdown-body input[type="checkbox"] {
+  accent-color: var(--zui-primary);
+  width: 15px;
+  height: 15px;
+  vertical-align: -2px;
+  margin-right: 0.4em;
+}
+.markdown-body input[type="checkbox"]::before { content: none; }
+
+/* 统计看板页（stats 布局下的标题区） */
+.page-content h1,
+.page-content .h1 {
+  font-family: var(--zui-font-display);
+}
+
+/* ---------- 404 页 ---------- */
+.error-container,
+.error-page,
+[data-page-type="404"] {
+  text-align: center;
+}
+#-error-page,
+.error-content {
+  padding: 2rem 1rem;
+}
+.error-content .iconfont,
+.error-content .error-icon {
+  font-size: 4rem;
+  color: var(--zui-primary-2);
+  opacity: 0.6;
+}
+
+/* ---------- 友链申请表单在深色模式下的输入框 ---------- */
+html[data-user-color-scheme="dark"] .zui-apply-grid input {
+  border-color: rgba(255, 255, 255, 0.14);
+}
