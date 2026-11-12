@@ -103,10 +103,20 @@
   排序（created / updated）、分页（每页 24）、随机钓鱼全在本地完成。
   `netlify.toml` 不给 `/fcircle/` 配任何 proxy；`/fcircle/moments.json` 保持
   `max-age=0, must-revalidate`。
-- 刷新数据（唯一联网入口，手动运行）：
-  `node tools/fcircle-refresh.mjs`（默认拉 `https://pyq.202271.xyz/all`，
-  支持 `--url` / `--dry-run`），产物提交后随部署生效；也可以完全离线直接编辑 JSON。
+- `github.com/xiaohao8/pyq` 后端仓库已删除（GitHub API 404），`/all` 端点虽仍
+  返回旧数据但随时会断，**不要再作为数据源**。
+- 刷新数据（唯一联网入口，手动运行）：`node tools/fcircle-refresh.mjs`
+  从 `source/_data/fluid_config.yml` 的 39 条友链探测
+  `/atom.xml` / `/rss.xml` / `/feed` / `/index.xml`，解析 Atom/RSS 后按文章链接
+  与现有本地数据去重、增量合并（抓不到的站点不影响已有条目）。
+  **默认 dry-run 不写任何文件**，确认后才加 `--write`；
+  支持 `--limit` / `--per-link` / `--timeout` / `--concurrency`。
+  产物提交后随部署生效；也可以完全离线直接编辑 JSON。
   工具必须放 `tools/`，别放 `scripts/`（Hexo 会当脚本误加载）。
+- 2026-11-12 首次全量 dry-run：39 条友链中 13 个拿到 feed、26 个失败
+  （多为站点关停或沙箱网络不可达），去重后 59 篇新文章、合并后 226 篇；
+  本次**未写入**，`source/fcircle/moments.json` 仍是 167 篇历史数据。
+  feed 可达性会随网络波动（同一站点两次运行结果可能不同），以 `--write` 当次为准。
 - `source/fcircle/app.js` 必须是 **ES5 语法**（`js_minifier` 开启且 mangle）。
   资源放 `/fcircle/` 而不是 `/js/`、`/css/`，避开 `optimize-speed.js` 的合包 / CSS 内联正则。
   改 JS/CSS 时同步提升 `source/pyq/index.md` 里的 `?v=`。
