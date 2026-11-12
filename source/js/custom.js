@@ -246,80 +246,98 @@
   else init();
 })();
 
-/* ---------- 站点统计（自托管：Netlify Function 采集 → Actions 聚合） ---------- */
-(function () {
-  // 匿名访客 ID（localStorage 随机 UUID，无 Cookie / 无 IP / 无 UA 存储）
-  function vid() {
-    try {
-      var k = "zui_vid", v = localStorage.getItem(k);
-      if (!v) {
-        v = (crypto.randomUUID ? crypto.randomUUID() : Date.now() + "-" + Math.random().toString(36).slice(2));
-        localStorage.setItem(k, v);
-      }
-      return v;
-    } catch (_) { return ""; }
-  }
-  // 页面浏览上报（后台与本地预览不上报）
-  function beacon() {
-    if (location.pathname.indexOf("/admin") === 0) return;
-    if (location.protocol.indexOf("http") !== 0) return;
-    if (/bot|spider|crawl/i.test(navigator.userAgent)) return;
-    var body = JSON.stringify({
-      v: vid(),
-      p: location.pathname,
-      r: document.referrer ? new URL(document.referrer).hostname : "",
-      w: window.innerWidth,
-    });
-    fetch("/.netlify/functions/collect", {
-      method: "POST",
-      body,
-      keepalive: true,
-      headers: { "Content-Type": "application/json" },
-    }).catch(function () {});
-  }
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", beacon);
-  else beacon();
-
-  // 统计看板（/stats/ 页）
-  function renderStats(data) {
-    var root = document.getElementById("stats-root");
-    if (!root) return;
-    var esc = function (s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); };
-    var maxPv = Math.max.apply(null, [1].concat((data.days || []).slice(-30).map(function (d) { return d.pv; })));
-    var bars = (data.days || []).slice(-30).map(function (d) {
-      var h = Math.max(4, Math.round((d.pv / maxPv) * 100));
-      return '<div class="zui-bar" title="' + d.date + '：' + d.pv + ' PV / ' + d.uv + ' UV">' +
-        '<span style="height:' + h + '%"></span><i>' + d.date.slice(5) + "</i></div>";
-    }).join("");
-    var totals = data.totals || {};
-    var pages = (data.pages || []).slice(0, 10).map(function (p) {
-      return '<div class="zui-stat-row"><a href="' + esc(p.path) + '">' + esc(p.path) + "</a><b>" + p.pv + "</b></div>";
-    }).join("");
-    var refs = (data.referrers || []).slice(0, 10).map(function (r) {
-      return '<div class="zui-stat-row"><span>' + esc(r.source) + "</span><b>" + r.pv + "</b></div>";
-    }).join("");
-    root.innerHTML =
-      '<div class="zui-stats-grid">' +
-      '<div class="zui-stat-card"><b>' + ((totals.pv || 0)) + "</b><span>总浏览量</span></div>" +
-      '<div class="zui-stat-card"><b>' + ((totals.uv || 0)) + "</b><span>独立访客</span></div>" +
-      '<div class="zui-stat-card"><b>' + ((totals.days || 0)) + "</b><span>统计天数</span></div>" +
-      "</div>" +
-      '<h3>近 30 天浏览</h3><div class="zui-bars">' + (bars || '<p class="muted">暂无数据</p>') + "</div>" +
-      '<div class="grid-2"><div class="card" style="margin:0"><h3 style="margin-top:0">热门页面</h3>' + (pages || '<p class="muted">暂无</p>') + "</div>" +
-      '<div class="card" style="margin:0"><h3 style="margin-top:0">访问来源</h3>' + (refs || '<p class="muted">暂无</p>') + "</div></div>" +
-      '<p class="muted small">统计更新于 ' + esc((data.updated || "").slice(0, 16).replace("T", " ")) +
-      ' · 自托管匿名统计（无 Cookie / 无 IP / 无 UA 存储）</p>';
-  }
-  function initStats() {
-    if (!document.getElementById("stats-root")) return;
-    fetch("/analytics/stats.json", { cache: "no-store" })
-      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
-      .then(renderStats)
-      .catch(function () {
-        var root = document.getElementById("stats-root");
-        if (root) root.innerHTML = '<p class="muted">统计构建中，稍后再看。</p>';
+  /* ---------- 站点统计 v5.5（自托管：Netlify Blobs 实时聚合） ---------- */
+  (function () {
+    function vid() {
+      try {
+        var k = "zui_vid", v = localStorage.getItem(k);
+        if (!v) {
+          v = (crypto.randomUUID ? crypto.randomUUID() : Date.now() + "-" + Math.random().toString(36).slice(2));
+          localStorage.setItem(k, v);
+        }
+        return v;
+      } catch (_) { return ""; }
+    }
+    function sid() {
+      try {
+        var k = "zui_sid", v = sessionStorage.getItem(k);
+        if (!v) {
+          v = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+          sessionStorage.setItem(k, v);
+        }
+        return v;
+      } catch (_) { return ""; }
+    }
+    function beacon() {
+      if (location.pathname.indexOf("/admin") === 0) return;
+      if (location.protocol.indexOf("http") !== 0) return;
+      if (/bot|spider|crawl|slurp|headless/i.test(navigator.userAgent)) return;
+      var body = JSON.stringify({
+        v: vid(), s: sid(), p: location.pathname,
+        r: document.referrer ? new URL(document.referrer).hostname : "",
+        w: window.innerWidth, h: window.innerHeight,
+        ua: navigator.userAgent,
       });
-  }
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initStats);
-  else initStats();
-})();
+      fetch("/api/collect", { method: "POST", body, keepalive: true,
+        headers: { "Content-Type": "application/json" } }).catch(function () {});
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", beacon);
+    else beacon();
+
+    function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+    function renderStats(data) {
+      var root = document.getElementById("stats-root");
+      if (!root) return;
+      var t = data.totals || {};
+      var daily = (data.daily || []).slice(-30);
+      var maxPv = Math.max.apply(null, [1].concat(daily.map(function (d) { return d.pv; })));
+      var bars = daily.map(function (d) {
+        var h = Math.max(4, Math.round((d.pv / maxPv) * 100));
+        return '<div class="zui-bar" title="' + d.date + '：' + d.pv + ' PV / ' + d.uv + ' UV"><span style="height:' + h + '%"></span><i>' + d.date.slice(5) + '</i></div>';
+      }).join('');
+      var hourMax = Math.max.apply(null, [1].concat((data.hourly || []).map(function (x) { return x.pv; })));
+      var hourBars = (data.hourly || []).map(function (h) {
+        var hPct = Math.max(3, Math.round((h.pv / hourMax) * 100));
+        return '<div class="zui-hbar" title="' + h.hour + ':00 — ' + h.pv + ' PV"><span style="height:' + hPct + '%"></span><i>' + h.hour + '</i></div>';
+      }).join('');
+      var pages = (data.pages || []).slice(0, 10).map(function (p) {
+        return '<div class="zui-stat-row"><a href="' + esc(p.path) + '">' + esc(p.path) + '</a><b>' + p.count + '</b></div>';
+      }).join('');
+      var refs = (data.referrers || []).slice(0, 10).map(function (r) {
+        return '<div class="zui-stat-row"><span>' + esc(r.source) + '</span><b>' + r.count + '</b></div>';
+      }).join('');
+      var browsers = (data.browsers || []).map(function (b) {
+        return '<div class="zui-stat-row"><span>' + esc(b.name) + '</span><b>' + b.count + '</b></div>';
+      }).join('');
+      var mins = Math.floor((t.avgDuration || 0) / 60);
+      var secs = (t.avgDuration || 0) % 60;
+      root.innerHTML =
+        '<div class="zui-stats-grid">' +
+        '<div class="zui-stat-card"><b>' + (t.pv || 0) + '</b><span>总浏览量</span></div>' +
+        '<div class="zui-stat-card"><b>' + (t.uv || 0) + '</b><span>独立访客</span></div>' +
+        '<div class="zui-stat-card"><b>' + mins + ':' + ("0" + secs).slice(-2) + '</b><span>平均时长</span></div>' +
+        '<div class="zui-stat-card"><b>' + (t.bounceRate || 0) + '%</b><span>跳出率</span></div>' +
+        '<div class="zui-stat-card"><b>' + (t.sessions || 0) + '</b><span>会话数</span></div>' +
+        '<div class="zui-stat-card"><b>' + (t.online || 0) + '</b><span>当前在线</span></div>' +
+        '</div>' +
+        '<h3>近 30 天</h3><div class="zui-bars">' + (bars || '<p class="muted">暂无数据</p>') + '</div>' +
+        '<h3>24 小时分布</h3><div class="zui-bars zui-bars-sm">' + (hourBars || '') + '</div>' +
+        '<div class="grid-2"><div class="card" style="margin:0"><h3 style="margin-top:0">热门页面</h3>' + (pages || '<p class="muted">暂无</p>') + '</div>' +
+        '<div class="card" style="margin:0"><h3 style="margin-top:0">访问来源</h3>' + (refs || '<p class="muted">暂无</p>') + '</div>' +
+        '<div class="card" style="margin:0"><h3 style="margin-top:0">浏览器</h3>' + (browsers || '') + '</div></div>' +
+        '<p class="muted small">统计更新于 ' + esc((data.updated || '').slice(0, 16).replace("T", " ")) + ' · 自托管实时统计（无 Cookie / 无 IP / 无 UA 存储）</p>';
+    }
+    function initStats() {
+      if (!document.getElementById("stats-root")) return;
+      fetch("/api/stats?days=30", { cache: "no-store" })
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(renderStats)
+        .catch(function () {
+          var root = document.getElementById("stats-root");
+          if (root) root.innerHTML = '<p class="muted">统计构建中，稍后再看。</p>';
+        });
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initStats);
+    else initStats();
+  })();

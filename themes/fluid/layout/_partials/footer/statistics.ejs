@@ -18,7 +18,7 @@
       </span>
     <% } %>
     <script>
-      fetch('/analytics/stats.json', { cache: 'no-store' })
+      fetch('/api/stats?days=30', { cache: 'no-store' })
         .then(function (r) { return r.json() })
         .then(function (d) {
           var pv = document.getElementById('zui-site-pv');
