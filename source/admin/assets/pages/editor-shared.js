@@ -10,7 +10,7 @@
 
    失败会抛出可读错误，由页面降级为纯文本编辑，绝不静默空白。 */
 
-import { VERSION } from "../app.js?v=4.1.8";
+import { VERSION } from "../app.js?v=4.1.9";
 
 export const VDITOR_BASE = "/admin/vendor/vditor";
 
@@ -25,9 +25,11 @@ const SOURCES = [
   { key: "site", base: VDITOR_BASE },
 ];
 
-const LIB_TIMEOUT = 15000;
-const LUTE_TIMEOUT = 45000;
+const LIB_TIMEOUT = 12000;
+const LUTE_TIMEOUT = 30000;
+const ICON_TIMEOUT = 12000;
 const LUTE_ID = "vditorLuteScript";
+const ICON_ID = "vditorIconScript";
 const BASE_CACHE_KEY = "qexo4_vditor_base";
 
 let libPromise = null;
@@ -126,6 +128,14 @@ async function loadFrom(base) {
     if (bad) bad.remove();
     throw new Error("Markdown 引擎未就绪");
   }
+
+  // 图标脚本：Vditor 内部有一条「同步 XHR 取源码再内联执行」的路径，
+  // 跨域访问镜像时没有 CORS 会失败。这里先用 <script> 异步加载并占住它的 id，
+  // Vditor 检测到已存在就直接复用。失败不阻断（只是按钮没图标）。
+  await loadScript(base + "/dist/js/icons/ant.js", {
+    id: ICON_ID,
+    timeout: ICON_TIMEOUT,
+  }).catch(() => {});
 }
 
 /**

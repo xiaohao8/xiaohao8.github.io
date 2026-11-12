@@ -2,9 +2,9 @@
 
 import {
   ic, esc, el, toast, loading, confirmDialog, modal, lightbox, copyText, fmtSize, imgWithFallback, previewSrcsFor,
-} from "../app.js?v=4.1.8";
-import { mediaGiteeUrl } from "../github.js?v=4.1.8";
-import { runUploadQueue } from "../upload.js?v=4.1.8";
+} from "../app.js?v=4.1.9";
+import { mediaGiteeUrl } from "../github.js?v=4.1.9";
+import { runUploadQueue } from "../upload.js?v=4.1.9";
 
 const DIR = "source/images/uploads";
 const IMG_RE = /\.(png|jpe?g|gif|webp|svg|avif|bmp|ico)$/i;

@@ -2,14 +2,14 @@
 
 import {
   ic, esc, el, toast, loading, confirmDialog,
-} from "../app.js?v=4.1.8";
+} from "../app.js?v=4.1.9";
 import {
   splitFrontMatter, buildFrontMatter, toInputDate, fromInputDate,
   nowLocal, extractExcerpt,
-} from "../yaml.js?v=4.1.8";
-import { ensureVditorLib, getVditorBase } from "./editor-shared.js?v=4.1.8";
-import { uploadImage, runUploadQueue } from "../upload.js?v=4.1.8";
-import { invalidatePostsCache, setPostOverride } from "./posts.js?v=4.1.8";
+} from "../yaml.js?v=4.1.9";
+import { ensureVditorLib, getVditorBase } from "./editor-shared.js?v=4.1.9";
+import { uploadImage, runUploadQueue } from "../upload.js?v=4.1.9";
+import { invalidatePostsCache, setPostOverride } from "./posts.js?v=4.1.9";
 
 export default async function editor(view, ctx, params, handleErr) {
   const isPage = location.hash.startsWith("#/editpage");
@@ -335,7 +335,7 @@ export default async function editor(view, ctx, params, handleErr) {
   }
 
   // 先给能立刻输入的纯文本，引擎在后台加载；就绪后自动升级成富文本
-  mountPlain("正在加载富文本编辑器…加载完成后自动切换，期间可直接输入 Markdown。", {
+  mountPlain("正在加载富文本编辑器（首次约 1–2 秒）…网络较慢时可直接在下方用 Markdown 写作，不影响保存；就绪后自动切换。", {
     tone: "info",
     silent: true,
     retry: false,

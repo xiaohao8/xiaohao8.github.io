@@ -45,23 +45,30 @@
   （`.github/workflows/fcircle-refresh.yml`），这与 GitHub Pages 是两回事；
   只是别再建任何 Pages 部署 workflow。
 - Hexo 8.1.2 + fluid 主题已 vendor 进 `themes/fluid`（不再用子模块）。
-- `source/admin/` 是纯 ESM 后台 SPA（当前 v4.1.7），**无构建步骤**：hexo-all-minifier 的 uglify 会跳过 ES 模块，原样拷贝即正确，不要引入打包器。
+- `source/admin/` 是纯 ESM 后台 SPA（当前 v4.1.9），**无构建步骤**：hexo-all-minifier 的 uglify 会跳过 ES 模块，原样拷贝即正确，不要引入打包器。
   动态路由 import 由 `app.js` 的 `VERSION` 带 `?v=`；**所有**模块间的静态 import 也都带同一个硬编码版本号
   （`/admin/assets/*` 是 `max-age=600 + SWR`，不带版本会拿到旧模块；带与不带版本又会加载两份实例、
   让 `setMediaConfig` 只改到其中一份）。升级 `VERSION` 时必须把 `source/admin/` 下全部 `?v=` 引用
   与 `index.html` 一起同步（当前约 37 处），漏一处就会混版白屏。
-- **编辑器资源加载（v4.1.7，勿回退成「静默空白」）**：`pages/editor.js` 与 `pages/talks.js`
+- **编辑器资源加载（v4.1.9，勿回退成「静默空白」）**：`pages/editor.js` 与 `pages/talks.js`
   依赖 Vditor，而 Vditor 的正文 DOM 是**异步渲染**的——`new Vditor()` 本身不报错，
   要等 `dist/js/lute/lute.min.js`（≈3.8MB）等子资源就绪才建 UI；子资源被拦截或超时，
   容器就一直是空的，且不抛任何异常（曾表现为「编辑文章页面空白，右侧属性面板正常」）。约定：
-  - Vditor 的 `cdn` 固定为本站 `/admin/vendor/vditor`。Gitee raw 返回
-    `Content-Type: text/plain`，浏览器会拒绝执行 `<script>`（图片能跟随 302，脚本不行），
-    **不要**给脚本做镜像竞速。
-  - `editor-shared.js` 必须显式预加载 lute，并沿用 Vditor 内部的
-    `id="vditorLuteScript"`（其 `addScript` 按 id 去重，不会重复下载）；失败要抛出可读错误。
-  - `editor.js` / `talks.js` 必须保留 watchdog：15 秒内没生成 `.vditor` 就降级为
-    `<textarea>`，给出原因与「重新加载编辑器」，降级后仍可正常保存；
-    加载失败不要永久缓存 promise，否则一次抖动会让编辑器直到刷新都打不开。
+  - **资源源**：Vditor 的 `cdn` 走 `editor-shared.js` 的 `SOURCES`——优先
+    `https://registry.npmmirror.com/vditor/<ver>/files`，失败回退本站
+    `/admin/vendor/vditor`，成功哪个就把 base 记到 `localStorage`。
+    实测 Netlify→国内只有 3~8 KB/s，lute 压缩后 700KB 要 200 秒以上，本站单源根本跑不动；
+    npmmirror 同版本同文件 0.6 秒。`VDITOR_VERSION` 必须与 vendor 里的版本一致。
+  - Gitee raw 返回 `Content-Type: text/plain`，浏览器会拒绝执行 `<script>`
+    （图片能跟随 302，脚本不行），**不要**拿 Gitee 当脚本源。
+  - `editor-shared.js` 必须显式预加载 lute **和** `icons/ant.js`，沿用 Vditor 内部的
+    `id="vditorLuteScript"` / `id="vditorIconScript"`：Vditor 的 `addScript` 按 id 去重，
+    而它的图标加载还有一条「同步 XHR 取源码内联执行」的路径，跨域镜像没有 CORS 会失败，
+    先占住 id 就能绕开。加载失败要抛出可读错误。
+  - `editor.js` 必须「先可写、后升级」：一进页面先渲染 `<textarea>`（立刻能写），
+    引擎在后台加载，成功后再无缝换成 Vditor（保留已输入内容）；`talks.js` 至少要保留
+    15 秒 watchdog 降级。降级后仍可正常保存；加载失败不要永久缓存 promise，
+    否则一次抖动会让编辑器直到刷新都打不开。
 - `image_minifier` 在 `_config.yml` 中保持关闭（沙箱缺 gifsicle 二进制）。
 - **前台脚本合包（`scripts/optimize-speed.js`，勿回退）**：主题自带 JS 在
   `themes/fluid/source/js/`，**不在**项目 `source/`；读取资源必须支持主题目录回退。
@@ -134,7 +141,7 @@
   `permissions: contents: write` 用 Actions 自带 `GITHUB_TOKEN`；
   push 触发 Netlify 部署。`netlify.toml` 的 command 保持纯 `npm run build`。
   workflow 没有 `push` 触发，不会自循环；已删除 WorkBuddy 每周自动刷新任务。
-- 后台「设置 → 朋友圈自动更新」（v4.1.7）可编辑 `source/_data/fcircle.yml`
+- 后台「设置 → 朋友圈自动更新」（v4.1.9）可编辑 `source/_data/fcircle.yml`
   的 `enabled`（总开关，只管定时任务；手动触发不受影响）与 `per_link`（1–20），
   显示当前数据状态，提供「立即刷新」（`POST /actions/workflows/.../dispatches`，
   需 Token 具备 Actions 写入权限）与操作说明。

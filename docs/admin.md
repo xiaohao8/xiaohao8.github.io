@@ -1,5 +1,12 @@
 # 后台使用与维护（Qexo 风格 · Netlify 版）
 
+> v4.1.9：编辑器资源换源 + 先可写后升级。实测 Netlify（Cloudflare 边缘）到国内只有
+> 3~8 KB/s，而 Vditor 的 Markdown 引擎 lute 压缩后约 700KB，按这个速度要 200 多秒——
+> 之前 30 秒超时正是卡在这里。现在：① 资源按「npmmirror（阿里 npm 镜像，同版本同文件
+> 0.6 秒）→ 本站」顺序加载，成功哪个记住哪个；② 进入编辑页先渲染可写的纯文本框，
+> 引擎在后台加载，就绪后自动升级为富文本，保留已输入内容；③ 预加载图标脚本并占住
+> Vditor 内部的 script id，绕开它「同步 XHR 取源码」在跨域镜像上缺 CORS 的失败。
+>
 > v4.1.7：修复「编辑文章 / 说说页面正文区空白」。根因是 Vditor 的正文渲染挂在异步链上
 > ——构造函数本身不报错，要等 `dist/js/lute/lute.min.js`、图标等子资源就绪才渲染；
 > 子资源被网络拦截或超时时，编辑器容器会一直空着，且没有任何提示。现在：
@@ -167,14 +174,15 @@ source/admin/
 **登录报 404 / 找不到仓库？** 检查设置页 Owner / 仓库名；Token 需要勾选该仓库。
 **保存报 403？** Token 的 Contents 权限需要是 Read and write，或 Token 已过期。
 **部署状态一直加载失败 / 填了 Token 没识别到站点？** 确认 Token 是账号级 Personal Access Token，且站点属于该账号。
-**编辑器正文空白、右侧属性面板正常？**（v4.1.7 已加兜底）这是 Vditor 的 Markdown 引擎
-`/admin/vendor/vditor/dist/js/lute/lute.min.js`（≈3.8MB）没加载完成导致的：Vditor 的正文 DOM
-是异步渲染，子资源失败时它不抛异常，容器就一直空着。现在页面会在 15 秒内自动降级为纯文本
-编辑，给出原因和「重新加载编辑器」按钮，内容仍可正常保存。常见原因是国内网络到 Netlify
-的 3.8MB 请求超时，或被浏览器插件拦截；可在控制台看该 URL 的请求状态。首次加载成功后
-`/admin/vendor/*` 是 `max-age=31536000, immutable`，后续不会再慢。
-注意 Vditor 脚本只能从本站加载——Gitee raw 返回 `Content-Type: text/plain`，
-浏览器会拒绝执行 script（图片能跟随 302，脚本不行）。
+**编辑器正文空白 / 一直显示「正在加载富文本编辑器」？**（v4.1.9 已换源）
+Vditor 的 Markdown 引擎 `lute.min.js` 压缩后约 700KB，从 Netlify（Cloudflare 边缘）到国内
+实测只有 3~8 KB/s，要 200 多秒，等于拉不动——这是此前「正文空白」的真正原因。
+现在资源优先走 npmmirror（`registry.npmmirror.com/vditor/<ver>/files`，同版本同文件约 0.6 秒），
+失败自动回退本站 `/admin/vendor/vditor`；并且进入编辑页会**先给一个可写的纯文本框**，
+引擎就绪后再自动升级成富文本，期间写的内容不会丢。
+如果一直停在纯文本：说明两个源都没连上，内容仍可正常编辑保存，点「重新加载编辑器」重试即可；
+也可在控制台看 `lute.min.js` 的请求状态。注意不能用 Gitee 当脚本源——它返回
+`Content-Type: text/plain`，浏览器会拒绝执行 script（图片能跟随 302，脚本不行）。
 
 ## 国内访问加速与稳定性（v2.5）
 

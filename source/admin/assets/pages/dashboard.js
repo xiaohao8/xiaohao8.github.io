@@ -2,10 +2,10 @@
 
 import {
   ic, esc, el, fmtTime, fmtAgo, lightbox, imgWithFallback, previewSrcsFor,
-} from "../app.js?v=4.1.8";
-import { loadYaml } from "../yaml.js?v=4.1.8";
-import { deployState } from "../netlify.js?v=4.1.8";
-import { loadAllPosts, postLink } from "./posts.js?v=4.1.8";
+} from "../app.js?v=4.1.9";
+import { loadYaml } from "../yaml.js?v=4.1.9";
+import { deployState } from "../netlify.js?v=4.1.9";
+import { loadAllPosts, postLink } from "./posts.js?v=4.1.9";
 
 export default async function dashboard(view, ctx, params, handleErr) {
   const settings = ctx.settings;
