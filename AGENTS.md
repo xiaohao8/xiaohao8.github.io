@@ -67,6 +67,11 @@
   索引是构建产物，编辑/删除后用 `qexo4_post_overrides` 本地覆盖保持即时真实，
   「强制刷新」按钮可绕过缓存与索引从 GitHub 全量拉取；`/admin/posts-index.json` 在
   `netlify.toml` 保持 `max-age=0, must-revalidate`。
+  索引的 `date/updated` 必须回传 front-matter 原始字符串（仅去引号），不能做 Date→字符串转换：
+  文章日期混杂无时区写法（`2025-01-26 16:41:30`）与带偏移写法
+  （`'2023-10-16T22:45:27+08:00'`），`toISOString()` 或按本地字段格式化都会让
+  Netlify(UTC) 与本地(CST) 的索引差 8 小时，后台再按本地时间显示就成了次日。
+  索引顺序按文件名稳定排序即可，后台 `finish()` 会按 `dateValue` 重排。
 - **GitHub API raw / json 响应隔离（勿回退）**：`GET /contents/{path}` 会先以 `Accept: raw+json`
   读文件原文、再以 `+json` 读含 sha 的元数据，两个请求 URL 相同。GitHub 虽有 `Vary: Accept`，
   浏览器缓存 / 国内代理未必遵守，曾导致写操作把 YAML 原文交给 `JSON.parse`，报
