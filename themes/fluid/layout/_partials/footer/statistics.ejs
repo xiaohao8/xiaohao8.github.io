@@ -2,7 +2,37 @@
   <% let pv_texts = (theme.footer.statistics.pv_format || __('footer.pv')).split('{}') %>
   <% let uv_texts = (theme.footer.statistics.uv_format || __('footer.uv')).split('{}') %>
 
-  <% if (theme.footer.statistics.source === 'leancloud') { %>
+  <% if (theme.footer.statistics.source === 'zui') { %>
+    <% if (pv_texts.length >= 2) { %>
+      <span id="zui-site-pv-container" style="display: none">
+        <%- pv_texts[0] %>
+        <span id="zui-site-pv"></span>
+        <%- pv_texts[1] %>
+      </span>
+    <% } %>
+    <% if (uv_texts.length >= 2) { %>
+      <span id="zui-site-uv-container" style="display: none">
+        <%- uv_texts[0] %>
+        <span id="zui-site-uv"></span>
+        <%- uv_texts[1] %>
+      </span>
+    <% } %>
+    <script>
+      fetch('/analytics/stats.json', { cache: 'no-store' })
+        .then(function (r) { return r.json() })
+        .then(function (d) {
+          var pv = document.getElementById('zui-site-pv');
+          var uv = document.getElementById('zui-site-uv');
+          if (pv) pv.textContent = d.totals.pv;
+          if (uv) uv.textContent = d.totals.uv;
+          ['zui-site-pv-container', 'zui-site-uv-container'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = 'inline';
+          });
+        })
+        .catch(function () {});
+    </script>
+  <% } else if (theme.footer.statistics.source === 'leancloud') { %>
     <% if (pv_texts.length >= 2) { %>
       <span id="leancloud-site-pv-container" style="display: none">
         <%- pv_texts[0] %>
