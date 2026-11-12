@@ -1,0 +1,48 @@
+# Umami v2.4.1 自托管统计（醉里博客）
+# 用法：
+#   cp .env.example .env && 修改 APP_SECRET
+#   docker compose up -d
+#   初始账号 admin / umami（登录后立即改密码！）
+#
+# 镜像拉取慢时（ghcr 国内受限）任选其一：
+#   1) docker pull ghcr.nju.edu.cn/umami-software/umami:postgresql-v2.4.1 后打 tag
+#   2) 本地/任意可拉机器 docker pull + docker save | ssh docker load
+#
+# 数据备份：
+#   docker exec umami-db pg_dump -U umami umami > umami-backup.sql
+# 升级：改 TAG → docker compose pull && docker compose up -d
+
+services:
+  umami-db:
+    image: postgres:16-alpine
+    container_name: umami-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: umami
+      POSTGRES_USER: umami
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U umami -d umami"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-v2.4.1
+    container_name: umami
+    restart: unless-stopped
+    depends_on:
+      umami-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://umami:${POSTGRES_PASSWORD}@umami-db:5432/umami
+      APP_SECRET: ${APP_SECRET}
+      # 只监听本机回环，由 Nginx 反代对外提供 HTTPS
+      HOSTNAME: 127.0.0.1
+      PORT: 3000
+      # 关闭 Umami 自身的遥测
+      DISABLE_TELEMETRY: 1
+    ports:
+      - "127.0.0.1:3000:3000"
