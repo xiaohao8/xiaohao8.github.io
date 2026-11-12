@@ -2,10 +2,10 @@
 
 import {
   ic, esc, el, toast, loading, fmtTime, confirmDialog, lightbox, imgWithFallback, previewSrcsFor, safeImgUrl, safeHttpUrl,
-} from "../app.js?v=4.1.6";
-import { loadYaml, dumpYaml } from "../yaml.js?v=4.1.6";
-import { ensureVditorLib, getVditorBase } from "./editor-shared.js?v=4.1.6";
-import { uploadImage, runUploadQueue } from "../upload.js?v=4.1.6";
+} from "../app.js?v=4.1.7";
+import { loadYaml, dumpYaml } from "../yaml.js?v=4.1.7";
+import { ensureVditorLib, getVditorBase } from "./editor-shared.js?v=4.1.7";
+import { uploadImage, runUploadQueue } from "../upload.js?v=4.1.7";
 
 const TALKS_PATH = "source/_data/talks.yml";
 
@@ -292,9 +292,25 @@ export default async function talks(view, ctx, params, handleErr) {
     else if (fallbackTa) fallbackTa.value = v;
   };
 
+  const talkHolder = () => composerCard.querySelector("#talk-editor");
+
+  /** 编辑器起不来时退回纯文本，保证输入框永远可用 */
+  function talksFallback(reason) {
+    const holder = talkHolder();
+    if (!holder || fallbackTa) return;
+    const current = getContent();
+    try { if (vditor && vditor.destroy) vditor.destroy(); } catch (_) { /* ignore */ }
+    vditor = null;
+    fallbackTa = el(`<textarea class="input" rows="4" placeholder="此刻的想法…"></textarea>`);
+    fallbackTa.value = current;
+    holder.innerHTML = "";
+    holder.appendChild(fallbackTa);
+    if (reason) toast(reason, "error", 6000);
+  }
+
   try {
     await ensureVditorLib();
-    vditor = new window.Vditor(composerCard.querySelector("#talk-editor"), {
+    vditor = new window.Vditor(talkHolder(), {
       cdn: getVditorBase(),
       lang: "zh_CN",
       icon: "ant",
@@ -306,11 +322,15 @@ export default async function talks(view, ctx, params, handleErr) {
       value: "",
       input: () => {},
     });
+    // 正文渲染在异步链上，迟迟没生成编辑器就降级，避免留一块空白
+    setTimeout(() => {
+      const holder = talkHolder();
+      if (holder && !holder.querySelector(".vditor")) {
+        talksFallback("编辑器组件加载较慢，已切换为纯文本输入。");
+      }
+    }, 15000);
   } catch (e) {
-    fallbackTa = el(`<textarea class="input" rows="4" placeholder="此刻的想法…"></textarea>`);
-    const holder = composerCard.querySelector("#talk-editor");
-    holder.innerHTML = "";
-    holder.appendChild(fallbackTa);
+    talksFallback("编辑器组件加载失败，已切换为纯文本输入。");
   }
 
   ctx._onLeave = () => {

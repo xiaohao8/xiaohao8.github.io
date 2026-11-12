@@ -1,5 +1,14 @@
 # 后台使用与维护（Qexo 风格 · Netlify 版）
 
+> v4.1.7：修复「编辑文章 / 说说页面正文区空白」。根因是 Vditor 的正文渲染挂在异步链上
+> ——构造函数本身不报错，要等 `dist/js/lute/lute.min.js`、图标等子资源就绪才渲染；
+> 子资源被网络拦截或超时时，编辑器容器会一直空着，且没有任何提示。现在：
+> ① Vditor 及其脚本固定走本站（Gitee raw 返回 `text/plain`，浏览器会拒绝执行 script，
+> 不能作为脚本源）；② 提前显式加载 Markdown 引擎，失败即抛出可读错误；
+> ③ 页面加 15 秒 watchdog，仍未生成编辑器就自动降级为纯文本编辑，给出原因和
+> 「重新加载编辑器」按钮；④ 加载失败不再永久缓存，可重试。加载期间也有明确提示，
+> 不再是无声空白。
+>
 > v4.1.4：让两个提速改动真正在线上生效。① 构建期文章索引 `scripts/posts-index.js` 入库，
 > Netlify 才会生成 `/admin/posts-index.json`；同时修正后台用相对路径取索引的 bug
 > （hash 路由下会解析成 `/admin/admin/posts-index.json`）。② 前台 Speculation Rules
@@ -158,7 +167,14 @@ source/admin/
 **登录报 404 / 找不到仓库？** 检查设置页 Owner / 仓库名；Token 需要勾选该仓库。
 **保存报 403？** Token 的 Contents 权限需要是 Read and write，或 Token 已过期。
 **部署状态一直加载失败 / 填了 Token 没识别到站点？** 确认 Token 是账号级 Personal Access Token，且站点属于该账号。
-**编辑器空白？** Vditor 资源由 `/admin/vendor/vditor/` 提供，确认部署产物里有该目录。
+**编辑器正文空白、右侧属性面板正常？**（v4.1.7 已加兜底）这是 Vditor 的 Markdown 引擎
+`/admin/vendor/vditor/dist/js/lute/lute.min.js`（≈3.8MB）没加载完成导致的：Vditor 的正文 DOM
+是异步渲染，子资源失败时它不抛异常，容器就一直空着。现在页面会在 15 秒内自动降级为纯文本
+编辑，给出原因和「重新加载编辑器」按钮，内容仍可正常保存。常见原因是国内网络到 Netlify
+的 3.8MB 请求超时，或被浏览器插件拦截；可在控制台看该 URL 的请求状态。首次加载成功后
+`/admin/vendor/*` 是 `max-age=31536000, immutable`，后续不会再慢。
+注意 Vditor 脚本只能从本站加载——Gitee raw 返回 `Content-Type: text/plain`，
+浏览器会拒绝执行 script（图片能跟随 302，脚本不行）。
 
 ## 国内访问加速与稳定性（v2.5）
 

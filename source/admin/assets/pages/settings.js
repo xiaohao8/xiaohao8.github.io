@@ -2,10 +2,10 @@
 
 import {
   ic, esc, el, toast, loading, store, safeHttpUrl,
-} from "../app.js?v=4.1.6";
-import { NetlifyAPI } from "../netlify.js?v=4.1.6";
-import { setMediaConfig, mediaFallbackUrls } from "../github.js?v=4.1.6";
-import { loadYaml, dumpYaml } from "../yaml.js?v=4.1.6";
+} from "../app.js?v=4.1.7";
+import { NetlifyAPI } from "../netlify.js?v=4.1.7";
+import { setMediaConfig, mediaFallbackUrls } from "../github.js?v=4.1.7";
+import { loadYaml, dumpYaml } from "../yaml.js?v=4.1.7";
 
 const SITE_META_PATH = "source/_data/site_meta.yml";
 const FLUID_PATH = "source/_data/fluid_config.yml";
@@ -68,13 +68,14 @@ export default async function settings(view, ctx, params, handleErr) {
           </select>
           <div class="hint">写操作与读取都走所选通道；自动模式在登录时竞速并记住最快线路</div>
         </div>
-        <div class="field" style="margin:0"><label>编辑器资源源（Vditor ≈4.5MB）</label>
+        <div class="field" style="margin:0"><label>编辑器资源（Vditor ≈4MB）</label>
           <select class="input" id="n-vendor">
-            <option value="auto">自动测速（推荐）</option>
-            <option value="site">本站</option>
-            <option value="gitee">Gitee 镜像</option>
+            <option value="site">本站（唯一可用）</option>
           </select>
-          <div class="hint">首次打开编辑器时按最快线路加载，失败自动切换</div>
+          <div class="hint">
+            脚本只能从本站加载：Gitee raw 返回 text/plain，浏览器会拒绝执行 script 标签
+            （图片可走镜像，脚本不行）
+          </div>
         </div>
       </div>
       <div class="field" style="max-width:520px;display:none" id="n-custom-wrap"><label>自定义 API 前缀</label>

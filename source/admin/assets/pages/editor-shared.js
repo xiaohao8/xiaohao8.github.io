@@ -1,99 +1,95 @@
 /* editor-shared.js — Vditor 资源加载器（编辑器 / 说说页共用）
-   智能选路：本站源 vs Gitee 镜像竞速（结果缓存 12h），加载失败自动切换。 */
+   资源固定走本站：Gitee raw 返回 Content-Type: text/plain，浏览器会拒绝执行
+   <script>（nosniff/MIME 检查），图片能 302 跟进但脚本不行，因此不再做脚本竞速。
+   加载带超时与重试，失败抛出可读错误，由页面降级为纯文本编辑，绝不静默空白。 */
 
-import { VERSION } from "../app.js?v=4.1.6";
+import { VERSION } from "../app.js?v=4.1.7";
 
 export const VDITOR_BASE = "/admin/vendor/vditor";
-const VDITOR_GITEE =
-  "https://gitee.com/xiaohao3/xiaohao8.github.io/raw/main/source/admin/vendor/vditor";
+
+const LIB_TIMEOUT = 20000;
+const LUTE_TIMEOUT = 30000;
+
+// 与 Vditor 内部 addScript 使用的 id 保持一致：命中后它会直接复用，不会重复下载
+const LUTE_ID = "vditorLuteScript";
 
 let libPromise = null;
-let currentBase = null; // 竞速结果；未测定时用本站
 
-function getVendorSetting() {
-  try {
-    const s = JSON.parse(localStorage.getItem("qexo4_settings") || "{}");
-    return s.vendorSource || "auto";
-  } catch (_) {
-    return "auto";
-  }
+/** Vditor 资源基址：固定本站，外部镜像不能作为脚本源 */
+export function getVditorBase() {
+  return VDITOR_BASE;
 }
 
-function lsGetJSON(key, ttlMs) {
-  try {
-    const v = JSON.parse(localStorage.getItem(key) || "null");
-    if (v && Date.now() - v.ts < ttlMs) return v.base;
-  } catch (_) { /* ignore */ }
-  return null;
-}
-
-async function pickBase() {
-  const pref = getVendorSetting();
-  if (pref === "site") return VDITOR_BASE;
-  if (pref === "gitee") return VDITOR_GITEE;
-  const cached = lsGetJSON("qexo4_vendor_base", 12 * 3600 * 1000);
-  if (cached) return cached;
-  // 竞速：拉一个小文件（index.css）比耗时
-  const probe = async (base) => {
-    const t0 = performance.now();
-    const res = await fetch(base + "/dist/index.css", {
-      cache: "no-store",
-      signal: AbortSignal.timeout ? AbortSignal.timeout(2500) : undefined,
-    });
-    if (!res.ok) throw new Error(res.status);
-    return { base, ms: performance.now() - t0 };
-  };
-  const results = await Promise.allSettled([VDITOR_BASE, VDITOR_GITEE].map((b) => probe(b)));
-  const ok = results.filter((r) => r.status === "fulfilled").map((r) => r.value);
-  const best = ok.length ? ok.sort((a, b) => a.ms - b.ms)[0].base : VDITOR_BASE;
-  try { localStorage.setItem("qexo4_vendor_base", JSON.stringify({ base: best, ts: Date.now() })); } catch (_) {}
-  return best;
-}
-
-function loadScript(src) {
+/**
+ * 注入脚本。带 id 时会先去重：Vditor 内部 addScript 同样按 id 判断，
+ * 因此重复调用不会重复下载/执行。
+ */
+function loadScript(src, opts = {}) {
+  const { id, timeout = LIB_TIMEOUT } = opts;
   return new Promise((resolve, reject) => {
+    if (id && document.getElementById(id)) { resolve(); return; }
     const s = document.createElement("script");
+    if (id) s.id = id;
     s.src = src;
-    s.onload = resolve;
-    s.onerror = () => reject(new Error("脚本加载失败：" + src));
+    s.async = true;
+    let settled = false;
+    const done = (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (!err) { resolve(); return; }
+      try { s.remove(); } catch (_) { /* ignore */ }
+      reject(err);
+    };
+    const timer = setTimeout(
+      () => done(new Error("超时 " + Math.round(timeout / 1000) + "s")),
+      timeout
+    );
+    s.onload = () => done(null);
+    s.onerror = () => done(new Error("网络错误"));
     document.head.appendChild(s);
   });
 }
 
-/** 确保 Vditor 库可用（竞速选源 + 失败自动切换） */
-export async function ensureVditorLib() {
-  if (!currentBase) currentBase = await pickBase();
-
-  const tryLoad = async (base) => {
-    if (!document.querySelector("link[data-vditor-css]")) {
-      const l = document.createElement("link");
-      l.rel = "stylesheet";
-      l.dataset.vditorCss = "1";
-      l.href = base + "/dist/index.css?v=" + VERSION;
-      document.head.appendChild(l);
-    }
-    if (!window.Vditor) await loadScript(base + "/dist/index.min.js?v=" + VERSION);
-    if (!window.Vditor) throw new Error("Vditor 加载失败");
-  };
-
-  if (!libPromise) {
-    libPromise = (async () => {
-      try {
-        await tryLoad(currentBase);
-      } catch (e) {
-        // 主选源失败 → 自动切另一个
-        const alt = currentBase === VDITOR_BASE ? VDITOR_GITEE : VDITOR_BASE;
-        currentBase = alt;
-        try { localStorage.setItem("qexo4_vendor_base", JSON.stringify({ base: alt, ts: Date.now() })); } catch (_) {}
-        await tryLoad(alt);
-      }
-    })();
+async function retry(label, fn, times = 2) {
+  let last = null;
+  for (let i = 0; i < times; i++) {
+    try { return await fn(); } catch (e) { last = e; }
   }
-  await libPromise;
-  if (!window.Vditor) throw new Error("Vditor 加载失败");
+  throw new Error(label + "失败：" + ((last && last.message) || "未知错误"));
 }
 
-/** 当前选定的 Vditor 资源基址（Vditor cdn 选项用，懒加载模块同源加载） */
-export function getVditorBase() {
-  return currentBase || VDITOR_BASE;
+/**
+ * 确保 Vditor 主程序可用。失败抛错（调用方负责降级），失败后允许重试。
+ * 只保证「主程序 + 样式」就绪；Markdown 引擎由 Vditor 自己懒加载，
+ * 是否真正渲染由页面侧的 watchdog 用 DOM 结果判断，不赌内部状态。
+ */
+export async function ensureVditorLib() {
+  if (!libPromise) {
+    libPromise = (async () => {
+      if (!document.querySelector("link[data-vditor-css]")) {
+        const l = document.createElement("link");
+        l.rel = "stylesheet";
+        l.dataset.vditorCss = "1";
+        l.href = VDITOR_BASE + "/dist/index.css?v=" + VERSION;
+        document.head.appendChild(l);
+      }
+      await retry("编辑器主程序加载", () =>
+        loadScript(VDITOR_BASE + "/dist/index.min.js?v=" + VERSION, { timeout: LIB_TIMEOUT })
+      );
+      if (!window.Vditor) throw new Error("主程序未正确初始化");
+
+      // Markdown 引擎（≈3.8MB）是正文渲染的前提。Vditor 自己会懒加载它，
+      // 但失败时静默中断、界面留白；这里提前加载，失败就能明确报错并降级。
+      // 不重试：避免超时等待翻倍，失败直接让调用方切纯文本。
+      await loadScript(VDITOR_BASE + "/dist/js/lute/lute.min.js", {
+        id: LUTE_ID,
+        timeout: LUTE_TIMEOUT,
+      });
+    })().catch((e) => {
+      libPromise = null; // 失败不永久缓存，下次可重试
+      throw e;
+    });
+  }
+  return libPromise;
 }

@@ -2,14 +2,14 @@
 
 import {
   ic, esc, el, toast, loading, confirmDialog,
-} from "../app.js?v=4.1.6";
+} from "../app.js?v=4.1.7";
 import {
   splitFrontMatter, buildFrontMatter, toInputDate, fromInputDate,
   nowLocal, extractExcerpt,
-} from "../yaml.js?v=4.1.6";
-import { ensureVditorLib, getVditorBase } from "./editor-shared.js?v=4.1.6";
-import { uploadImage, runUploadQueue } from "../upload.js?v=4.1.6";
-import { invalidatePostsCache, setPostOverride } from "./posts.js?v=4.1.6";
+} from "../yaml.js?v=4.1.7";
+import { ensureVditorLib, getVditorBase } from "./editor-shared.js?v=4.1.7";
+import { uploadImage, runUploadQueue } from "../upload.js?v=4.1.7";
+import { invalidatePostsCache, setPostOverride } from "./posts.js?v=4.1.7";
 
 export default async function editor(view, ctx, params, handleErr) {
   const isPage = location.hash.startsWith("#/editpage");
@@ -50,12 +50,11 @@ export default async function editor(view, ctx, params, handleErr) {
     return;
   }
 
-  await ensureVditorLib();
-
   view.innerHTML = "";
 
   const grid = el(`<div class="grid-editor">
       <div class="card editor-card" style="margin-bottom:0">
+        <div class="editor-boot" id="ed-boot">正在加载编辑器组件（首次约几秒，之后走缓存）…</div>
         <div id="vditor"></div>
         <div class="editor-footer">
           <button class="btn btn-ghost" id="ed-back">${ic("chevron-r")}返回列表</button>
@@ -208,9 +207,11 @@ export default async function editor(view, ctx, params, handleErr) {
 
   /* ---------- Vditor ---------- */
 
-  let vditor;
+  let vditor = null;
   let fallbackTa = null;
+  let watchdog = null;
   const editorEl = grid.querySelector("#vditor");
+  const bootEl = grid.querySelector("#ed-boot");
   const getContent = () => vditor ? vditor.getValue() : (fallbackTa ? fallbackTa.value : body);
 
   const toolbarConfig = [
@@ -225,37 +226,99 @@ export default async function editor(view, ctx, params, handleErr) {
     },
   ];
 
-  try {
-    vditor = new window.Vditor(editorEl, {
-      cdn: getVditorBase(),
-      lang: "zh_CN",
-      icon: "ant",
-      mode: "ir",
-      height: Math.max(480, Math.min(720, window.innerHeight - 340)),
-      cache: false,
-      value: body,
-      placeholder: "开始写点什么吧…（支持 Markdown / 粘贴 / 拖拽图片）",
-      preview: { theme: { path: getVditorBase() + "/dist/css/content-theme" } },
-      toolbar: toolbarConfig,
-      counter: { enable: true },
-      upload: {
-        accept: "image/*",
-        multiple: true,
-        async handler(files) {
-          await uploadFiles(files);
-          return null;
-        },
-      },
-      input: () => markDirty(),
-    });
-  } catch (e) {
-    handleErr(e);
-    fallbackTa = el(`<textarea class="input" rows="18" style="width:100%"></textarea>`);
-    fallbackTa.value = body;
-    fallbackTa.addEventListener("input", markDirty);
-    editorEl.innerHTML = "";
-    editorEl.appendChild(fallbackTa);
+  function clearWatchdog() {
+    if (watchdog) { clearTimeout(watchdog); watchdog = null; }
   }
+  function dropBoot() {
+    if (bootEl && bootEl.parentNode) bootEl.remove();
+  }
+
+  /** 统一降级：任何加载/渲染失败都落到可编辑的纯文本，绝不留空白区域 */
+  function mountFallback(reason) {
+    clearWatchdog();
+    dropBoot();
+    const current = getContent();
+    try { if (vditor && vditor.destroy) vditor.destroy(); } catch (_) { /* ignore */ }
+    vditor = null;
+    fallbackTa = null;
+    editorEl.innerHTML = "";
+
+    const box = el(`<div class="editor-fallback">
+        <div class="hint">${esc(reason)}已切换为纯文本模式，Markdown 内容仍可正常编辑与保存。</div>
+        <div class="editor-fallback-actions"></div>
+      </div>`);
+    const retryBtn = el(`<button class="btn btn-ghost" type="button">重新加载编辑器</button>`);
+    retryBtn.addEventListener("click", () => {
+      box.remove();
+      mountVditor();
+    });
+    box.querySelector(".editor-fallback-actions").appendChild(retryBtn);
+
+    const ta = el(`<textarea class="input" rows="18" style="width:100%;margin-top:.6rem"></textarea>`);
+    ta.value = current;
+    ta.addEventListener("input", () => markDirty());
+    box.appendChild(ta);
+
+    editorEl.appendChild(box);
+    fallbackTa = ta;
+    toast(reason, "error", 6000);
+  }
+
+  async function mountVditor() {
+    // 重试时保留用户已经输入的内容
+    const initial = getContent();
+    try {
+      await ensureVditorLib();
+    } catch (e) {
+      mountFallback("编辑器组件加载失败：" + ((e && e.message) || e) + "。");
+      return;
+    }
+    if (!view.isConnected) return; // 页面已切走，别再初始化
+    try { if (vditor && vditor.destroy) vditor.destroy(); } catch (_) { /* ignore */ }
+    vditor = null;
+    fallbackTa = null;
+    editorEl.innerHTML = "";
+
+    try {
+      vditor = new window.Vditor(editorEl, {
+        cdn: getVditorBase(),
+        lang: "zh_CN",
+        icon: "ant",
+        mode: "ir",
+        height: Math.max(480, Math.min(720, window.innerHeight - 340)),
+        cache: false,
+        value: initial,
+        placeholder: "开始写点什么吧…（支持 Markdown / 粘贴 / 拖拽图片）",
+        preview: { theme: { path: getVditorBase() + "/dist/css/content-theme" } },
+        toolbar: toolbarConfig,
+        counter: { enable: true },
+        upload: {
+          accept: "image/*",
+          multiple: true,
+          async handler(files) {
+            await uploadFiles(files);
+            return null;
+          },
+        },
+        input: () => markDirty(),
+        after: () => { clearWatchdog(); dropBoot(); },
+      });
+    } catch (e) {
+      mountFallback("编辑器初始化失败：" + ((e && e.message) || e) + "。");
+      return;
+    }
+
+    // 结果检测：Vditor 的正文渲染挂在异步链上（要等 Markdown 引擎），
+    // 主程序不报错也可能一直空着；15 秒还没生成 .vditor 就降级并说明原因。
+    clearWatchdog();
+    watchdog = setTimeout(() => {
+      if (!editorEl.querySelector(".vditor")) {
+        mountFallback("编辑器组件在 15 秒内未完成渲染（Markdown 引擎可能加载失败或被网络拦截）。");
+      }
+    }, 15000);
+  }
+
+  mountVditor();
 
   /* ---------- 图片上传 ---------- */
 
