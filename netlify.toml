@@ -64,7 +64,7 @@
   [headers.values]
     Cache-Control = "public, max-age=604800"
 
-# 构建期朋友圈快照每次部署都会变，别让 CDN 缓存旧列表
+# 本地朋友圈数据每次部署都会变，别让 CDN 缓存旧列表
 [[headers]]
   for = "/fcircle/moments.json"
   [headers.values]
@@ -102,16 +102,4 @@
   to = "/friends/"
   status = 301
 
-# 朋友圈数据源：blog.anheyu.com 的 /api/pro/moments 不返回 CORS 头，
-# OPTIONS 预检 403，浏览器无法跨域直连。用 200 反代把外部接口变成同源路径，
-# query（page / page_size / sort_type）由 Netlify 透传给目标。
-# 反代不可用时 /fcircle/moments.json（构建期快照）保证页面仍有内容。
-[[redirects]]
-  from = "/fcircle/api/moments"
-  to = "https://blog.anheyu.com/api/pro/moments"
-  status = 200
-
-[[redirects]]
-  from = "/fcircle/api/randompost"
-  to = "https://blog.anheyu.com/api/pro/moments/randompost"
-  status = 200
+# 朋友圈数据已本地化为 /fcircle/moments.json，运行时不请求任何外部接口。

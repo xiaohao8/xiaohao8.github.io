@@ -88,27 +88,28 @@
   raw 请求追加 `&raw=1`、所有请求 `cache: "no-store"`，并用 `res.text()` + `JSON.parse`
   容错给出可读错误；不要把 `await res.json()` 直接写回去。
 
-## 朋友圈 /pyq/ 数据源（勿回退到旧 CDN 脚本）
+## 朋友圈 /pyq/ 数据源（必须本地化，勿接第三方接口）
 
-- 数据获取方式对齐 `https://blog.anheyu.com/fcircle`：该页是 Next.js，客户端调用
-  `GET /api/pro/moments?page=&page_size=&sort_type=published_at|fetched_at`，
-  返回 `{code:200,data:{list,total,statistics}}`；列表项字段为
-  `link_name / link_logo / link_url / post_title / post_url / post_summary / published_at / created_at`。
-  另有 `/api/pro/moments/randompost`（钓鱼）与 `/api/pro/moments/link/{id}`。
-- 该接口**不返回 CORS 响应头**（带 `Origin` 请求也没有），OPTIONS 预检直接 403，
-  浏览器无法跨域直连。因此 `netlify.toml` 用 `status = 200` 反代成同源
-  `/fcircle/api/moments`、`/fcircle/api/randompost`；query 由 Netlify 透传，
-  **不要在 `to` 里写死 query**，否则分页/排序参数会丢。
-- `scripts/fcircle-snapshot.js` 在 `before_generate` 抓一份快照输出
-  `/fcircle/moments.json`（首屏即时出内容 + 反代故障兜底），**必须入库**。
-  抓不到只 warn 并输出空结构，绝不阻断 `hexo generate`。
-  Hexo 用 vm 包装加载 `scripts/`，Node 全局 `fetch` / `AbortSignal` 不保证存在，
-  所以用 `require("https")`；结果存模块变量、generator 保持同步返回。
-- `source/fcircle/app.js` 必须是 **ES5 语法**（`js_minifier` 开启且 mangle，
-  ES6+ 语法可能被 uglify 破坏）。资源放 `/fcircle/` 而不是 `/js/`、`/css/`，
-  避免被 `optimize-speed.js` 的合包 / CSS 内联正则误伤。
-  改 JS/CSS 时同步提升 `source/pyq/index.md` 里的 `?v=`，`/fcircle/*` 走默认缓存。
+- 用户明确要求：**数据必须是本站自己的友情链接，且本地化**。
+  `blog.anheyu.com/fcircle` 的 `/api/pro/moments` 是别人站点的聚合接口
+  （文章不是本站友链的、且无 CORS 响应头），2026-11-12 已全部移除；
+  不要恢复 `/fcircle/api/*` 反代或 `scripts/fcircle-snapshot.js` 这类外部抓取脚本。
+- 唯一数据源：`source/fcircle/moments.json`（**入库**，Hexo 原样复制成
+  `/fcircle/moments.json`）。格式沿用本站 `hexo-circle-of-friends` 后端 `/all` 的原始结构：
+  `{statistical_data:{friends_num,active_num,error_num,article_num,last_updated_time},
+  article_data:[{floor,title,link,author,avatar,created,updated}]}`。
+  当前 167 篇 / 41 友链，数据停在 2024-06-27（后端最后更新时间）。
+- 页面运行时**零外部请求**：`source/fcircle/app.js` 只 `fetch("/fcircle/moments.json")`，
+  排序（created / updated）、分页（每页 24）、随机钓鱼全在本地完成。
+  `netlify.toml` 不给 `/fcircle/` 配任何 proxy；`/fcircle/moments.json` 保持
+  `max-age=0, must-revalidate`。
+- 刷新数据（唯一联网入口，手动运行）：
+  `node tools/fcircle-refresh.mjs`（默认拉 `https://pyq.202271.xyz/all`，
+  支持 `--url` / `--dry-run`），产物提交后随部署生效；也可以完全离线直接编辑 JSON。
+  工具必须放 `tools/`，别放 `scripts/`（Hexo 会当脚本误加载）。
+- `source/fcircle/app.js` 必须是 **ES5 语法**（`js_minifier` 开启且 mangle）。
+  资源放 `/fcircle/` 而不是 `/js/`、`/css/`，避开 `optimize-speed.js` 的合包 / CSS 内联正则。
+  改 JS/CSS 时同步提升 `source/pyq/index.md` 里的 `?v=`。
 - 动态内容一律 `textContent` / `createElement`，URL 只允许 `http(s)://`；
-  头像必须带 `onerror` 内联 SVG 兜底，别用被墙的 `avatars.githubusercontent.com`。
-- 旧的 `hexo-friendcircle-demo`（`fetch.js` / `fcircle.js` / `akilar-SAO.css`）
-  与已停更的 `https://pyq.202271.xyz/all`（停在 2024-06-27）不要恢复。
+  头像必须带 `onerror` 内联 SVG 兜底。
+- 旧的 `hexo-friendcircle-demo`（`fetch.js` / `fcircle.js` / `akilar-SAO.css`）不要恢复。

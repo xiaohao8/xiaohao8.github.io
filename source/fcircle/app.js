@@ -1,20 +1,23 @@
 /* ============================================================
-   醉里博客 · 朋友圈（数据源对齐 blog.anheyu.com/fcircle）
+   醉里博客 · 朋友圈（本地数据版）
 
-   目标页用 Next.js 客户端调用 /api/pro/moments 拿数据，但该接口
-   不带 CORS 响应头、OPTIONS 预检 403，浏览器不能跨域直连。这里走：
-     1) /fcircle/moments.json  构建期同源快照 —— 首屏立即出内容；
-     2) /fcircle/api/moments   同源反代实时接口 —— 成功后覆盖快照。
-   全部原生 JS、ES5 语法（js_minifier 开启，避免 uglify 破坏），
-   动态内容一律用 textContent / createElement，URL 白名单校验。
+   数据源只有一个：本站静态文件 /fcircle/moments.json
+   （source/fcircle/moments.json 入库，来自本站友情链接的朋友圈数据）。
+   运行时不请求任何第三方接口，也没有反代 / CORS 问题。
+   排序、分页、随机文章全部在本地完成。
+
+   字段（hexo-circle-of-friends /all 原始格式）：
+     statistical_data: friends_num / active_num / error_num / article_num / last_updated_time
+     article_data[]:   floor / title / link / author / avatar / created / updated
+
+   全部原生 JS、ES5 语法（js_minifier 开启且 mangle），
+   动态内容一律 textContent / createElement，URL 白名单校验。
    ============================================================ */
 (function () {
   "use strict";
 
   var CFG = {
-    live: "/fcircle/api/moments",
-    snapshot: "/fcircle/moments.json",
-    random: "/fcircle/api/randompost",
+    dataUrl: "/fcircle/moments.json",
     pageSize: 24,
     defaultAvatar: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="#8899aa"/><text x="32" y="42" font-size="28" text-anchor="middle" fill="#fff" font-family="sans-serif">友</text></svg>'
@@ -22,15 +25,11 @@
   };
 
   var state = {
-    list: [],
-    total: 0,
-    page: 1,
+    all: [],
+    shown: CFG.pageSize,
     stats: null,
-    sort: "published_at",
-    live: false,
-    renderedLive: false,
-    loading: false,
-    source: ""
+    sort: "created",
+    loaded: false
   };
 
   /* ---------- 基础工具 ---------- */
@@ -49,13 +48,18 @@
     return /^https?:\/\//i.test(s) ? s : "";
   }
 
-  function pad(n) { return n < 10 ? "0" + n : String(n); }
+  function hostOf(u) {
+    var m = String(u || "").match(/^https?:\/\/([^\/?#]+)/i);
+    return m ? m[1] : "";
+  }
 
-  /** 和目标站一致：按 Asia/Shanghai 输出 YYYY-MM-DD */
+  /** 本地数据里 created/updated 多为 YYYY-MM-DD，直接回传避免时区偏移 */
   function fmtDate(value) {
-    if (!value) return "未知";
-    var d = new Date(value);
-    if (isNaN(d.getTime())) return String(value).slice(0, 10);
+    var s = String(value || "").trim();
+    if (!s) return "未知";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    var d = new Date(s);
+    if (isNaN(d.getTime())) return s.slice(0, 10);
     try {
       var parts = new Intl.DateTimeFormat("zh-CN", {
         timeZone: "Asia/Shanghai",
@@ -69,7 +73,7 @@
       }
       return y + "-" + m + "-" + day;
     } catch (e) {
-      return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+      return s.slice(0, 10);
     }
   }
 
@@ -78,15 +82,13 @@
     return t.length > n ? t.slice(0, n) + "…" : t;
   }
 
-  function load(url, noStore) {
-    var opts = {};
-    if (noStore) opts.cache = "no-store";
-    return fetch(url, opts).then(function (res) {
+  function load() {
+    return fetch(CFG.dataUrl).then(function (res) {
       if (!res.ok) throw new Error("HTTP " + res.status);
       return res.json();
     }).then(function (payload) {
-      if (!payload || payload.code !== 200 || !payload.data) {
-        throw new Error("响应结构不符合预期");
+      if (!payload || !Array.isArray(payload.article_data)) {
+        throw new Error("数据结构不符合预期");
       }
       return payload;
     });
@@ -100,9 +102,8 @@
     root.innerHTML =
       '<div class="fc-hero">' +
         '<h1 class="fc-hero-title">朋友圈</h1>' +
-        '<p class="fc-hero-desc">汇聚友链博客的最新文章。数据获取方式对齐 ' +
-          '<a href="https://blog.anheyu.com/fcircle" target="_blank" rel="noopener noreferrer nofollow">安和鱼 · 朋友圈</a>。' +
-        '</p>' +
+        '<p class="fc-hero-desc">本站友情链接博主的最新文章。数据保存在本站，' +
+          '不依赖任何第三方接口。</p>' +
       '</div>' +
       '<section class="fc-panel">' +
         '<div class="fc-panel-head"><h2>🎣 钓鱼</h2>' +
@@ -123,7 +124,7 @@
   /* ---------- 渲染 ---------- */
 
   function makeCard(item) {
-    var url = safeUrl(item.post_url);
+    var url = safeUrl(item.link);
     var card = document.createElement(url ? "a" : "article");
     card.className = "fc-card";
     if (url) {
@@ -137,7 +138,7 @@
     img.className = "fc-avatar";
     img.alt = "";
     img.loading = "lazy";
-    img.src = safeUrl(item.link_logo) || CFG.defaultAvatar;
+    img.src = safeUrl(item.avatar) || CFG.defaultAvatar;
     var avatarFailed = false;
     img.onerror = function () {
       if (!avatarFailed) { avatarFailed = true; img.src = CFG.defaultAvatar; }
@@ -145,14 +146,14 @@
     head.appendChild(img);
 
     var meta = el("div", "fc-card-meta");
-    meta.appendChild(el("span", "fc-name", item.link_name || "未知站点"));
-    meta.appendChild(el("time", "fc-date", fmtDate(item.published_at)));
+    meta.appendChild(el("span", "fc-name", item.author || "未知站点"));
+    meta.appendChild(el("time", "fc-date", fmtDate(item.created)));
     head.appendChild(meta);
     card.appendChild(head);
 
-    card.appendChild(el("h3", "fc-card-title", clip(item.post_title, 60) || "未命名文章"));
-    var summary = clip(item.post_summary, 110);
-    card.appendChild(el("p", "fc-card-summary", summary || "这篇文章没有摘要，点进去看看吧。"));
+    card.appendChild(el("h3", "fc-card-title", clip(item.title, 60) || "未命名文章"));
+    var host = hostOf(url);
+    card.appendChild(el("p", "fc-card-summary", host ? "发布于 " + host : "本站友情链接"));
     card.appendChild(el("div", "fc-card-foot", url ? "阅读全文 →" : "链接不可用"));
     return card;
   }
@@ -163,9 +164,9 @@
     foot.innerHTML = "";
     var s = state.stats || {};
     var items = [
-      ["订阅", s.total_links],
-      ["活跃", s.active_links],
-      ["日志", s.total_moments]
+      ["订阅", s.friends_num],
+      ["活跃", s.active_num],
+      ["日志", s.article_num]
     ];
     for (var i = 0; i < items.length; i++) {
       var box = el("div", "fc-info");
@@ -173,16 +174,33 @@
       box.appendChild(el("span", "fc-info-value", items[i][1] === undefined ? "-" : items[i][1]));
       foot.appendChild(box);
     }
-    var upd = el("span", "fc-update", "更新于：" + (s.last_updated_time || "-"));
-    foot.appendChild(upd);
+    foot.appendChild(el("span", "fc-update", "更新于：" + (s.last_updated_time || "-")));
   }
 
   function updateMore() {
     var btn = byId("fcMoreBtn");
     if (!btn) return;
-    var hasMore = state.total > state.list.length;
-    btn.disabled = state.loading || !hasMore;
-    btn.textContent = state.loading ? "加载中..." : (hasMore ? "加载更多" : "------- 没有更多了喔 -------");
+    var hasMore = state.shown < state.all.length;
+    btn.disabled = !hasMore;
+    btn.textContent = hasMore
+      ? "加载更多（已显示 " + Math.min(state.shown, state.all.length) + " / " + state.all.length + "）"
+      : "------- 没有更多了喔 -------";
+  }
+
+  function render() {
+    var grid = byId("fcGrid");
+    if (!grid) return;
+    grid.innerHTML = "";
+    var rows = state.all.slice(0, state.shown);
+    if (!rows.length) {
+      grid.appendChild(el("div", "fc-empty", "暂无朋友圈内容"));
+    } else {
+      for (var i = 0; i < rows.length; i++) grid.appendChild(makeCard(rows[i]));
+    }
+    renderFoot();
+    updateMore();
+    var s = state.stats || {};
+    setSource("本地数据 · 共 " + state.all.length + " 篇 · 更新于 " + (s.last_updated_time || "-"));
   }
 
   function setSource(text) {
@@ -190,114 +208,63 @@
     if (node) node.textContent = text;
   }
 
-  function render() {
+  function showError(text) {
     var grid = byId("fcGrid");
-    if (!grid) return;
-    grid.innerHTML = "";
-    if (!state.list.length) {
-      grid.appendChild(el("div", "fc-empty", "暂无朋友圈内容"));
-    } else {
-      for (var i = 0; i < state.list.length; i++) grid.appendChild(makeCard(state.list[i]));
+    if (grid) {
+      grid.innerHTML = "";
+      grid.appendChild(el("div", "fc-empty", text));
     }
-    renderFoot();
-    updateMore();
-    setSource(state.source === "live"
-      ? "实时数据 · 已同步"
-      : "构建期快照 · 正在连接实时数据");
+    setSource("本地数据读取失败");
   }
 
-  /* ---------- 数据 ---------- */
+  /* ---------- 本地排序 / 分页 / 随机 ---------- */
 
-  function applyPayload(payload, source, page) {
-    var d = payload.data || {};
-    var rows = Array.isArray(d.list) ? d.list : [];
-    if (page === 1) {
-      state.list = rows.slice();
-    } else {
-      state.list = state.list.concat(rows);
-    }
-    state.total = Number(d.total) || state.list.length;
-    state.stats = d.statistics || state.stats;
-    state.page = page;
-    state.source = source;
-  }
-
-  function reload(page) {
-    state.loading = true;
-    updateMore();
-    var q = "?page=" + page + "&page_size=" + CFG.pageSize +
-      "&sort_type=" + encodeURIComponent(state.sort);
-    return load(CFG.live + q, true).then(function (payload) {
-      state.live = true;
-      state.renderedLive = true;
-      applyPayload(payload, "live", page);
-      render();
-    }).catch(function () {
-      if (page > 1) {
-        setSource("实时接口暂时不可用，无法加载更多，已保留当前内容");
-      } else if (state.list.length) {
-        state.live = false;
-        setSource("实时接口暂时不可用，现显示构建期快照（每次站点部署时更新）");
-      } else {
-        gridError("朋友圈数据源暂时不可用，请稍后再试");
-      }
-    }).then(function () {
-      state.loading = false;
-      updateMore();
-    });
-  }
-
-  function gridError(text) {
-    var grid = byId("fcGrid");
-    if (!grid) return;
-    grid.innerHTML = "";
-    grid.appendChild(el("div", "fc-empty", text));
-    setSource("数据源异常");
-  }
-
-  function clientSort() {
-    var key = state.sort === "published_at" ? "published_at" : "created_at";
-    state.list.sort(function (a, b) {
+  function sortRows() {
+    var key = state.sort;
+    state.all.sort(function (a, b) {
       var x = String(a[key] || ""), y = String(b[key] || "");
       return x < y ? 1 : x > y ? -1 : 0;
     });
-    render();
   }
 
   function fish() {
     var body = byId("fcFishBody");
     if (!body) return;
-    body.textContent = "钓鱼中...";
-    load(CFG.random, true).then(function (payload) {
-      var d = payload.data || {};
-      var link = safeUrl(d.link);
-      if (!link) throw new Error("无效的文章链接");
-      body.innerHTML = "";
-      body.appendChild(document.createTextNode("来自友链 "));
-      body.appendChild(el("b", "", d.author || "某位朋友"));
-      body.appendChild(document.createTextNode(" 的文章："));
-      var a = el("a", "fc-fish-link", d.title || "未命名文章");
+    if (!state.all.length) {
+      body.textContent = "暂无可钓的文章";
+      return;
+    }
+    var item = state.all[Math.floor(Math.random() * state.all.length)];
+    var link = safeUrl(item.link);
+    body.innerHTML = "";
+    body.appendChild(document.createTextNode("来自友链 "));
+    body.appendChild(el("b", "", item.author || "某位朋友"));
+    body.appendChild(document.createTextNode(" 的文章："));
+    if (link) {
+      var a = el("a", "fc-fish-link", item.title || "未命名文章");
       a.href = link;
       a.target = "_blank";
       a.rel = "noopener noreferrer nofollow";
       body.appendChild(a);
-    }).catch(function () {
-      body.textContent = "这次没钓到鱼，点「换一篇」再试试～";
-    });
+    } else {
+      body.appendChild(el("span", "", item.title || "未命名文章"));
+    }
   }
 
   function bindEvents() {
     var sortBtn = byId("fcSortBtn");
     if (sortBtn) sortBtn.addEventListener("click", function () {
-      state.sort = state.sort === "published_at" ? "fetched_at" : "published_at";
-      sortBtn.textContent = state.sort === "published_at" ? "按发布时间" : "按抓取时间";
-      clientSort();
-      reload(1);
+      state.sort = state.sort === "created" ? "updated" : "created";
+      sortBtn.textContent = state.sort === "created" ? "按发布时间" : "按更新时间";
+      state.shown = CFG.pageSize;
+      sortRows();
+      render();
     });
 
     var moreBtn = byId("fcMoreBtn");
     if (moreBtn) moreBtn.addEventListener("click", function () {
-      if (!state.loading) reload(state.page + 1);
+      state.shown += CFG.pageSize;
+      render();
     });
 
     var fishBtn = byId("fcFishBtn");
@@ -307,20 +274,17 @@
   function start() {
     bindEvents();
     render();
-
-    /* 快照先出首屏；实时数据后到时覆盖，实时先到则忽略慢到的快照 */
-    load(CFG.snapshot).then(function (payload) {
-      if (state.renderedLive) return;
-      applyPayload(payload, "snapshot", 1);
+    load().then(function (payload) {
+      state.all = payload.article_data.slice();
+      state.stats = payload.statistical_data || {};
+      state.shown = CFG.pageSize;
+      state.loaded = true;
+      sortRows();
       render();
-    }).catch(function () {
-      if (!state.list.length && !state.renderedLive) {
-        setSource("构建期快照不可用，正在连接实时数据");
-      }
+      fish();
+    }).catch(function (err) {
+      showError("朋友圈数据读取失败，请稍后再试（" + (err && err.message) + "）");
     });
-
-    reload(1);
-    fish();
   }
 
   function boot() {
