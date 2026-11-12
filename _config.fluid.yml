@@ -240,9 +240,12 @@ custom_head: |
   <link rel="preconnect" href="https://fonts.loli.net" crossorigin>
   <link rel="preconnect" href="https://gstatic.loli.net" crossorigin>
   <link rel="stylesheet" href="https://fonts.loli.net/css2?family=Noto+Serif+SC:wght@600;700&display=swap">
-  <link rel="preconnect" href="https://fonts.loli.net" crossorigin>
-  <link rel="preconnect" href="https://gstatic.loli.net" crossorigin>
-  <link rel="stylesheet" href="https://fonts.loli.net/css2?family=Noto+Serif+SC:wght@600;700&display=swap">
+  <link rel="preload" href="/js/fluid-bundle.js" as="script">
+  <script type="speculationrules">
+  {
+    "prefetch": [{ "source": "document", "where": { "and": [{ "href_matches": "/*" }, { "not": { "href_matches": "/admin/*" } }, { "not": { "selector_matches": ".no-prerender" } }] }, "eagerness": "moderate" }]
+  }
+  </script>
 
 custom_js:
   - /js/custom.js

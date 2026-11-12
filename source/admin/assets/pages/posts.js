@@ -1,7 +1,7 @@
 /* pages/posts.js — 文章管理：列表 / 搜索 / 新建 / 删除 */
 
-import { ic, esc, el, toast, fmtSize, fmtTime, confirmDialog, modal, loading } from "../app.js?v=4.1.3";
-import { splitFrontMatter, nowLocal } from "../yaml.js?v=4.1.3";
+import { ic, esc, el, toast, fmtSize, fmtTime, confirmDialog, modal, loading } from "../app.js?v=4.1.4";
+import { splitFrontMatter, nowLocal } from "../yaml.js?v=4.1.4";
 
 const CACHE_KEY = "qexo4_cache_posts";
 const CACHE_TTL = 5 * 60 * 1000;
@@ -43,8 +43,10 @@ function applyOverrides(data, overrides) {
 /** 从构建索引读取列表（1 个静态请求，替代逐篇 52 次 GitHub API） */
 async function loadFromIndex(ctx) {
   if (ctx.demo) return null;
-  const res = await fetch("admin/posts-index.json", { cache: "no-cache" });
-  if (!res.ok) throw new Error(res.status);
+  // 后台是 hash 路由（/admin/#/posts），页面基线是 /admin/；相对路径会解析成
+  // /admin/admin/posts-index.json（404）并静默回退到 52 次 API，必须用站点根绝对路径。
+  const res = await fetch("/admin/posts-index.json", { cache: "no-cache" });
+  if (!res.ok) throw new Error("HTTP " + res.status + " /admin/posts-index.json");
   const index = await res.json();
   return index.map((p) => ({
     name: p.name, path: p.path, size: p.size || null,
@@ -105,7 +107,10 @@ export async function loadAllPosts(ctx, { force = false } = {}) {
         const data = finish(applyOverrides(indexed, getOverrides()));
         return data;
       }
-    } catch (_) { /* 索引不可用 → 走 GitHub 兜底 */ }
+    } catch (e) {
+      // 静默兜底曾让「索引脚本未入库 / 线上 404」长期不被发现，这里留一条可诊断线索
+      console.warn("[qexo] 文章索引不可用，回退 GitHub 全量读取：", e && e.message);
+    }
   }
 
   // 2) GitHub 全量逐篇读取（兜底 / 强制刷新）

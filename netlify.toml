@@ -37,6 +37,13 @@
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
+# 构建期文章索引：每次部署内容都会变，不能让 CDN 缓存旧列表
+[[headers]]
+  for = "/admin/posts-index.json"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    X-Content-Type-Options = "nosniff"
+
 [[headers]]
   for = "/css/*"
   [headers.values]

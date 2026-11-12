@@ -42,10 +42,11 @@
 
 - 部署路径是 Netlify（https://202271.xyz，`netlify.toml` → `npm run build`）；**不要添加或修改 GitHub Pages 相关 workflow**（用户明确要求，原 jekyll-gh-pages.yml 已删除）。
 - Hexo 8.1.2 + fluid 主题已 vendor 进 `themes/fluid`（不再用子模块）。
-- `source/admin/` 是纯 ESM 后台 SPA（当前 v4.1.2），**无构建步骤**：hexo-all-minifier 的 uglify 会跳过 ES 模块，原样拷贝即正确，不要引入打包器。
-  动态路由 import 由 `app.js` 的 `VERSION` 带 `?v=`，`github.js` 的**所有**静态 import 必须带同一个版本号
+- `source/admin/` 是纯 ESM 后台 SPA（当前 v4.1.4），**无构建步骤**：hexo-all-minifier 的 uglify 会跳过 ES 模块，原样拷贝即正确，不要引入打包器。
+  动态路由 import 由 `app.js` 的 `VERSION` 带 `?v=`；**所有**模块间的静态 import 也都带同一个硬编码版本号
   （`/admin/assets/*` 是 `max-age=600 + SWR`，不带版本会拿到旧模块；带与不带版本又会加载两份实例、
-  让 `setMediaConfig` 只改到其中一份）。升级 `VERSION` 时，`index.html` 三处与这三处 import 必须同步。
+  让 `setMediaConfig` 只改到其中一份）。升级 `VERSION` 时必须把 `source/admin/` 下全部 `?v=` 引用
+  与 `index.html` 一起同步（当前约 37 处），漏一处就会混版白屏。
 - `image_minifier` 在 `_config.yml` 中保持关闭（沙箱缺 gifsicle 二进制）。
 
 ## 后台性能约定（勿回退）
@@ -58,8 +59,14 @@
   否则会读到展示缓存、覆盖仓库最新改动（v4.1.0 修过的高危 bug）。
 - 文章列表缓存放 `localStorage`（`qexo4_cache_posts`，TTL 5 分钟，跨标签页复用），
   由 `invalidatePostsCache()` 在新增/编辑/删除后清除；不要换回 `sessionStorage`（新标签页会重复拉 52 篇文章）。
-- 工作台首次打开仍会读 52 篇文章 front-matter，属于已知开销；更彻底的方案是让 dashboard 先用
-  `/admin/manifest.json` 渲染首屏再后台刷新，需要时再评估。
+- **构建期文章索引（勿回退）**：`scripts/posts-index.js` 在构建时生成 `/admin/posts-index.json`
+  （52 条含锁定 abbrlink），后台文章列表/工作台从逐篇 52 次 GitHub API 降为 1 个静态请求。
+  该脚本**必须入库**：只在本地存在时 Netlify 不会生成索引、线上 404，后台会静默回退到慢路径。
+  `posts.js` 的 `fetch` 必须用站点根绝对路径 `/admin/posts-index.json`——后台是 hash 路由
+  （`/admin/#/posts`），相对路径会被解析成 `/admin/admin/posts-index.json`。
+  索引是构建产物，编辑/删除后用 `qexo4_post_overrides` 本地覆盖保持即时真实，
+  「强制刷新」按钮可绕过缓存与索引从 GitHub 全量拉取；`/admin/posts-index.json` 在
+  `netlify.toml` 保持 `max-age=0, must-revalidate`。
 - **GitHub API raw / json 响应隔离（勿回退）**：`GET /contents/{path}` 会先以 `Accept: raw+json`
   读文件原文、再以 `+json` 读含 sha 的元数据，两个请求 URL 相同。GitHub 虽有 `Vary: Accept`，
   浏览器缓存 / 国内代理未必遵守，曾导致写操作把 YAML 原文交给 `JSON.parse`，报

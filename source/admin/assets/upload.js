@@ -1,6 +1,6 @@
 /* upload.js — 图片上传共享逻辑：命名净化 / 进度提示 / 逐文件错误处理 */
 
-import { loading, toast, previewSrcsFor } from "./app.js?v=4.1.3";
+import { loading, toast, previewSrcsFor } from "./app.js?v=4.1.4";
 
 /** 图片文件名净化：保留中文/字母/数字，其余转 - */
 function safeImageName(name) {

@@ -1,5 +1,12 @@
 # 后台使用与维护（Qexo 风格 · Netlify 版）
 
+> v4.1.4：让两个提速改动真正在线上生效。① 构建期文章索引 `scripts/posts-index.js` 入库，
+> Netlify 才会生成 `/admin/posts-index.json`；同时修正后台用相对路径取索引的 bug
+> （hash 路由下会解析成 `/admin/admin/posts-index.json`）。② 前台 Speculation Rules
+> 文档预取与 `fluid-bundle.js` 预加载随 `_config.fluid.yml` 上线，并清掉重复的字体样式表引用。
+> 文章列表 / 工作台从逐篇 52 次 GitHub API 降为 1 个静态请求；编辑后靠本地覆盖 +
+> 工具条「强制刷新」保持真实。
+>
 > v4.1.2：修复「删除 / 编辑友链等写操作报 `Unexpected token ... is not valid JSON`」。
 > 根因是同一个 `contents` URL 先后以 raw（文件原文）与 json（含 sha 的元数据）两种
 > `Accept` 连续请求，部分浏览器缓存 / 代理不按 `Vary: Accept` 区分，把 YAML 原文回给了
@@ -103,13 +110,17 @@ raw 地址会 302 到签名直链，`<img>` 会自动跟随。Gitee 镜像尚未
   后台预览另走 Gitee 镜像（仓库路径 `source/images/uploads/文件名`），二者不是同一条 URL。
 - **缓存**：`/admin/vendor/*` 长期强缓存；`/admin/assets/*` 用 `max-age=600, stale-while-revalidate=86400`
   （切页直接命中本地缓存，不再为每个模块发一次 304）；入口 `/admin/` 保持 `max-age=0`，
-  入口脚本带 `?v=版本号`（v4.1.2），大版本更新立即生效；引用 `github.js` 的静态 import
-  也带同一版本号，保证只加载一份模块实例。
+  入口脚本带 `?v=版本号`（v4.1.4），大版本更新立即生效；所有模块间的静态 import
+  都带同一版本号，保证只加载一份模块实例、不会混版白屏。
+  `/admin/posts-index.json` 与 `/admin/manifest.json` 保持 `max-age=0, must-revalidate`。
 - **数据读取**：GitHub API 的 GET 结果在会话内缓存 30 秒，写操作自动清空；
   所有 API 请求禁用浏览器 HTTP 缓存（`cache: no-store`），raw 读取额外带 `&raw=1`，
   避免文件原文与元数据响应被缓存串用。
   **写前重读必须传 `readFile(path, { fresh: true })`**，否则可能覆盖仓库最新改动。
-  文章列表 front-matter 缓存在 `localStorage`（5 分钟，跨标签页复用），保存/删除后自动失效。
+  文章列表优先读构建期索引 `/admin/posts-index.json`（1 个静态请求，替代逐篇 52 次 API），
+  结果仍缓存在 `localStorage`（5 分钟，跨标签页复用）；保存 / 删除后自动失效并写本地覆盖，
+  索引重建完成前列表依然真实。索引不可用时会在控制台给出警告并回退 GitHub 全量读取，
+  工具条「强制刷新」可主动绕过索引与缓存。
 - 本地调试请用无痕窗口或 `hexo server`。
 - **安全**：后台 HTML 带 `noindex`；请勿把 Token 提交进仓库或贴给别人。
 
