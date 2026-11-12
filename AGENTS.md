@@ -105,14 +105,27 @@
   `max-age=0, must-revalidate`。
 - `github.com/xiaohao8/pyq` 后端仓库已删除（GitHub API 404），`/all` 端点虽仍
   返回旧数据但随时会断，**不要再作为数据源**。
-- 刷新数据（唯一联网入口，手动运行）：`node tools/fcircle-refresh.mjs`
-  从 `source/_data/fluid_config.yml` 的 39 条友链探测
-  `/atom.xml` / `/rss.xml` / `/feed` / `/index.xml`，解析 Atom/RSS 后按文章链接
-  与现有本地数据去重、增量合并（抓不到的站点不影响已有条目）。
-  **默认 dry-run 不写任何文件**，确认后才加 `--write`；
-  支持 `--limit` / `--per-link` / `--timeout` / `--concurrency`。
-  产物提交后随部署生效；也可以完全离线直接编辑 JSON。
-  工具必须放 `tools/`，别放 `scripts/`（Hexo 会当脚本误加载）。
+- 刷新工具 `tools/fcircle-refresh.mjs`：从 `source/_data/fluid_config.yml` 的
+  39 条友链抓 Atom/RSS，按文章链接与现有本地数据去重、增量合并
+  （抓不到的站点不影响已有条目）。默认 dry-run 不写文件，`--write` 才落盘；
+  支持 `--limit` / `--per-link` / `--timeout` / `--concurrency` / `--max-total`。
+  **工具必须放 `tools/`，别放 `scripts/`**（Hexo 会当脚本误加载）。
+- **完全自动化（勿回退到手动流程）**，两个触发点：
+  1. `netlify.toml` 的 build command 在 `npm run build` **之前**自动跑 `--write`：
+     后台改友链 → 写 `fluid_config.yml` → 触发部署 → 自动抓新友链，全程零人工。
+     命令用 `;` 而不是 `&&`：抓取失败/超时也必须继续构建，页面回退到入库基线。
+  2. WorkBuddy 每周一 09:00 的定时自动化「每周自动刷新朋友圈数据」
+     （id `cc58c35c-367a-4a75-9d69-230d5a20dcf0`）跑 `--write` → 校验 →
+     提交 → `git-api-push` 快进推送，把累积结果与 feed 缓存回写仓库；
+     没有 push 时数据也会更新。
+  本地 `npm run build` 仍是纯 `hexo generate`，不受影响。
+- 稳定性保护（勿删）：`tools/fcircle-feeds.json` 固化已知 feed 地址（当前 14 条），
+  命中即直连、不再盲试 4 个候选路径；`--max-total` 给抓取阶段设总时限
+  （构建期 45s）；**一个 feed 都没抓到时不覆盖任何文件**，保留入库基线。
+  构建容器里生成的 `moments.json` 不会回仓库，入库数据是安全回退点；
+  定时任务会把累积结果逐步写回。
+- 也可以完全离线直接编辑 `source/fcircle/moments.json`，
+  保持 `{ statistical_data, article_data }` 结构即可。
 - 2026-11-12 首次全量 dry-run：39 条友链中 13 个拿到 feed、26 个失败
   （多为站点关停或沙箱网络不可达），去重后 59 篇新文章、合并后 226 篇；
   本次**未写入**，`source/fcircle/moments.json` 仍是 167 篇历史数据。

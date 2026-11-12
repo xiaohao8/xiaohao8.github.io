@@ -1,6 +1,11 @@
 [build]
   publish = "public"
-  command = "npm run build"
+  # 每次部署自动刷新朋友圈：先从本站友链抓 Atom/RSS 增量合并进
+  # source/fcircle/moments.json，再 hexo generate 复制成静态 /fcircle/moments.json。
+  # 后台改友链也会触发部署，因此新友链会被自动抓取，无需人工干预。
+  # 用 ; 而不是 &&：抓取失败或超时也必须继续构建，页面会回退到入库基线数据。
+  # 工具自带 --max-total 总时限与「0 feed 不覆盖」保护，不会拖垮构建。
+  command = "node tools/fcircle-refresh.mjs --write --timeout 4000 --concurrency 12 --max-total 45000; npm run build"
 
 [build.environment]
   NODE_VERSION = "22"
