@@ -86,6 +86,13 @@ export async function ensureVditorLib() {
         id: LUTE_ID,
         timeout: LUTE_TIMEOUT,
       });
+      // 脚本 onload 只代表下载并执行完，执行出错时 window.Lute 仍可能缺失。
+      // 这时移掉 script 让下次重试能重新拉取，并把错误交给页面降级。
+      if (!window.Lute) {
+        const bad = document.getElementById(LUTE_ID);
+        if (bad) bad.remove();
+        throw new Error("Markdown 引擎未就绪");
+      }
     })().catch((e) => {
       libPromise = null; // 失败不永久缓存，下次可重试
       throw e;
