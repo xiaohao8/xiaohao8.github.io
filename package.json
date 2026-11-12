@@ -11,6 +11,7 @@
     "version": "8.1.2"
   },
   "dependencies": {
+    "@netlify/blobs": "^11.1.9",
     "hexo": "8.1.2",
     "hexo-abbrlink": "2.2.1",
     "hexo-all-minifier": "0.5.7",

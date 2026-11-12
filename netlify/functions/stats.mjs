@@ -20,6 +20,8 @@ const json = (data, status = 200) =>
 
 const BOUNCE_THRESHOLD = 30 * 1000; // 30 秒内无第二次页面浏览 = 跳出
 
+export const config = { path: "/api/stats" };
+
 export default async function handler(req) {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (req.method !== "GET") return json({ error: "method" }, 405, CORS);

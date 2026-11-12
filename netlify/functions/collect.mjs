@@ -84,6 +84,8 @@ function sessionID(vid, body) {
 /* ============================================================
    POST /api/collect — 采集匿名浏览事件
    ============================================================ */
+export const config = { path: "/api/collect" };
+
 export default async function handler(req) {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (req.method !== "POST") return json({ ok: false, error: "method" }, 405, CORS);
