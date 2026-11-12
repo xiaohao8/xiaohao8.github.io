@@ -13,10 +13,25 @@ const fs = require("fs");
 const path = require("path");
 
 const SRC = path.join(__dirname, "..", "source");
+// 主题自带脚本（events / plugins / img-lazyload / local-search / boot）在 themes/fluid/source/，
+// 不在项目 source/ 下。合包必须能读到它们，否则 script 标签被删掉、代码却没进 bundle，
+// img-lazyload.js 不执行会让 img[lazyload] 永远停在 /img/loading.gif 转圈。
+const THEME_SRC = path.join(__dirname, "..", "themes", "fluid", "source");
 const cache = {}; // path -> { mtime, content }
 
+/** 项目 source 优先，找不到再取主题 source；都不存在返回 null */
+function resolveAsset(rel) {
+  const clean = String(rel).replace(/^\/+/, "");
+  for (const base of [SRC, THEME_SRC]) {
+    const abs = path.join(base, clean);
+    try { if (fs.statSync(abs).isFile()) return abs; } catch (_) { /* 换下一个根目录 */ }
+  }
+  return null;
+}
+
 function readFileCached(rel) {
-  const abs = path.join(SRC, rel.replace(/^\/+/, ""));
+  const abs = resolveAsset(rel);
+  if (!abs) return null;
   let mtime = 0;
   try { mtime = fs.statSync(abs).mtimeMs; } catch (_) { return null; }
   const c = cache[abs];
@@ -27,7 +42,8 @@ function readFileCached(rel) {
 }
 
 function readBinCached(rel) {
-  const abs = path.join(SRC, rel.replace(/^\/+/, ""));
+  const abs = resolveAsset(rel);
+  if (!abs) return null;
   let mtime = 0;
   try { mtime = fs.statSync(abs).mtimeMs; } catch (_) { return null; }
   const c = cache[abs];
@@ -96,6 +112,7 @@ hexo.extend.generator.register("fluid-bundle", function () {
   for (const f of BUNDLE_ORDER) {
     const c = readFileCached(f);
     if (c) out += "/* " + f + " */\n" + c + "\n";
+    else console.warn("[optimize-speed] 合包缺少脚本：" + f + "（将保留原始 script 标签）");
   }
   return { path: "js/fluid-bundle.js", data: out };
 });
@@ -108,6 +125,9 @@ function bundleTailScripts(html) {
     if (BUNDLE_ORDER.includes(m[1])) found.push({ tag: m[0], src: m[1] });
   }
   if (found.length < 2) return html;
+  // 只有每个待合并脚本都读到了源码，才允许替换标签；否则整段保留。
+  // 这道保险防止「标签被删、bundle 里却没有对应代码」让整站 JS 静默失效。
+  if (found.some((x) => !readFileCached(x.src))) return html;
   // 校验这些标签是否恰好按 bundle 顺序出现（防误伤其它页面结构）
   const srcs = found.map((x) => x.src);
   const expect = BUNDLE_ORDER.filter((f) => srcs.includes(f));

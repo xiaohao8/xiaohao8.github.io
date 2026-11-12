@@ -48,6 +48,12 @@
   让 `setMediaConfig` 只改到其中一份）。升级 `VERSION` 时必须把 `source/admin/` 下全部 `?v=` 引用
   与 `index.html` 一起同步（当前约 37 处），漏一处就会混版白屏。
 - `image_minifier` 在 `_config.yml` 中保持关闭（沙箱缺 gifsicle 二进制）。
+- **前台脚本合包（`scripts/optimize-speed.js`，勿回退）**：主题自带 JS 在
+  `themes/fluid/source/js/`，**不在**项目 `source/`；读取资源必须支持主题目录回退。
+  曾因只读 `source/`，`/js/fluid-bundle.js` 里只剩 `custom.js` 一个脚本，
+  但 6 个 `<script>` 标签照样被删，`img-lazyload.js` 不执行，首页图片永远停在
+  `/img/loading.gif` 转圈。替换标签前必须校验每个脚本都读到了源码，
+  读不到就整段保留原标签（宁可多几个请求，也不能让 JS 静默消失）。
 
 ## 后台性能约定（勿回退）
 
