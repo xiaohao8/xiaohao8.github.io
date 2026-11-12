@@ -2,6 +2,10 @@
   publish = "public"
   command = "npm run build"
 
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
 [build.environment]
   NODE_VERSION = "22"
 
