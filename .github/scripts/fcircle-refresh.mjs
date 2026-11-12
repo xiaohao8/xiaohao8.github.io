@@ -13,7 +13,8 @@
  * 同目录 fcircle-feeds.json 固化已探测成功的 feed 地址：命中就直连，
  * 不再逐个盲试候选路径；每次 --write 会把新发现的地址补进去。
  * --max-total 是抓取阶段总时限，超时后停止探测、用已抓到的结果继续；
- * 一个 feed 都抓不到时不覆盖文件，保留入库基线数据。
+ * 一个 feed 都抓不到时不覆盖文件，保留入库基线数据；
+ * 抓到 feed 但没有新文章时同样不覆盖，避免每周产生只改时间戳的空提交。
  *
  * 用法（一般由 Actions 调用，无需手动执行）：
  *   node .github/scripts/fcircle-refresh.mjs --write --per-link 5
@@ -41,7 +42,7 @@ function readFeedCache() {
 }
 function writeFeedCache(map) {
   try { fs.writeFileSync(FEEDS, JSON.stringify(map, null, 2) + "\n", "utf8"); }
-  catch (_) { /* 构建容器里写不进去也不影响本次构建 */ }
+  catch (_) { /* 云端环境里写不进去也不影响本次运行 */ }
 }
 
 function arg(name, fallback) {
@@ -292,22 +293,30 @@ async function main() {
 
   if (!write) {
     console.log("\n--dry-run：未写入任何文件，现有 " + oldRows.length + " 篇数据保持原样。");
-    console.log("确认无误后执行：node tools/fcircle-refresh.mjs --write");
+    console.log("确认无误后到 GitHub Actions 手动运行 workflow，或执行：node .github/scripts/fcircle-refresh.mjs --write");
     return;
   }
 
-  // 构建期若网络整体不可达，一个 feed 都没抓到，就完全保留入库基线，
+  // 云端运行时若网络整体不可达，一个 feed 都没抓到，就完全保留入库基线，
   // 避免把统计写成「活跃 0」或让数据文件产生无意义的时间戳变化。
   if (!ok.length) {
     console.log("\n本次未抓到任何 feed，保留现有 " + oldRows.length + " 篇数据，不覆盖文件。");
     return;
   }
 
-  // 把本次成功的 feed 地址回写缓存：定时任务会把这份缓存提交进仓库，
-  // 下次构建就能直连，不再逐个盲试候选路径。
+  // 把本次成功的 feed 地址回写缓存：workflow 会把这份缓存随变化一起提交进仓库，
+  // 下次运行就能直连，不再逐个盲试候选路径。
   const nextCache = Object.assign({}, feedCache);
   for (const r of ok) nextCache[r.link.link] = r.feed;
   writeFeedCache(nextCache);
+
+  // 没有新文章时不覆盖数据文件：时间戳与统计保持上次实质更新的值，
+  // workflow 的 git diff --quiet 才会真正走「数据无变化，跳过提交」，
+  // 避免每周产生一个只改 last_updated_time 的空提交。
+  if (!fresh.length) {
+    console.log("\n本次没有抓到新文章，保留现有 " + oldRows.length + " 篇数据及更新时间，不覆盖文件。");
+    return;
+  }
 
   const merged = oldRows.concat(fresh);
   merged.sort((a, b) => String(b.created || "").localeCompare(String(a.created || "")));

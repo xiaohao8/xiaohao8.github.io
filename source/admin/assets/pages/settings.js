@@ -2,10 +2,10 @@
 
 import {
   ic, esc, el, toast, loading, store, safeHttpUrl,
-} from "../app.js?v=4.1.5";
-import { NetlifyAPI } from "../netlify.js?v=4.1.5";
-import { setMediaConfig, mediaFallbackUrls } from "../github.js?v=4.1.5";
-import { loadYaml, dumpYaml } from "../yaml.js?v=4.1.5";
+} from "../app.js?v=4.1.6";
+import { NetlifyAPI } from "../netlify.js?v=4.1.6";
+import { setMediaConfig, mediaFallbackUrls } from "../github.js?v=4.1.6";
+import { loadYaml, dumpYaml } from "../yaml.js?v=4.1.6";
 
 const SITE_META_PATH = "source/_data/site_meta.yml";
 const FLUID_PATH = "source/_data/fluid_config.yml";
@@ -467,9 +467,9 @@ export default async function settings(view, ctx, params, handleErr) {
       <div class="card-header">${ic("refresh")}<h2>朋友圈自动更新</h2><div class="sub">GitHub Actions 云端抓取，本机零任务</div></div>
       <div class="hint" style="margin-bottom:.9rem">
         数据源是本站 <code>fluid_config.yml</code> 的友情链接。云端任务每周一 09:00（北京时间）
-        抓取各站 Atom/RSS，去重后写入 <code>source/fcircle/moments.json</code> 并自动提交，
-        推送会触发 Netlify 部署。页面只读取静态 JSON，运行时不请求任何外部接口；
-        本机与构建期都不跑刷新。
+        抓取各站 Atom/RSS，去重后有新文章才写入 <code>source/fcircle/moments.json</code> 并自动提交，
+        推送会触发 Netlify 部署；没有新文章时不产生提交。页面只读取静态 JSON，
+        运行时不请求任何外部接口；本机与构建期都不跑刷新。
       </div>
       <div class="grid-2" style="gap:1rem">
         <div class="field" style="margin:0"><label>每周定时抓取</label>
@@ -504,7 +504,8 @@ export default async function settings(view, ctx, params, handleErr) {
             抓不到的站点不影响已有文章。</li>
           <li><b>查看结果</b>：数据文件 <code>source/fcircle/moments.json</code>；
             每次成功/失败的站点清单在 Actions 运行日志里。已知 feed 地址缓存在
-            <code>.github/scripts/fcircle-feeds.json</code>。</li>
+            <code>.github/scripts/fcircle-feeds.json</code>。只有抓到新文章或发现新 feed
+            地址才会产生提交，否则日志显示「数据无变化，跳过提交」。</li>
           <li><b>完全离线维护</b>：直接编辑 <code>source/fcircle/moments.json</code>，
             保持 <code>statistical_data</code> / <code>article_data</code> 结构即可。</li>
         </ol>

@@ -45,7 +45,7 @@
   （`.github/workflows/fcircle-refresh.yml`），这与 GitHub Pages 是两回事；
   只是别再建任何 Pages 部署 workflow。
 - Hexo 8.1.2 + fluid 主题已 vendor 进 `themes/fluid`（不再用子模块）。
-- `source/admin/` 是纯 ESM 后台 SPA（当前 v4.1.5），**无构建步骤**：hexo-all-minifier 的 uglify 会跳过 ES 模块，原样拷贝即正确，不要引入打包器。
+- `source/admin/` 是纯 ESM 后台 SPA（当前 v4.1.6），**无构建步骤**：hexo-all-minifier 的 uglify 会跳过 ES 模块，原样拷贝即正确，不要引入打包器。
   动态路由 import 由 `app.js` 的 `VERSION` 带 `?v=`；**所有**模块间的静态 import 也都带同一个硬编码版本号
   （`/admin/assets/*` 是 `max-age=600 + SWR`，不带版本会拿到旧模块；带与不带版本又会加载两份实例、
   让 `setMediaConfig` 只改到其中一份）。升级 `VERSION` 时必须把 `source/admin/` 下全部 `?v=` 引用
@@ -122,14 +122,16 @@
   `permissions: contents: write` 用 Actions 自带 `GITHUB_TOKEN`；
   push 触发 Netlify 部署。`netlify.toml` 的 command 保持纯 `npm run build`。
   workflow 没有 `push` 触发，不会自循环；已删除 WorkBuddy 每周自动刷新任务。
-- 后台「设置 → 朋友圈自动更新」（v4.1.5）可编辑 `source/_data/fcircle.yml`
+- 后台「设置 → 朋友圈自动更新」（v4.1.6）可编辑 `source/_data/fcircle.yml`
   的 `enabled`（总开关，只管定时任务；手动触发不受影响）与 `per_link`（1–20），
   显示当前数据状态，提供「立即刷新」（`POST /actions/workflows/.../dispatches`，
   需 Token 具备 Actions 写入权限）与操作说明。
 - 稳定性保护（勿删）：`.github/scripts/fcircle-feeds.json` 固化已知 feed
   地址（当前 14 条），命中即直连、不再盲试 4 个候选路径；`--max-total`
-  给抓取设总时限；**一个 feed 都没抓到时不覆盖任何文件**，保留入库基线。
-  Actions 会把累积结果与 feed 缓存提交回仓库，入库基线逐步增长。
+  给抓取设总时限；**一个 feed 都没抓到时不覆盖任何文件**，保留入库基线；
+  **抓到 feed 但没有新文章时同样不覆盖数据文件**，避免每周产生只改
+  `last_updated_time` 的空提交。Actions 只在有新文章或新 feed 地址时才提交，
+  入库基线逐步增长。
 - 也可以完全离线直接编辑 `source/fcircle/moments.json`，
   保持 `{ statistical_data, article_data }` 结构即可。
 - 抓取率参考：39 条友链中约 13 个能拿到 feed、26 个失败（站点关停或网络不可达）；
