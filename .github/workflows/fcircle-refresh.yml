@@ -1,0 +1,76 @@
+name: 朋友圈数据刷新
+
+# 云端定时刷新朋友圈：从 source/_data/fluid_config.yml 的友链抓 Atom/RSS，
+# 与 source/fcircle/moments.json 去重后增量合并，提交回仓库并触发 Netlify 部署。
+# 本机不跑任何刷新任务；Netlify 构建期也不抓，只复制静态 JSON。
+on:
+  schedule:
+    # 每周一 01:00 UTC = 北京时间 09:00
+    - cron: "0 1 * * 1"
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "触发原因（可选）"
+        required: false
+        default: "后台手动触发"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fcircle-refresh
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 准备 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # 脚本与 workflow 都只用 js-yaml 这一个包，避免安装整套 Hexo 依赖
+      - name: 安装 YAML 解析依赖
+        run: npm install js-yaml@4 --no-save --no-package-lock --no-audit --no-fund --silent
+
+      - name: 读取后台配置
+        id: cfg
+        run: |
+          node - <<'NODE'
+          const fs = require("fs");
+          const yaml = require("js-yaml");
+          let c = {};
+          try { c = yaml.load(fs.readFileSync("source/_data/fcircle.yml", "utf8")) || {}; } catch (e) {}
+          const enabled = c.enabled === false ? "false" : "true";
+          const perLink = Number(c.per_link) > 0 ? Math.min(Number(c.per_link), 20) : 5;
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `enabled=${enabled}\nper_link=${perLink}\n`);
+          console.log(`enabled=${enabled} per_link=${perLink}`);
+          NODE
+
+      - name: 抓取友链 Atom/RSS 并增量合并
+        # 总开关只管定时任务；后台/页面手动触发始终执行
+        if: steps.cfg.outputs.enabled == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          node .github/scripts/fcircle-refresh.mjs \
+            --write \
+            --per-link ${{ steps.cfg.outputs.per_link }} \
+            --timeout 5000 \
+            --concurrency 12 \
+            --max-total 60000
+
+      - name: 提交并推送数据
+        run: |
+          if git diff --quiet -- source/fcircle/moments.json .github/scripts/fcircle-feeds.json; then
+            echo "数据无变化，跳过提交"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add source/fcircle/moments.json .github/scripts/fcircle-feeds.json
+          git commit -m "chore(pyq): 自动刷新朋友圈数据"
+          git push

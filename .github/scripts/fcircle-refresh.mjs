@@ -6,21 +6,18 @@
  * 现在直接从 source/_data/fluid_config.yml 的友情链接抓 Atom/RSS，
  * 与已有本地数据按文章链接去重后增量合并；抓不到的站点不影响已有条目。
  *
- * 页面运行时只读静态 JSON，零外部请求。本工具是唯一联网入口，两种触发方式：
- *   1) Netlify 构建期：netlify.toml 的 build command 会先跑 `--write`（自动）；
- *   2) 每周定时任务：跑 `--write` 后把数据与 feed 缓存回写仓库并推送（自动）。
- * 也可以手动跑 --dry-run 预览，或完全离线直接编辑 moments.json。
+ * 页面运行时只读静态 JSON，零外部请求。
+ * 本脚本只由 .github/workflows/fcircle-refresh.yml 在 GitHub Actions 云端调用，
+ * 本机与 Netlify 构建期都不再运行它；后台「设置 → 朋友圈自动更新」可改配置。
  *
- * tools/fcircle-feeds.json 固化已探测成功的 feed 地址：命中就直连，
- * 不再逐个盲试候选路径，构建更快也更稳；每次 --write 会把新发现的地址补进去。
- * --max-total 是抓取阶段总时限，超时后停止探测、用已抓到的结果继续，
- * 保证 Netlify 构建不会被慢站点拖垮；抓取失败一律回退到入库基线数据。
+ * 同目录 fcircle-feeds.json 固化已探测成功的 feed 地址：命中就直连，
+ * 不再逐个盲试候选路径；每次 --write 会把新发现的地址补进去。
+ * --max-total 是抓取阶段总时限，超时后停止探测、用已抓到的结果继续；
+ * 一个 feed 都抓不到时不覆盖文件，保留入库基线数据。
  *
- * 用法：
- *   node tools/fcircle-refresh.mjs --dry-run          # 预览（默认，不写任何文件）
- *   node tools/fcircle-refresh.mjs --write            # 写入本地 JSON 与 feed 缓存
- *   node tools/fcircle-refresh.mjs --write --timeout 4000 --concurrency 12 --max-total 45000
- *   node tools/fcircle-refresh.mjs --dry-run --limit 10
+ * 用法（一般由 Actions 调用，无需手动执行）：
+ *   node .github/scripts/fcircle-refresh.mjs --write --per-link 5
+ *   node .github/scripts/fcircle-refresh.mjs --dry-run
  */
 
 import fs from "node:fs";
@@ -30,7 +27,7 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.join(HERE, "..");
+const ROOT = path.join(HERE, "..", "..");
 const CONFIG = path.join(ROOT, "source", "_data", "fluid_config.yml");
 const OUT = path.join(ROOT, "source", "fcircle", "moments.json");
 const FEEDS = path.join(HERE, "fcircle-feeds.json");

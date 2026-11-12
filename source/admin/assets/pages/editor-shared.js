@@ -1,7 +1,7 @@
 /* editor-shared.js — Vditor 资源加载器（编辑器 / 说说页共用）
    智能选路：本站源 vs Gitee 镜像竞速（结果缓存 12h），加载失败自动切换。 */
 
-import { VERSION } from "../app.js?v=4.1.4";
+import { VERSION } from "../app.js?v=4.1.5";
 
 export const VDITOR_BASE = "/admin/vendor/vditor";
 const VDITOR_GITEE =

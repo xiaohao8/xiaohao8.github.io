@@ -41,8 +41,11 @@
 ## 构建与部署
 
 - 部署路径是 Netlify（https://202271.xyz，`netlify.toml` → `npm run build`）；**不要添加或修改 GitHub Pages 相关 workflow**（用户明确要求，原 jekyll-gh-pages.yml 已删除）。
+  注意区分：用户 2026-11-12 已明确授权用 **GitHub Actions** 做数据刷新
+  （`.github/workflows/fcircle-refresh.yml`），这与 GitHub Pages 是两回事；
+  只是别再建任何 Pages 部署 workflow。
 - Hexo 8.1.2 + fluid 主题已 vendor 进 `themes/fluid`（不再用子模块）。
-- `source/admin/` 是纯 ESM 后台 SPA（当前 v4.1.4），**无构建步骤**：hexo-all-minifier 的 uglify 会跳过 ES 模块，原样拷贝即正确，不要引入打包器。
+- `source/admin/` 是纯 ESM 后台 SPA（当前 v4.1.5），**无构建步骤**：hexo-all-minifier 的 uglify 会跳过 ES 模块，原样拷贝即正确，不要引入打包器。
   动态路由 import 由 `app.js` 的 `VERSION` 带 `?v=`；**所有**模块间的静态 import 也都带同一个硬编码版本号
   （`/admin/assets/*` 是 `max-age=600 + SWR`，不带版本会拿到旧模块；带与不带版本又会加载两份实例、
   让 `setMediaConfig` 只改到其中一份）。升级 `VERSION` 时必须把 `source/admin/` 下全部 `?v=` 引用
@@ -98,38 +101,39 @@
   `/fcircle/moments.json`）。格式沿用本站 `hexo-circle-of-friends` 后端 `/all` 的原始结构：
   `{statistical_data:{friends_num,active_num,error_num,article_num,last_updated_time},
   article_data:[{floor,title,link,author,avatar,created,updated}]}`。
-  当前 167 篇 / 41 友链，数据停在 2024-06-27（后端最后更新时间）。
+  入库基线 167 篇（停在旧后端最后更新 2024-06-27）；云端任务抓取后会累积增长，
+  线上已到 226 篇 / 39 友链 / 13 活跃。
 - 页面运行时**零外部请求**：`source/fcircle/app.js` 只 `fetch("/fcircle/moments.json")`，
   排序（created / updated）、分页（每页 24）、随机钓鱼全在本地完成。
   `netlify.toml` 不给 `/fcircle/` 配任何 proxy；`/fcircle/moments.json` 保持
   `max-age=0, must-revalidate`。
 - `github.com/xiaohao8/pyq` 后端仓库已删除（GitHub API 404），`/all` 端点虽仍
   返回旧数据但随时会断，**不要再作为数据源**。
-- 刷新工具 `tools/fcircle-refresh.mjs`：从 `source/_data/fluid_config.yml` 的
-  39 条友链抓 Atom/RSS，按文章链接与现有本地数据去重、增量合并
-  （抓不到的站点不影响已有条目）。默认 dry-run 不写文件，`--write` 才落盘；
-  支持 `--limit` / `--per-link` / `--timeout` / `--concurrency` / `--max-total`。
-  **工具必须放 `tools/`，别放 `scripts/`**（Hexo 会当脚本误加载）。
-- **完全自动化（勿回退到手动流程）**，两个触发点：
-  1. `netlify.toml` 的 build command 在 `npm run build` **之前**自动跑 `--write`：
-     后台改友链 → 写 `fluid_config.yml` → 触发部署 → 自动抓新友链，全程零人工。
-     命令用 `;` 而不是 `&&`：抓取失败/超时也必须继续构建，页面回退到入库基线。
-  2. WorkBuddy 每周一 09:00 的定时自动化「每周自动刷新朋友圈数据」
-     （id `cc58c35c-367a-4a75-9d69-230d5a20dcf0`）跑 `--write` → 校验 →
-     提交 → `git-api-push` 快进推送，把累积结果与 feed 缓存回写仓库；
-     没有 push 时数据也会更新。
-  本地 `npm run build` 仍是纯 `hexo generate`，不受影响。
-- 稳定性保护（勿删）：`tools/fcircle-feeds.json` 固化已知 feed 地址（当前 14 条），
-  命中即直连、不再盲试 4 个候选路径；`--max-total` 给抓取阶段设总时限
-  （构建期 45s）；**一个 feed 都没抓到时不覆盖任何文件**，保留入库基线。
-  构建容器里生成的 `moments.json` 不会回仓库，入库数据是安全回退点；
-  定时任务会把累积结果逐步写回。
+- 刷新脚本 `.github/scripts/fcircle-refresh.mjs`：从 `source/_data/fluid_config.yml`
+  的 39 条友链抓 Atom/RSS，按文章链接与现有数据去重、增量合并。
+  默认 dry-run，`--write` 才落盘；支持 `--per-link` / `--timeout` /
+  `--concurrency` / `--max-total` / `--limit`。
+  **只由 GitHub Actions 调用**：用户明确要求删掉本机刷新，
+  本机与 Netlify 构建期都不跑它，也不要放回 `tools/`。
+- **自动化全在云端（勿回退到本机定时任务或构建期抓取）**：
+  `.github/workflows/fcircle-refresh.yml` 每周一 01:00 UTC（北京 09:00）
+  定时 + `workflow_dispatch` 手动触发；检出仓库 → 装 `js-yaml` →
+  读 `source/_data/fcircle.yml` → 跑脚本 `--write` → 有变化才 commit + push。
+  `permissions: contents: write` 用 Actions 自带 `GITHUB_TOKEN`；
+  push 触发 Netlify 部署。`netlify.toml` 的 command 保持纯 `npm run build`。
+  workflow 没有 `push` 触发，不会自循环；已删除 WorkBuddy 每周自动刷新任务。
+- 后台「设置 → 朋友圈自动更新」（v4.1.5）可编辑 `source/_data/fcircle.yml`
+  的 `enabled`（总开关，只管定时任务；手动触发不受影响）与 `per_link`（1–20），
+  显示当前数据状态，提供「立即刷新」（`POST /actions/workflows/.../dispatches`，
+  需 Token 具备 Actions 写入权限）与操作说明。
+- 稳定性保护（勿删）：`.github/scripts/fcircle-feeds.json` 固化已知 feed
+  地址（当前 14 条），命中即直连、不再盲试 4 个候选路径；`--max-total`
+  给抓取设总时限；**一个 feed 都没抓到时不覆盖任何文件**，保留入库基线。
+  Actions 会把累积结果与 feed 缓存提交回仓库，入库基线逐步增长。
 - 也可以完全离线直接编辑 `source/fcircle/moments.json`，
   保持 `{ statistical_data, article_data }` 结构即可。
-- 2026-11-12 首次全量 dry-run：39 条友链中 13 个拿到 feed、26 个失败
-  （多为站点关停或沙箱网络不可达），去重后 59 篇新文章、合并后 226 篇；
-  本次**未写入**，`source/fcircle/moments.json` 仍是 167 篇历史数据。
-  feed 可达性会随网络波动（同一站点两次运行结果可能不同），以 `--write` 当次为准。
+- 抓取率参考：39 条友链中约 13 个能拿到 feed、26 个失败（站点关停或网络不可达）；
+  去重后可新增约 59 篇。可达性随网络波动，以当次运行为准。
 - `source/fcircle/app.js` 必须是 **ES5 语法**（`js_minifier` 开启且 mangle）。
   资源放 `/fcircle/` 而不是 `/js/`、`/css/`，避开 `optimize-speed.js` 的合包 / CSS 内联正则。
   改 JS/CSS 时同步提升 `source/pyq/index.md` 里的 `?v=`。

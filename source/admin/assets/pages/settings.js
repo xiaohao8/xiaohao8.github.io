@@ -2,13 +2,14 @@
 
 import {
   ic, esc, el, toast, loading, store, safeHttpUrl,
-} from "../app.js?v=4.1.4";
-import { NetlifyAPI } from "../netlify.js?v=4.1.4";
-import { setMediaConfig, mediaFallbackUrls } from "../github.js?v=4.1.4";
-import { loadYaml, dumpYaml } from "../yaml.js?v=4.1.4";
+} from "../app.js?v=4.1.5";
+import { NetlifyAPI } from "../netlify.js?v=4.1.5";
+import { setMediaConfig, mediaFallbackUrls } from "../github.js?v=4.1.5";
+import { loadYaml, dumpYaml } from "../yaml.js?v=4.1.5";
 
 const SITE_META_PATH = "source/_data/site_meta.yml";
 const FLUID_PATH = "source/_data/fluid_config.yml";
+const FCIRCLE_PATH = "source/_data/fcircle.yml";
 
 export default async function settings(view, ctx, params, handleErr) {
   view.innerHTML = "";
@@ -457,6 +458,136 @@ export default async function settings(view, ctx, params, handleErr) {
   }
 
   indexCard.querySelector("#save-index").addEventListener("click", saveFluid);
+
+  /* ---------- N. 朋友圈自动更新（GitHub Actions 云端） ---------- */
+  const s0 = store.getSettings();
+  const fcActionsUrl = "https://github.com/" + encodeURIComponent(s0.owner || "") + "/" +
+    encodeURIComponent(s0.repo || "") + "/actions/workflows/fcircle-refresh.yml";
+  const fcCard = el(`<div class="card settings-section">
+      <div class="card-header">${ic("refresh")}<h2>朋友圈自动更新</h2><div class="sub">GitHub Actions 云端抓取，本机零任务</div></div>
+      <div class="hint" style="margin-bottom:.9rem">
+        数据源是本站 <code>fluid_config.yml</code> 的友情链接。云端任务每周一 09:00（北京时间）
+        抓取各站 Atom/RSS，去重后写入 <code>source/fcircle/moments.json</code> 并自动提交，
+        推送会触发 Netlify 部署。页面只读取静态 JSON，运行时不请求任何外部接口；
+        本机与构建期都不跑刷新。
+      </div>
+      <div class="grid-2" style="gap:1rem">
+        <div class="field" style="margin:0"><label>每周定时抓取</label>
+          <select class="input" id="fc-enabled">
+            <option value="true">开启（推荐）</option>
+            <option value="false">暂停</option>
+          </select>
+          <div class="hint">暂停只影响定时任务，手动触发仍可刷新</div>
+        </div>
+        <div class="field" style="margin:0"><label>每个友链取几篇</label>
+          <input class="input" id="fc-perlink" type="number" min="1" max="20" value="5" />
+          <div class="hint">1–20，数值越大抓得越慢</div>
+        </div>
+      </div>
+      <div class="field" style="margin-top:.8rem"><label>当前数据</label>
+        <div class="hint" id="fc-status">读取中…</div>
+      </div>
+      <div class="settings-actions">
+        <button class="btn btn-primary" id="fc-save">${ic("save")}保存配置</button>
+        <button class="btn" id="fc-run">${ic("deploy")}立即刷新</button>
+        <a class="btn" href="${esc(fcActionsUrl)}" target="_blank" rel="noopener noreferrer">查看运行记录 ↗</a>
+      </div>
+      <details style="margin-top:.9rem">
+        <summary style="cursor:pointer;font-weight:600">操作说明</summary>
+        <ol style="margin:.6rem 0 0;padding-left:1.3rem;line-height:1.9">
+          <li><b>改定时频率</b>：编辑仓库 <code>.github/workflows/fcircle-refresh.yml</code> 的
+            <code>cron</code>（UTC 时间，北京时间 = UTC+8），提交后生效。默认每周一 09:00。</li>
+          <li><b>立即刷新</b>：点上方的「立即刷新」，或到 GitHub → Actions → 朋友圈数据刷新 → Run workflow。
+            前者要求登录 Token 具备 <b>Actions 写入权限</b>；权限不足或配置了 gh-proxy 镜像时，
+            请直接用 GitHub 页面手动运行。</li>
+          <li><b>新增友链</b>：改完 <code>fluid_config.yml</code> 后无需额外操作，下次任务会自动抓取该站点。
+            抓不到的站点不影响已有文章。</li>
+          <li><b>查看结果</b>：数据文件 <code>source/fcircle/moments.json</code>；
+            每次成功/失败的站点清单在 Actions 运行日志里。已知 feed 地址缓存在
+            <code>.github/scripts/fcircle-feeds.json</code>。</li>
+          <li><b>完全离线维护</b>：直接编辑 <code>source/fcircle/moments.json</code>，
+            保持 <code>statistical_data</code> / <code>article_data</code> 结构即可。</li>
+        </ol>
+      </details>
+    </div>`);
+  view.appendChild(fcCard);
+
+  let fcLoaded = false;
+  ctx.api.readFile(FCIRCLE_PATH).then((raw) => {
+    const c = loadYaml(raw) || {};
+    fcCard.querySelector("#fc-enabled").value = c.enabled === false ? "false" : "true";
+    const per = Number(c.per_link);
+    fcCard.querySelector("#fc-perlink").value = per >= 1 && per <= 20 ? per : 5;
+    fcLoaded = true;
+  }).catch((e) => {
+    if (e && e.status === 404) {
+      fcCard.querySelector("#fc-enabled").value = "true";
+      fcCard.querySelector("#fc-perlink").value = 5;
+      fcLoaded = true; // 文件尚未创建，允许保存时新建
+    } else {
+      fcCard.querySelector("#fc-status").textContent = "配置读取失败：" + (e && e.message);
+    }
+  });
+
+  fetch("/fcircle/moments.json").then((r) => {
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  }).then((d) => {
+    const rows = (d && d.article_data) || [];
+    const st = (d && d.statistical_data) || {};
+    fcCard.querySelector("#fc-status").textContent =
+      "当前 " + rows.length + " 篇 · 活跃友链 " +
+      (st.active_num != null ? st.active_num : "-") + " / " +
+      (st.friends_num != null ? st.friends_num : "-") +
+      " · 更新于 " + (st.last_updated_time || "-");
+  }).catch(() => {
+    fcCard.querySelector("#fc-status").textContent = "本地数据暂不可读（演示模式或尚未部署）";
+  });
+
+  async function saveFC() {
+    if (!fcLoaded) {
+      toast("配置未成功加载，已禁用保存以免覆盖", "error");
+      return;
+    }
+    const enabled = fcCard.querySelector("#fc-enabled").value === "true";
+    const per = parseInt(fcCard.querySelector("#fc-perlink").value, 10);
+    if (isNaN(per) || per < 1 || per > 20) {
+      toast("每个友链篇数需为 1–20", "error");
+      return;
+    }
+    loading.show("正在保存…");
+    try {
+      let fresh;
+      try {
+        fresh = loadYaml(await ctx.api.readFile(FCIRCLE_PATH, { fresh: true })) || {};
+      } catch (e) {
+        if (e.status === 404 || ctx.demo) fresh = {};
+        else throw e;
+      }
+      fresh.enabled = enabled;
+      fresh.per_link = per;
+      await ctx.api.writeFile(FCIRCLE_PATH, dumpYaml(fresh), "Update Fcircle Config by Qexo");
+      toast("配置已保存，GitHub Actions 下次运行生效", "success");
+    } catch (e) { handleErr(e); }
+    loading.hide();
+  }
+  fcCard.querySelector("#fc-save").addEventListener("click", saveFC);
+
+  fcCard.querySelector("#fc-run").addEventListener("click", async () => {
+    loading.show("正在触发 GitHub Actions…");
+    try {
+      const s = store.getSettings();
+      await ctx.api.req(
+        "/repos/" + encodeURIComponent(s.owner) + "/" + encodeURIComponent(s.repo) +
+          "/actions/workflows/fcircle-refresh.yml/dispatches",
+        { method: "POST", body: { ref: s.branch || "main", inputs: { reason: "后台手动触发" } } }
+      );
+      toast("已触发，约 1–2 分钟后在 Actions 页面查看运行记录", "success");
+    } catch (e) {
+      toast("触发失败（Token 需具备 Actions 写入权限，或改用 GitHub 页面手动运行）：" + (e && e.message), "error");
+    }
+    loading.hide();
+  });
 
   loading.hide();
 }

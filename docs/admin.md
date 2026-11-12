@@ -176,3 +176,26 @@ source/admin/
   （编辑器 4.5MB 资源回访零加载）。
 - **预连接**：`custom_head` 注入了 baomitu / alicdn 的 preconnect 与
   busuanzi / gitee 的 dns-prefetch，降低首次请求延迟。
+
+## 朋友圈自动更新（v4.1.5，GitHub Actions）
+
+后台「设置 → 朋友圈自动更新」是唯一操作入口，**本机不需要跑任何刷新命令**。
+
+- **工作机制**：`.github/workflows/fcircle-refresh.yml` 每周一 09:00（北京时间）
+  在 GitHub 云端读取 `source/_data/fluid_config.yml` 的友情链接，抓取各站
+  Atom/RSS，去重后写入 `source/fcircle/moments.json`，自动提交并推送；
+  push 触发 Netlify 部署。页面始终只读静态 JSON，运行时零外部请求。
+- **配置项**（`source/_data/fcircle.yml`，后台可直接编辑）：
+  - `enabled`：`false` 只暂停每周定时任务，手动触发不受影响。
+  - `per_link`：每个友链每次最多取几篇（1–20，默认 5）。
+- **立即刷新**：后台点「立即刷新」，或 GitHub → Actions → 朋友圈数据刷新 →
+  Run workflow。前者调用 `workflow_dispatch` API，要求登录 Token 具备
+  **Actions 写入权限**；若 Token 只有 Contents 权限、或后台 API 走 gh-proxy
+  镜像，请直接用 GitHub 页面手动运行。
+- **改定时频率**：编辑 workflow 里的 `cron`（UTC，北京时间 = UTC+8）后提交。
+- **新增友链**：改完 `fluid_config.yml` 无需额外操作，下次任务自动抓取。
+- **查看结果与日志**：Actions 运行记录里有成功/失败站点清单；数据在
+  `source/fcircle/moments.json`，已知 feed 地址缓存在
+  `.github/scripts/fcircle-feeds.json`。
+- **注意**：39 个友链里通常只有约 13 个能抓到 feed，其余多为站点关停或
+  网络不可达；抓不到不影响已有文章，最坏情况是本次没有新增。
