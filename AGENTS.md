@@ -87,3 +87,28 @@
   `Unexpected token ... is not valid JSON`（v4.1.1 删除友链失败）。`req()` 必须保持
   raw 请求追加 `&raw=1`、所有请求 `cache: "no-store"`，并用 `res.text()` + `JSON.parse`
   容错给出可读错误；不要把 `await res.json()` 直接写回去。
+
+## 朋友圈 /pyq/ 数据源（勿回退到旧 CDN 脚本）
+
+- 数据获取方式对齐 `https://blog.anheyu.com/fcircle`：该页是 Next.js，客户端调用
+  `GET /api/pro/moments?page=&page_size=&sort_type=published_at|fetched_at`，
+  返回 `{code:200,data:{list,total,statistics}}`；列表项字段为
+  `link_name / link_logo / link_url / post_title / post_url / post_summary / published_at / created_at`。
+  另有 `/api/pro/moments/randompost`（钓鱼）与 `/api/pro/moments/link/{id}`。
+- 该接口**不返回 CORS 响应头**（带 `Origin` 请求也没有），OPTIONS 预检直接 403，
+  浏览器无法跨域直连。因此 `netlify.toml` 用 `status = 200` 反代成同源
+  `/fcircle/api/moments`、`/fcircle/api/randompost`；query 由 Netlify 透传，
+  **不要在 `to` 里写死 query**，否则分页/排序参数会丢。
+- `scripts/fcircle-snapshot.js` 在 `before_generate` 抓一份快照输出
+  `/fcircle/moments.json`（首屏即时出内容 + 反代故障兜底），**必须入库**。
+  抓不到只 warn 并输出空结构，绝不阻断 `hexo generate`。
+  Hexo 用 vm 包装加载 `scripts/`，Node 全局 `fetch` / `AbortSignal` 不保证存在，
+  所以用 `require("https")`；结果存模块变量、generator 保持同步返回。
+- `source/fcircle/app.js` 必须是 **ES5 语法**（`js_minifier` 开启且 mangle，
+  ES6+ 语法可能被 uglify 破坏）。资源放 `/fcircle/` 而不是 `/js/`、`/css/`，
+  避免被 `optimize-speed.js` 的合包 / CSS 内联正则误伤。
+  改 JS/CSS 时同步提升 `source/pyq/index.md` 里的 `?v=`，`/fcircle/*` 走默认缓存。
+- 动态内容一律 `textContent` / `createElement`，URL 只允许 `http(s)://`；
+  头像必须带 `onerror` 内联 SVG 兜底，别用被墙的 `avatars.githubusercontent.com`。
+- 旧的 `hexo-friendcircle-demo`（`fetch.js` / `fcircle.js` / `akilar-SAO.css`）
+  与已停更的 `https://pyq.202271.xyz/all`（停在 2024-06-27）不要恢复。

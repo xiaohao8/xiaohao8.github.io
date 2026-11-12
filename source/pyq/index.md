@@ -3,46 +3,14 @@ comments: true
 title: 醉里的朋友圈
 updated: 2023-05-06 23:06:35
 ---
-<!-- fontawesome图标的依赖，主题自带的不用加这行 -->
 
-<link rel="stylesheet" href="https://cdn1.tianli0.top/npm/@fortawesome/fontawesome-free/css/all.min.css">
+<!-- 朋友圈：数据获取方式对齐 https://blog.anheyu.com/fcircle
+     目标接口 /api/pro/moments 无 CORS 响应头，浏览器不能直连；
+     运行时经 netlify.toml 的同源反代取实时数据，构建期快照 /fcircle/moments.json 兜底。
+     旧的 hexo-friendcircle-demo（fetch.js / fcircle.js / akilar-SAO.css）依赖已移除。 -->
 
-<!-- 友链朋友圈样式 -->
+<link rel="stylesheet" href="/fcircle/app.css?v=1">
 
-<link rel="stylesheet" href="https://cdn1.tianli0.top/gh/Rock-Candy-Tea/hexo-friendcircle-demo@main/css/akilar-SAO.css">
+<div id="fcircleApp"></div>
 
-<!-- 挂载友链朋友圈的容器 -->
-
-<div id="fcircleContainer"></div>
-
-<!-- 全局引入友链朋友圈配置项 -->
-
-<script>
-
-  // 全局变量声明区域
-
-  var fdata = {
-
-    apiurl: 'https://pyq.202271.xyz/all',
-
-    initnumber: 20, //【可选】页面初始化展示文章数量
-
-    stepnumber: 10,//【可选】每次加载增加的篇数
-
-    error_img: 'https://avatars.githubusercontent.com/u/109055045?s=96&v=4' //【可选】头像加载失败时默认显示的头像
-
-  }
-
-  //存入本地存储
-
-  localStorage.setItem("fdatalist",JSON.stringify(fdata))
-
-</script>
-
-<!-- 全局引入抓取方法 -->
-
-<script defer src="https://cdn1.tianli0.top/gh/Rock-Candy-Tea/hexo-friendcircle-demo@main/js/fetch.js"></script>
-
-<!-- 局部引入页面元素生成方法 -->
-
-<script async src="https://cdn1.tianli0.top/gh/Rock-Candy-Tea/hexo-friendcircle-demo@main/js/fcircle.js" charset="utf-8"></script>    <!-- js -->
+<script defer src="/fcircle/app.js?v=1"></script>

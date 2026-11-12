@@ -1,0 +1,127 @@
+/* 朋友圈 —— 用半透明中性色，明暗主题都无需额外覆盖，避免与 Fluid 主题变量耦合 */
+#fcircleApp {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 8px 0 36px;
+  color: inherit;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.fc-hero { padding: 16px 0 24px; }
+.fc-hero-title { margin: 0 0 8px; font-size: 1.9rem; font-weight: 700; }
+.fc-hero-desc { margin: 0; opacity: .72; }
+.fc-hero-desc a { text-decoration: underline; text-underline-offset: 3px; }
+
+.fc-panel { margin-bottom: 28px; }
+.fc-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.fc-panel-head h2 { margin: 0; font-size: 1.25rem; font-weight: 700; }
+
+.fc-btn,
+.fc-more {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border: 1px solid rgba(127, 127, 127, .28);
+  background: rgba(127, 127, 127, .08);
+  border-radius: 999px;
+  padding: 5px 14px;
+  transition: background .18s ease, border-color .18s ease, transform .18s ease;
+}
+.fc-btn:hover,
+.fc-more:hover:not(:disabled) {
+  background: rgba(127, 127, 127, .18);
+  border-color: rgba(127, 127, 127, .45);
+}
+.fc-btn:active { transform: scale(.96); }
+.fc-btn:focus-visible,
+.fc-more:focus-visible { outline: 2px solid rgba(80, 140, 220, .8); outline-offset: 2px; }
+
+.fc-fish-body {
+  padding: 14px 16px;
+  border: 1px solid rgba(127, 127, 127, .18);
+  background: rgba(127, 127, 127, .06);
+  border-radius: 12px;
+}
+.fc-fish-link { font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+
+.fc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 14px;
+}
+
+.fc-card {
+  display: block;
+  padding: 16px;
+  border: 1px solid rgba(127, 127, 127, .18);
+  border-radius: 14px;
+  background: rgba(127, 127, 127, .06);
+  color: inherit;
+  text-decoration: none;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.fc-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(127, 127, 127, .38);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, .10);
+}
+
+.fc-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.fc-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+  background: rgba(127, 127, 127, .16);
+}
+.fc-card-meta { display: flex; flex-direction: column; min-width: 0; line-height: 1.35; }
+.fc-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fc-date { font-size: .8rem; opacity: .62; }
+
+.fc-card-title { margin: 0 0 8px; font-size: 1.02rem; font-weight: 700; line-height: 1.5; }
+.fc-card-summary { margin: 0 0 12px; font-size: .88rem; opacity: .72; line-height: 1.75; }
+.fc-card-foot { font-size: .82rem; opacity: .6; }
+
+.fc-empty {
+  grid-column: 1 / -1;
+  padding: 32px 16px;
+  text-align: center;
+  opacity: .7;
+  border: 1px dashed rgba(127, 127, 127, .28);
+  border-radius: 12px;
+}
+
+.fc-more-wrap { display: flex; justify-content: center; margin: 20px 0 12px; }
+.fc-more { padding: 8px 22px; }
+.fc-more:disabled { cursor: default; opacity: .55; }
+
+.fc-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 20px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(127, 127, 127, .18);
+  font-size: .85rem;
+}
+.fc-info { display: inline-flex; align-items: baseline; gap: 6px; }
+.fc-info-label { opacity: .6; }
+.fc-info-value { font-weight: 700; }
+.fc-update { margin-left: auto; opacity: .6; }
+
+.fc-source { margin-top: 10px; font-size: .78rem; opacity: .5; text-align: right; }
+
+@media (max-width: 640px) {
+  .fc-grid { grid-template-columns: 1fr; }
+  .fc-hero-title { font-size: 1.55rem; }
+  .fc-update { margin-left: 0; }
+  .fc-source { text-align: left; }
+}
