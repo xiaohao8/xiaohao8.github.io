@@ -1,45 +1,52 @@
-# 博客接入自托管 Umami 统计
+# 站点统计（自托管 · Netlify Functions + GitHub Actions）
 
-> 前提：已按 `deploy/umami/README.md` 在 VPS 完成 Umami v2.4.1 部署，
-> 站点 `https://analytics.202271.xyz` 可访问，并且已创建网站拿到 Website ID 与 Token。
+> 无服务器方案：采集端点跑在 **Netlify Functions**，事件存 **GitHub 仓库**，
+> 聚合由 **GitHub Actions** 定时完成，数据 100% 自持、无 Cookie / 无 IP / 无 UA 存储。
+> 旧 Umami VPS 部署包已移除（历史可在 git 记录中找回）。
 
-## 接入配置（_config.fluid.yml）
+## 架构
 
-在 `web_analytics` 段填入（部署完成后替换三个值）：
-
-```yaml
-web_analytics:
-  enable: true
-  umami:
-    src: "https://analytics.202271.xyz/script.js"
-    website_id: "你的 Website ID"
-    domains: "202271.xyz"
-    api_server: "https://analytics.202271.xyz"
-    start_time: "2026-11-12T00:00:00.000Z"   # 统计起始时间
-    token: "你的 API Token"
+```
+访客浏览器 ──beacon──▶ Netlify Function(/.netlify/functions/collect)
+                            │  追加 NDJSON（Contents API）
+                            ▼
+                    GitHub 仓库 analytics/events-YYYY-MM.ndjson
+                            │  GitHub Actions 每 6h 聚合
+                            ▼
+              analytics/stats.json（存档）+ source/analytics/stats.json（部署）
+                            │  Netlify 自动构建
+                            ▼
+              前台 /stats/ 统计看板 + 页脚 PV/UV（zui 数据源）
 ```
 
-页脚访问量统计来源切换（可选，当前为 busuanzi）：
+## 启用步骤（一次性，2 分钟）
 
-```yaml
-footer:
-  statistics:
-    enable: true
-    source: "umami"   # busuanzi | leancloud | umami
-```
+1. **生成仓库 Token**：GitHub → Settings → Developer settings →
+   Fine-grained tokens → 仅授权本仓库、**Contents: Read and write**
+2. **添加到 Netlify**：Site configuration → Environment variables →
+   添加 `GITHUB_TOKEN` = 上述 Token
+3. 推送本仓库（workflow 与 function 已内置），完成
 
-保存提交后 Netlify 自动构建生效。
+## 工作流
 
-## 生效内容
+- 访客浏览任意页面 → custom.js 匿名 beacon（vid 为 localStorage 随机 ID）
+- Netlify Function 校验来源、追加事件行到当月 NDJSON（并发冲突自动重试）
+- Actions 每 6h 聚合：总量 / 每日 PV·UV / 热门页面 / 访问来源
+- 有变化才提交 → 自动部署 → `/stats/` 看板与页脚数字更新
 
-- 全站无痕统计（不使用 Cookie，不依赖第三方境内被墙服务）
-- 页脚「访问量 / 访客数」改由自托管 Umami API 提供（`umami-view.js` 原生支持）
-- 数据完全自持：VPS 上的 PostgreSQL，随时导出
+## 文件清单
+
+| 文件 | 作用 |
+| --- | --- |
+| `netlify/functions/collect.mjs` | 采集端点（来源校验 / NDJSON 追加 / 冲突重试） |
+| `scripts/aggregate-analytics.mjs` | 聚合脚本（无第三方依赖） |
+| `.github/workflows/analytics.yml` | 定时聚合 + 有变化才提交 |
+| `source/stats/index.md` | `/stats/` 统计看板页 |
+| `source/_data/fluid_config.yml` | `footer.statistics.source: "zui"` 页脚数据源 |
 
 ## 注意
 
-- `domains` 用于过滤无效来源，填主域名即可（不要带协议）
-- `token` 是 Umami 登录 JWT（APP_SECRET 签发）；改密码/换 APP_SECRET 后需重新生成
-- 统计脚本 `script.js` 与上报接口同域，无跨域 Cookie 问题
-- 前台页面有 Service Worker 缓存：页面缓存命中时 Umami 脚本走网络
-  （SW 仅对同源静态资源缓存优先，跟踪脚本路径不在缓存策略内），统计不受影响
+- 不存储 IP / User-Agent / Cookie；访客 ID 为浏览器本地随机 UUID
+- 原始事件在仓库 `analytics/` 目录（公开仓库可见，无敏感信息）
+- Actions 免费额度：每日 ≤4 次构建（仅数据变化时提交），远低于限额
+- 统计脚本路径 `/.netlify/functions/*` 不经过 Service Worker，计数不受缓存影响

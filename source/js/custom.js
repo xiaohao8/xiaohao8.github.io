@@ -245,3 +245,81 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();
 })();
+
+/* ---------- 站点统计（自托管：Netlify Function 采集 → Actions 聚合） ---------- */
+(function () {
+  // 匿名访客 ID（localStorage 随机 UUID，无 Cookie / 无 IP / 无 UA 存储）
+  function vid() {
+    try {
+      var k = "zui_vid", v = localStorage.getItem(k);
+      if (!v) {
+        v = (crypto.randomUUID ? crypto.randomUUID() : Date.now() + "-" + Math.random().toString(36).slice(2));
+        localStorage.setItem(k, v);
+      }
+      return v;
+    } catch (_) { return ""; }
+  }
+  // 页面浏览上报（后台与本地预览不上报）
+  function beacon() {
+    if (location.pathname.indexOf("/admin") === 0) return;
+    if (location.protocol.indexOf("http") !== 0) return;
+    if (/bot|spider|crawl/i.test(navigator.userAgent)) return;
+    var body = JSON.stringify({
+      v: vid(),
+      p: location.pathname,
+      r: document.referrer ? new URL(document.referrer).hostname : "",
+      w: window.innerWidth,
+    });
+    fetch("/.netlify/functions/collect", {
+      method: "POST",
+      body,
+      keepalive: true,
+      headers: { "Content-Type": "application/json" },
+    }).catch(function () {});
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", beacon);
+  else beacon();
+
+  // 统计看板（/stats/ 页）
+  function renderStats(data) {
+    var root = document.getElementById("stats-root");
+    if (!root) return;
+    var esc = function (s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); };
+    var maxPv = Math.max.apply(null, [1].concat((data.days || []).slice(-30).map(function (d) { return d.pv; })));
+    var bars = (data.days || []).slice(-30).map(function (d) {
+      var h = Math.max(4, Math.round((d.pv / maxPv) * 100));
+      return '<div class="zui-bar" title="' + d.date + '：' + d.pv + ' PV / ' + d.uv + ' UV">' +
+        '<span style="height:' + h + '%"></span><i>' + d.date.slice(5) + "</i></div>";
+    }).join("");
+    var totals = data.totals || {};
+    var pages = (data.pages || []).slice(0, 10).map(function (p) {
+      return '<div class="zui-stat-row"><a href="' + esc(p.path) + '">' + esc(p.path) + "</a><b>" + p.pv + "</b></div>";
+    }).join("");
+    var refs = (data.referrers || []).slice(0, 10).map(function (r) {
+      return '<div class="zui-stat-row"><span>' + esc(r.source) + "</span><b>" + r.pv + "</b></div>";
+    }).join("");
+    root.innerHTML =
+      '<div class="zui-stats-grid">' +
+      '<div class="zui-stat-card"><b>' + ((totals.pv || 0)) + "</b><span>总浏览量</span></div>" +
+      '<div class="zui-stat-card"><b>' + ((totals.uv || 0)) + "</b><span>独立访客</span></div>" +
+      '<div class="zui-stat-card"><b>' + ((totals.days || 0)) + "</b><span>统计天数</span></div>" +
+      "</div>" +
+      '<h3>近 30 天浏览</h3><div class="zui-bars">' + (bars || '<p class="muted">暂无数据</p>') + "</div>" +
+      '<div class="grid-2"><div class="card" style="margin:0"><h3 style="margin-top:0">热门页面</h3>' + (pages || '<p class="muted">暂无</p>') + "</div>" +
+      '<div class="card" style="margin:0"><h3 style="margin-top:0">访问来源</h3>' + (refs || '<p class="muted">暂无</p>') + "</div></div>" +
+      '<p class="muted small">统计更新于 ' + esc((data.updated || "").slice(0, 16).replace("T", " ")) +
+      ' · 自托管匿名统计（无 Cookie / 无 IP / 无 UA 存储）</p>';
+  }
+  function initStats() {
+    if (!document.getElementById("stats-root")) return;
+    fetch("/analytics/stats.json", { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(renderStats)
+      .catch(function () {
+        var root = document.getElementById("stats-root");
+        if (root) root.innerHTML = '<p class="muted">统计构建中，稍后再看。</p>';
+      });
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initStats);
+  else initStats();
+})();

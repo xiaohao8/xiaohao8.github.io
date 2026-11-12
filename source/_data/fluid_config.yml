@@ -238,3 +238,8 @@ links:
         <button id="fa-submit" class="zui-apply-btn" type="button">提交申请</button>
         <p class="zui-apply-note">提交后会打开 GitHub Issue，确认无误即可发送；博主会在后台审核后展示。没有 GitHub 账号？发邮件到 <a href="mailto:xiaohao@202271.xyz">xiaohao@202271.xyz</a> 同样有效。</p>
       </div>
+
+footer:
+  statistics:
+    enable: true
+    source: "zui"
