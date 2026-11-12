@@ -146,7 +146,7 @@ function bundleTailScripts(html) {
   const srcs = found.map((x) => x.src);
   const expect = BUNDLE_ORDER.filter((f) => srcs.includes(f));
   if (JSON.stringify(srcs) !== JSON.stringify(expect)) return html;
-  html = html.replace(found[0].tag, '<script src="/js/fluid-bundle.js?v=' + bundleVersion() + '" defer></script>');
+  html = html.replace(found[0].tag, '<script src="/js/fluid-bundle.js?v=' + bundleVersion() + '"></script>');
   for (let i = 1; i < found.length; i++) html = html.replace(found[i].tag, "");
   return html;
 }
