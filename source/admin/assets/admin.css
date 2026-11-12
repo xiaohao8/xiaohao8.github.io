@@ -774,6 +774,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 /* 编辑器加载中 / 降级为纯文本时的提示，避免留下无解释的空白区域 */
 .editor-boot { padding: 0.9rem 0.2rem; color: var(--muted); font-size: 13px; }
 .editor-fallback .hint { margin: 0; color: var(--warning); font-weight: 500; }
+.editor-fallback .hint.is-info { color: var(--muted); font-weight: 400; }
 .editor-fallback-actions { margin-top: 0.5rem; }
 .vditor-reset--ir .vditor-ir__node > .vditor-ir__node {
   border-radius: 3px;

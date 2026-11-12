@@ -2,14 +2,14 @@
 
 import {
   ic, esc, el, toast, loading, confirmDialog,
-} from "../app.js?v=4.1.7";
+} from "../app.js?v=4.1.8";
 import {
   splitFrontMatter, buildFrontMatter, toInputDate, fromInputDate,
   nowLocal, extractExcerpt,
-} from "../yaml.js?v=4.1.7";
-import { ensureVditorLib, getVditorBase } from "./editor-shared.js?v=4.1.7";
-import { uploadImage, runUploadQueue } from "../upload.js?v=4.1.7";
-import { invalidatePostsCache, setPostOverride } from "./posts.js?v=4.1.7";
+} from "../yaml.js?v=4.1.8";
+import { ensureVditorLib, getVditorBase } from "./editor-shared.js?v=4.1.8";
+import { uploadImage, runUploadQueue } from "../upload.js?v=4.1.8";
+import { invalidatePostsCache, setPostOverride } from "./posts.js?v=4.1.8";
 
 export default async function editor(view, ctx, params, handleErr) {
   const isPage = location.hash.startsWith("#/editpage");
@@ -233,8 +233,13 @@ export default async function editor(view, ctx, params, handleErr) {
     if (bootEl && bootEl.parentNode) bootEl.remove();
   }
 
-  /** 统一降级：任何加载/渲染失败都落到可编辑的纯文本，绝不留空白区域 */
-  function mountFallback(reason) {
+  const PLAIN_HINT = "已切换为纯文本模式，Markdown 内容仍可正常编辑与保存。";
+
+  /**
+   * 纯文本编辑区。它不只是「失败兜底」：页面一进来就先渲染它，
+   * 保证任何时候都能立刻写，引擎就绪后再升级成富文本（见 upgrade）。
+   */
+  function mountPlain(reason, opts = {}) {
     clearWatchdog();
     dropBoot();
     const current = getContent();
@@ -243,16 +248,19 @@ export default async function editor(view, ctx, params, handleErr) {
     fallbackTa = null;
     editorEl.innerHTML = "";
 
-    const box = el(`<div class="editor-fallback">
-        <div class="hint">${esc(reason)}已切换为纯文本模式，Markdown 内容仍可正常编辑与保存。</div>
-        <div class="editor-fallback-actions"></div>
-      </div>`);
-    const retryBtn = el(`<button class="btn btn-ghost" type="button">重新加载编辑器</button>`);
-    retryBtn.addEventListener("click", () => {
-      box.remove();
-      mountVditor();
-    });
-    box.querySelector(".editor-fallback-actions").appendChild(retryBtn);
+    const box = el(`<div class="editor-fallback"></div>`);
+    if (reason) {
+      box.appendChild(el(
+        `<div class="hint${opts.tone === "info" ? " is-info" : ""}">${esc(reason)}</div>`
+      ));
+    }
+    if (opts.retry !== false) {
+      const actions = el(`<div class="editor-fallback-actions"></div>`);
+      const retryBtn = el(`<button class="btn btn-ghost" type="button">重新加载编辑器</button>`);
+      retryBtn.addEventListener("click", () => { box.remove(); upgrade(); });
+      actions.appendChild(retryBtn);
+      box.appendChild(actions);
+    }
 
     const ta = el(`<textarea class="input" rows="18" style="width:100%;margin-top:.6rem"></textarea>`);
     ta.value = current;
@@ -261,64 +269,78 @@ export default async function editor(view, ctx, params, handleErr) {
 
     editorEl.appendChild(box);
     fallbackTa = ta;
-    toast(reason, "error", 6000);
+    if (!opts.silent) {
+      toast(reason, opts.tone === "info" ? "info" : "error", 6000);
+    }
   }
 
-  async function mountVditor() {
-    // 重试时保留用户已经输入的内容
-    const initial = getContent();
+  let upgrading = false;
+
+  /** 后台加载引擎；成功就把纯文本里的内容搬进 Vditor，失败则留在纯文本模式 */
+  async function upgrade() {
+    if (upgrading) return;
+    upgrading = true;
     try {
       await ensureVditorLib();
-    } catch (e) {
-      mountFallback("编辑器组件加载失败：" + ((e && e.message) || e) + "。");
-      return;
-    }
-    if (!view.isConnected) return; // 页面已切走，别再初始化
-    try { if (vditor && vditor.destroy) vditor.destroy(); } catch (_) { /* ignore */ }
-    vditor = null;
-    fallbackTa = null;
-    editorEl.innerHTML = "";
+      if (!view.isConnected) return; // 页面已切走，别再初始化
+      const initial = getContent();
+      try { if (vditor && vditor.destroy) vditor.destroy(); } catch (_) { /* ignore */ }
+      vditor = null;
+      fallbackTa = null;
+      editorEl.innerHTML = "";
 
-    try {
-      vditor = new window.Vditor(editorEl, {
-        cdn: getVditorBase(),
-        lang: "zh_CN",
-        icon: "ant",
-        mode: "ir",
-        height: Math.max(480, Math.min(720, window.innerHeight - 340)),
-        cache: false,
-        value: initial,
-        placeholder: "开始写点什么吧…（支持 Markdown / 粘贴 / 拖拽图片）",
-        preview: { theme: { path: getVditorBase() + "/dist/css/content-theme" } },
-        toolbar: toolbarConfig,
-        counter: { enable: true },
-        upload: {
-          accept: "image/*",
-          multiple: true,
-          async handler(files) {
-            await uploadFiles(files);
-            return null;
+      try {
+        vditor = new window.Vditor(editorEl, {
+          cdn: getVditorBase(),
+          lang: "zh_CN",
+          icon: "ant",
+          mode: "ir",
+          height: Math.max(480, Math.min(720, window.innerHeight - 340)),
+          cache: false,
+          value: initial,
+          placeholder: "开始写点什么吧…（支持 Markdown / 粘贴 / 拖拽图片）",
+          preview: { theme: { path: getVditorBase() + "/dist/css/content-theme" } },
+          toolbar: toolbarConfig,
+          counter: { enable: true },
+          upload: {
+            accept: "image/*",
+            multiple: true,
+            async handler(files) {
+              await uploadFiles(files);
+              return null;
+            },
           },
-        },
-        input: () => markDirty(),
-        after: () => { clearWatchdog(); dropBoot(); },
-      });
-    } catch (e) {
-      mountFallback("编辑器初始化失败：" + ((e && e.message) || e) + "。");
-      return;
-    }
-
-    // 结果检测：Vditor 的正文渲染挂在异步链上（要等 Markdown 引擎），
-    // 主程序不报错也可能一直空着；15 秒还没生成 .vditor 就降级并说明原因。
-    clearWatchdog();
-    watchdog = setTimeout(() => {
-      if (!editorEl.querySelector(".vditor")) {
-        mountFallback("编辑器组件在 15 秒内未完成渲染（Markdown 引擎可能加载失败或被网络拦截）。");
+          input: () => markDirty(),
+          after: () => { clearWatchdog(); dropBoot(); },
+        });
+      } catch (e) {
+        mountPlain("编辑器初始化失败：" + ((e && e.message) || e) + "。" + PLAIN_HINT, { tone: "error" });
+        return;
       }
-    }, 15000);
+
+      // 结果检测：Vditor 的正文渲染挂在异步链上（要等 Markdown 引擎），
+      // 主程序不报错也可能一直空着；15 秒还没生成 .vditor 就退回纯文本。
+      clearWatchdog();
+      watchdog = setTimeout(() => {
+        if (!editorEl.querySelector(".vditor")) {
+          mountPlain("编辑器组件在 15 秒内未完成渲染。" + PLAIN_HINT, { tone: "error" });
+        }
+      }, 15000);
+    } catch (e) {
+      if (!view.isConnected) return;
+      mountPlain("编辑器组件加载失败：" + ((e && e.message) || e) + "。" + PLAIN_HINT, { tone: "error" });
+    } finally {
+      upgrading = false;
+    }
   }
 
-  mountVditor();
+  // 先给能立刻输入的纯文本，引擎在后台加载；就绪后自动升级成富文本
+  mountPlain("正在加载富文本编辑器…加载完成后自动切换，期间可直接输入 Markdown。", {
+    tone: "info",
+    silent: true,
+    retry: false,
+  });
+  upgrade();
 
   /* ---------- 图片上传 ---------- */
 
