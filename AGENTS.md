@@ -173,7 +173,8 @@
 - `dateKeys(days, now)` 必须返回**过去 days 天（含今天）的升序数组**，实现是
   `anchor - i * 86400000`。曾误写成 `+`，生成的是未来 29 天：图表日期跑到下个月、
   环比对比区间全空、新老访客全判成老访客、旧格式事件被日期过滤掉。
-  改统计口径后应跑一次端到端探针，至少断言 `daily[last].date === 今天`、`range.from < range.to`。
+  改统计口径后必须跑 `NODE_OPTIONS= node tools/analytics-probe.mjs`（离线 mock Blobs 的
+  端到端回归探针），至少断言 `daily[last].date === 今天`、`range.from < range.to`；有 FAIL 不要上线。
 - **更新时间不能造假**：`meta.lastEventAt`（最后一条原始事件）、`meta.computedAt`（本次聚合）、
   `meta.requestAt`、`meta.cache.hit/ageSeconds` 必须分开返回；空数据时 `lastEventAt = null`、
   `health.status = "no_data"`，不能拿当前时间冒充「统计更新于」。

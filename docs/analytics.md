@@ -115,6 +115,9 @@
 - **数字看起来偏小**：先看健康条的「数据截至」与「数据覆盖」。若 `truncated=true`，缩小统计天数。
 - **改了采集脚本但没生效**：`source/js/custom.js` 被合进 `fluid-bundle.js`，其 `?v=` 由内容 hash 自动生成，构建后即换 URL；必要时强刷一次。
 - **想绕过缓存**：后台点「强制重算」，或直接请求 `/api/stats?days=30&fresh=1`。
+- **改了统计口径怕回归**：跑 `NODE_OPTIONS= node tools/analytics-probe.mjs`。它用内存 mock
+  替代 Blobs，离线跑真实的 collect / stats handler，覆盖日期序列、幂等、旧格式兼容、
+  会话、来源 / UTM、环比、缓存、非法请求；输出 `FAILURES=0` 才可上线。
 
 ## 隐私
 
