@@ -37,22 +37,29 @@ function moduleUrl(file) {
   src = src.replace('from "../lib/analytics.mjs";', `from ${JSON.stringify(libUrl)};`);
   src = src.replace('from "../lib/geoip.mjs";', `from ${JSON.stringify(mockGeoUrl)};`);
   src = src.replace('from "../lib/machine-filter.mjs";', `from ${JSON.stringify(filterUrl)};`);
-  if (src.includes("@netlify/blobs") || src.includes("../lib/analytics.mjs") ||
-      src.includes("../lib/geoip.mjs") || src.includes("../lib/machine-filter.mjs")) {
+  // 只校验「真正的 import 语句」是否被改写；注释里提到某个模块路径不算漏改。
+  if (src.includes('from "@netlify/blobs"') || src.includes('from "../lib/analytics.mjs"') ||
+      src.includes('from "../lib/geoip.mjs"') || src.includes('from "../lib/machine-filter.mjs"')) {
     throw new Error("import rewrite failed for " + file);
   }
   return "data:text/javascript;base64," + Buffer.from(src).toString("base64");
 }
 
 const memory = new Map();
+const readKeys = [];       // 用于断言聚合没有为每条事件盲发 dwell get
+const listedPrefixes = [];
 globalThis.__STORE__ = {
-  async get(key) { return memory.has(key) ? JSON.parse(JSON.stringify(memory.get(key))) : null; },
+  async get(key) {
+    readKeys.push(key);
+    return memory.has(key) ? JSON.parse(JSON.stringify(memory.get(key))) : null;
+  },
   async setJSON(key, value, opts = {}) {
     if (opts.onlyIfNew && memory.has(key)) return { modified: false };
     memory.set(key, JSON.parse(JSON.stringify(value)));
     return { modified: true, etag: "mock" };
   },
   async list({ prefix = "" } = {}) {
+    listedPrefixes.push(prefix);
     return { blobs: [...memory.keys()].filter((k) => k.startsWith(prefix)).map((k) => ({ key: k, etag: "mock" })) };
   },
 };
@@ -172,7 +179,16 @@ check("aggregate: 访客地区带运营商", (d.regions || []).some((x) => x.nam
 check("aggregate: 省份分布", (d.provinces || []).length > 0, d.provinces);
 check("aggregate: 运营商分布", (d.isps || []).length > 0, d.isps);
 check("aggregate: 实时访客地区是完整串", (d.realtime.visitors || []).every((v) => !v.region || v.region.indexOf("湖北") >= 0), d.realtime.visitors.length);
-check("health: IP 库诊断且不存原始 IP", d.health.geoip && d.health.geoip.available === true && d.health.geoip.storesRawIp === false, d.health.geoip);
+check("health: IP 库按真实事件统计且不存原始 IP",
+  d.health.geoip && d.health.geoip.available === true &&
+  d.health.geoip.ip2regionEvents >= 1 && d.health.geoip.storesRawIp === false, d.health.geoip);
+const dwellGets = readKeys.filter((k) => k.startsWith("dwell/")).length;
+check("perf: dwell 先用 list 过滤，不再为每条事件盲发 get",
+  listedPrefixes.includes("dwell/") && dwellGets === 1,
+  { listedDwell: listedPrefixes.includes("dwell/"), dwellGets });
+check("perf: 聚合函数不再 import geoip（不打包 11MB 库）",
+  !fs.readFileSync(path.join(ROOT, "netlify/functions/stats.mjs"), "utf8")
+    .includes('import { geoDiagnostics }'), true);
 check("aggregate: 上一周期有数据（环比基准）", d.compare.pv.previous >= 1, d.compare.pv);
 
 /* 6. 缓存命中，且强制重算的结果已回写 */

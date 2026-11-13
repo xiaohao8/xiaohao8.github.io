@@ -369,7 +369,7 @@ export class GitHubAPI {
 
   async readPost(path) {
     const text = await this.readFile(path);
-    const { splitFrontMatter } = await import("./yaml.js?v=4.4.1");
+    const { splitFrontMatter } = await import("./yaml.js?v=4.4.2");
     return splitFrontMatter(text);
   }
 }

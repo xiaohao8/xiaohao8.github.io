@@ -281,7 +281,8 @@
 
     /* 后台「设置 → 访问统计」写入 source/analytics/config.json，
        构建后为 /analytics/config.json；采集与展示共用这一份配置。 */
-    var cfgPromise = fetch("/analytics/config.json", { cache: "no-store" })
+    // 配置只有几百字节，走 netlify.toml 的 60 秒缓存 + SWR，不再每页强制回源多一个跨境 RTT。
+    var cfgPromise = fetch("/analytics/config.json")
       .then(function (r) { return r.ok ? r.json() : {}; })
       .catch(function () { return {}; });
 
@@ -515,7 +516,9 @@
         ["数据覆盖", (h.daysWithData || 0) + " / " + (h.daysRequested || 0) + " 天"],
         ["扫描事件", thousands(h.eventsScanned)],
         ["停留覆盖", (h.dwellCoverage || 0) + "%"],
-        ["IP 归属库", h.geoip && h.geoip.available ? "本地库可用" : "降级兜底"],
+        // 按真实事件的 geo.source 计数，比「函数包里有没有 11MB 库」更能说明离线库到底生效没有
+        ["IP 归属库", h.geoip ? ("本地库 " + thousands(h.geoip.ip2regionEvents || 0) +
+          " / 降级 " + thousands(h.geoip.fallbackEvents || 0)) : "未知"],
         ["机器流量", h.machineFilter && h.machineFilter.enabled ? "已过滤 " + (h.machineFilter.rules || 0) + " 类" : "未启用"],
         ["引擎", "v" + esc(m.schema || "6.0")],
       ];
@@ -609,23 +612,85 @@
         (m.cache && m.cache.hit ? " · 命中 " + m.cache.ageSeconds + " 秒前的聚合缓存" : " · 实时聚合") + "</p>";
     }
 
+    /* ---------- 看板加载：骨架 + 超时 + 可重试 ----------
+       旧实现等配置 → fetch /api/stats → 才渲染，中间只有一个转圈且没有超时，
+       跨境链路一慢就永远卡住，看起来像「整页加载不出来」。 */
+    var STATS_TIMEOUT_MS = 12000;
+
+    function statsSkeleton() {
+      var labels = ["浏览量 PV", "独立访客 UV", "日均独立访客", "会话 / 访问", "跳出率",
+        "平均停留", "访问深度", "当前在线", "新访客", "老访客"];
+      return '<div class="zui-stat-health empty">' +
+          '<div class="zui-stat-health-head"><span class="zui-stat-dot"></span><b>正在读取统计…</b>' +
+          '<span class="zui-stat-health-hint">首次聚合需要几秒，超过 ' + (STATS_TIMEOUT_MS / 1000) +
+          ' 秒会自动给出重试入口，页面其余内容不受影响</span></div></div>' +
+        '<div class="zui-stats-grid">' + labels.map(function (l) {
+          return '<div class="zui-stat-card" style="opacity:.45"><b>—</b><span>' + esc(l) + "</span></div>";
+        }).join("") + "</div>";
+    }
+
+    function withTimeout(promise, ms, message) {
+      return new Promise(function (resolve, reject) {
+        var done = false;
+        var timer = setTimeout(function () {
+          if (done) return;
+          done = true;
+          reject(new Error(message));
+        }, ms);
+        promise.then(function (v) {
+          if (done) return;
+          done = true; clearTimeout(timer); resolve(v);
+        }, function (e) {
+          if (done) return;
+          done = true; clearTimeout(timer); reject(e);
+        });
+      });
+    }
+
+    function fetchStats(days) {
+      var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+      var opts = { cache: "no-store" };
+      if (ctrl) opts.signal = ctrl.signal;
+      var p = fetch("/api/stats?days=" + days, opts).then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      });
+      return withTimeout(p, STATS_TIMEOUT_MS, "响应超时").catch(function (e) {
+        if (ctrl) { try { ctrl.abort(); } catch (_) {} }
+        throw e;
+      });
+    }
+
     function initStats() {
       var root = document.getElementById("stats-root");
       if (!root) return;
-      cfgPromise.then(function (cfg) {
-        var days = parseInt(cfg && cfg.days, 10);
-        if (!(days >= 7 && days <= 90)) days = 30;
-        fetch("/api/stats?days=" + days, { cache: "no-store" })
-          .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status)); })
-          .then(renderStats)
-          .catch(function () {
+      var days = 30;
+      var seq = 0;
+
+      function load() {
+        var my = ++seq;
+        root.innerHTML = statsSkeleton();
+        fetchStats(days)
+          .then(function (d) { if (my === seq) renderStats(d); })
+          .catch(function (e) {
+            if (my !== seq) return;
             root.innerHTML = '<div class="zui-stat-panels"><section class="zui-stat-panel zui-stat-panel--wide">' +
-              "<h3>统计接口暂不可用</h3>" +
-              '<p class="muted">数据由站点函数实时聚合，可能正在部署或 Functions 尚未就绪。稍后刷新本页即可重试。</p>' +
+              "<h3>统计暂时没加载出来</h3>" +
+              '<p class="muted">原因：' + esc(e && e.message ? e.message : "读取失败") +
+              "。数据由站点函数实时聚合，跨境链路较慢时首访可能超过 " + (STATS_TIMEOUT_MS / 1000) +
+              " 秒；点下方按钮可重试，不会显示估算数据。</p>" +
               '<button type="button" id="stats-retry">重新加载</button></section></div>';
             var btn = document.getElementById("stats-retry");
-            if (btn) btn.addEventListener("click", function () { location.reload(); });
+            if (btn) btn.addEventListener("click", load);
           });
+      }
+
+      // 不等配置：统计请求与 /analytics/config.json 并行发出，省掉一个串行 RTT。
+      // 只有后台把统计天数改成非 30 天时才补发一次。
+      load();
+      cfgPromise.then(function (cfg) {
+        var want = parseInt(cfg && cfg.days, 10);
+        if (want >= 7 && want <= 90 && want !== days) { days = want; load(); }
       });
     }
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initStats);

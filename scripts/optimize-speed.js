@@ -1,9 +1,13 @@
 "use strict";
 
 /**
- * 首访提速：减少对源站的串行请求（跨境 RTT 是最大瓶颈）
- * 1) 渲染期 CSS 内联：main.css / fonts.css / custom.css → <style>
- * 2) Banner 本地图内联为 data URI（LCP 零往返；配置换成外链则自动跳过）
+ * 首访提速 + 慢网体积优化（跨境带宽实测只有 2–8 KB/s）
+ * 1) CSS 外链 + 内容 hash：不再把 83KB 未压缩 CSS 逐页内联，改为带 ?v=<hash>
+ *    的外链，可跨页复用 immutable 缓存，且吃到 Hexo 压缩后的体积。
+ *    早期版本是全量内联，虽然省 1 个 RTT，但每个页面都要重新下载同一份 CSS，
+ *    在慢网下「多翻两页」反而比外链慢数倍。
+ * 2) Banner 不再内联 base64：改为原图 URL + <link rel=preload>，
+ *    图片走 /images/* 的 7 天缓存，首页 HTML 直接少 74KB。
  * 3) 头部脚本 utils/color-schema 内联（color-schema 必须先于绘制执行）
  * 4) 尾部 6 个主题 JS 合并为 /js/fluid-bundle.js 单请求（generator 输出）
  * 仅作用于前台页面；/admin/ 页面不引用这些资源，天然不受影响。
@@ -42,49 +46,58 @@ function readFileCached(rel) {
   return content;
 }
 
-function readBinCached(rel) {
-  const abs = resolveAsset(rel);
-  if (!abs) return null;
-  let mtime = 0;
-  try { mtime = fs.statSync(abs).mtimeMs; } catch (_) { return null; }
-  const c = cache[abs];
-  if (c && c.mtime === mtime) return c.content;
-  const content = fs.readFileSync(abs);
-  cache[abs] = { mtime, content };
-  return content;
-}
-
-/* ---------- 1. CSS 内联 ---------- */
-let mainCssCache = null;
+/* ---------- 1. CSS 外链 + 内容 hash ---------- */
 async function readRoute(p) {
   const route = hexo.route.get(p);
   if (!route) return null;
   const chunks = [];
-  for await (const c of route) chunks.push(c);
+  for await (const c of route) chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(String(c)));
   return Buffer.concat(chunks).toString("utf8");
 }
-async function inlineCss(html) {
-  if (!mainCssCache) {
-    try { mainCssCache = await readRoute("css/main.css"); } catch (_) { mainCssCache = null; }
-  }
+
+const CSS_FILES = ["css/main.css", "css/fonts.css", "css/custom.css"];
+let cssVersionsPromise = null;
+
+/** 用 Hexo 实际输出的（已压缩）内容算 hash：内容不变 URL 不变，改了立即换 URL。
+ *  route 还没就绪时退回源码，保证同一构建内所有页面拿到同一个版本号。
+ *  必须缓存「Promise」而不是结果对象：after_render:html 是并发渲染多个页面的，
+ *  若在 await 之前先赋一个空对象，其它页面会立刻拿到空对象，全部退化成 v=1。 */
+async function buildCssVersions() {
+  if (!cssVersionsPromise) cssVersionsPromise = (async () => {
+    const versions = {};
+    for (const rel of CSS_FILES) {
+      let content = null;
+      try { content = await readRoute(rel); } catch (_) { /* 退回源码 */ }
+      if (content == null) content = readFileCached("/" + rel);
+      versions[rel] = crypto.createHash("sha1")
+        .update(content == null ? rel : content).digest("hex").slice(0, 10);
+    }
+    return versions;
+  })();
+  return cssVersionsPromise;
+}
+
+async function versionCss(html) {
+  const versions = await buildCssVersions();
   return html.replace(
     /<link rel="stylesheet" href="(\/css\/(?:main|fonts|custom)\.css)"(?:\?[^"]*)?>/g,
-    (m, href) => {
-      const css = href.indexOf("main") > -1 ? mainCssCache : readFileCached(href);
-      return css ? "<style>" + css + "</style>" : m;
-    }
+    (m, href) => `<link rel="stylesheet" href="${href}?v=${versions[href.slice(1)] || "1"}">`
   );
 }
 
-/* ---------- 2. Banner 内联（≤120KB 的本地图） ---------- */
-const MAX_INLINE = 120 * 1024;
-function inlineBanner(html) {
-  return html.replace(/url\((["']?)(\/images\/uploads\/[^"')]+?\.(?:webp|png|jpe?g))\1\)/g, (m, q, p) => {
-    const bin = readBinCached(p);
-    if (!bin || bin.length > MAX_INLINE) return m;
-    const mime = p.endsWith(".webp") ? "image/webp" : p.endsWith(".png") ? "image/png" : "image/jpeg";
-    return "url(" + q + "data:" + mime + ";base64," + bin.toString("base64") + q + ")";
-  });
+/* ---------- 2. Banner 改为原图 + preload（不再内联 base64） ----------
+   内联 base64 让每页 HTML 多 74KB 且完全无法缓存；原图只在第一次下载，
+   /images/* 已有 7 天缓存，preload 保证 LCP 不比内联晚。 */
+const BANNER_RE = /url\((["']?)(\/images\/uploads\/[^"')]+?\.(?:webp|png|jpe?g))\1\)/g;
+function bannerPreload(html) {
+  const urls = new Set();
+  let m;
+  BANNER_RE.lastIndex = 0;
+  while ((m = BANNER_RE.exec(html))) urls.add(m[2]);
+  if (!urls.size || html.indexOf("</head>") < 0) return html;
+  const tags = [...urls].slice(0, 2)
+    .map((u) => `<link rel="preload" as="image" href="${u}">`).join("");
+  return html.replace("</head>", tags + "</head>");
 }
 
 /* ---------- 3. 头部脚本内联 ---------- */
@@ -154,7 +167,7 @@ function bundleTailScripts(html) {
 hexo.extend.filter.register("after_render:html", async function (html) {
   if (!html || html.length < 500) return html;
   let out = html;
-  out = await inlineCss(out);
+  out = await versionCss(out);
   out = inlineHeadScripts(out);
   out = bundleTailScripts(out);
   // custom_head 里的 preload 必须与 script 用同一个带版本 URL，
@@ -165,6 +178,6 @@ hexo.extend.filter.register("after_render:html", async function (html) {
       "$1?v=" + bundleVersion() + "$3"
     );
   }
-  out = inlineBanner(out);
+  out = bannerPreload(out);
   return out;
 });

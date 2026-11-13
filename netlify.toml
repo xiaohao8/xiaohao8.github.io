@@ -5,8 +5,11 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
-  # 访客地区解析用的离线 IPv4 归属库（省 / 市 / 运营商），随函数一起部署；
-  # 查询完全在本地完成，不调用任何第三方 IP 接口。
+
+# 11MB 离线 IPv4 归属库（省 / 市 / 运营商）只给采集函数打包。
+# 之前放在全局 [functions] 里，聚合函数 /api/stats 也白白背了 11MB，冷启动明显变慢。
+# Netlify 允许按函数名配置 included_files；查询完全在本地，不调用任何第三方 IP 接口。
+[functions.collect]
   included_files = ["netlify/data/*.xdb"]
 
 [build.environment]
@@ -61,6 +64,28 @@
   [headers.values]
     Cache-Control = "public, max-age=3600"
 
+# optimize-speed.js 给这三个 CSS 加了内容 hash 的 ?v=，内容变 URL 才变，
+# 可以放心永久缓存；其余 /css/*、/js/* 仍是 1 小时，避免无版本号文件被锁死。
+[[headers]]
+  for = "/css/main.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/css/fonts.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/css/custom.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/js/fluid-bundle.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
 [[headers]]
   for = "/images/*"
   [headers.values]
@@ -78,11 +103,12 @@
     Cache-Control = "public, max-age=0, must-revalidate"
     X-Content-Type-Options = "nosniff"
 
-# 采集开关由后台写入仓库，部署后必须立刻生效，不能被 CDN 缓存住旧值
+# 采集开关由后台写入仓库。这份配置只有几百字节，却是每个页面都要读的，
+# 每次强制回源在跨境链路上白搭一个 RTT；短缓存 + SWR 最多滞后 60 秒，可接受。
 [[headers]]
   for = "/analytics/config.json"
   [headers.values]
-    Cache-Control = "public, max-age=0, must-revalidate"
+    Cache-Control = "public, max-age=60, stale-while-revalidate=86400"
     X-Content-Type-Options = "nosniff"
 
 [[redirects]]

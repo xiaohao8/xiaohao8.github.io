@@ -20,8 +20,12 @@ import {
   zoned, beijingISO, beijingDisplay, dateKeys,
   dwellKey, legacyKey, cacheKey, mapLimit, shortHash, safeStr, shortProvince,
 } from "../lib/analytics.mjs";
-import { geoDiagnostics } from "../lib/geoip.mjs";
 import { MACHINE_FILTER_RULES } from "../lib/machine-filter.mjs";
+
+/* 注意：这里刻意不 import ../lib/geoip.mjs。
+   geoip.mjs 依赖 ip2region 与 11MB xdb，只属于采集函数；
+   一旦聚合函数引它，esbuild 会把整个库打进 /api/stats 的包里，冷启动明显变慢。
+   IP 归属库是否真的工作，改为按本次扫描事件的 geo.source 如实统计（见 health.geoip）。 */
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
   status,
@@ -69,10 +73,25 @@ async function loadEvents(store, keys) {
   let legacyCount = 0;
   let truncated = false;
 
+  // 新格式 ev/ 列表 与 旧格式 raw/ 月份存档互不依赖，并行发起，省掉一个跨境 RTT。
+  const months = [...new Set([...keys].map((d) => d.slice(0, 7)))];
+  const [newResult, legacyRows] = await Promise.all([
+    (async () => {
+      try {
+        const { blobs } = await store.list({ prefix: "ev/" });
+        return { blobs, error: "" };
+      } catch (e) { return { blobs: [], error: String(e && e.message || e) }; }
+    })(),
+    mapLimit(months, 8, async (ym) => {
+      try { return { ym, raw: await store.get(legacyKey(ym)), error: "" }; }
+      catch (e) { return { ym, raw: null, error: String(e && e.message || e) }; }
+    }),
+  ]);
+
   // 1) 新格式：一次 list 拿到所有 ev/ 键，按 key 里的日期过滤
-  try {
-    const { blobs } = await store.list({ prefix: "ev/" });
-    const wanted = blobs.filter((b) => keys.has(b.key.split("/")[1]));
+  if (newResult.error) warnings.push("读取新格式事件失败：" + newResult.error);
+  else {
+    const wanted = newResult.blobs.filter((b) => keys.has(b.key.split("/")[1]));
     const picked = wanted.slice(-MAX_EVENTS);
     if (wanted.length > picked.length) {
       truncated = true;
@@ -82,22 +101,17 @@ async function loadEvents(store, keys) {
     for (const row of rows) {
       if (row && row.e === "pv" && Number.isFinite(Number(row.t))) events.push(row);
     }
-  } catch (e) {
-    warnings.push("读取新格式事件失败：" + e.message);
   }
 
   // 2) 兼容旧格式 raw/YYYY-MM.ndjson
-  const months = [...new Set([...keys].map((d) => d.slice(0, 7)))];
-  for (const ym of months) {
-    try {
-      const raw = await store.get(legacyKey(ym));
-      if (!raw) continue;
-      for (const line of String(raw).split("\n")) {
-        if (!line.trim()) continue;
-        const ev = normalizeLegacy(line);
-        if (ev && keys.has(ev.date)) { events.push(ev); legacyCount += 1; }
-      }
-    } catch (e) { warnings.push(`旧存档 ${ym} 读取失败：` + e.message); }
+  for (const row of legacyRows) {
+    if (row.error) { warnings.push(`旧存档 ${row.ym} 读取失败：` + row.error); continue; }
+    if (!row.raw) continue;
+    for (const line of String(row.raw).split("\n")) {
+      if (!line.trim()) continue;
+      const ev = normalizeLegacy(line);
+      if (ev && keys.has(ev.date)) { events.push(ev); legacyCount += 1; }
+    }
   }
 
   // 3) 去重（新旧格式可能重叠）
@@ -116,17 +130,34 @@ async function loadEvents(store, keys) {
 /* ---------- 停留数据 ---------- */
 async function loadDwell(store, events) {
   const map = new Map();
-  const targets = [...new Set(events.map((e) => e.date + "|" + e.eid))];
-  const rows = await mapLimit(targets, 32, async (combo) => {
-    const [date, eid] = combo.split("|");
-    try { return await store.get(dwellKey(date, eid), { type: "json" }); }
+  if (!events.length) return map;
+
+  // 先用一次 list 拿到「真正有心跳」的 eid 集合。旧实现给每个事件都盲发一次 get，
+  // 绝大多数其实是 404，冷缓存时白白多出 N 次跨境往返，这是统计接口慢的主要来源。
+  let existing = null;
+  try {
+    const { blobs } = await store.list({ prefix: "dwell/" });
+    existing = new Set(blobs.map((b) => b.key.split("/").pop()));
+  } catch (_) { /* list 失败时退回逐条读，宁可慢也不丢停留数据 */ }
+
+  const seen = new Set();
+  const targets = [];
+  for (const e of events) {
+    if (!e || !e.eid || seen.has(e.eid)) continue;
+    seen.add(e.eid);
+    if (existing && !existing.has(e.eid)) continue;
+    targets.push(dwellKey(e.date, e.eid));
+  }
+
+  const rows = await mapLimit(targets, 32, async (key) => {
+    try { return await store.get(key, { type: "json" }); }
     catch (_) { return null; }
   });
-  rows.forEach((r) => {
-    if (!r || !r.eid) return;
+  for (const r of rows) {
+    if (!r || !r.eid) continue;
     const prev = map.get(r.eid);
     if (!prev || Number(r.t) > Number(prev.t)) map.set(r.eid, r);
-  });
+  }
   return map;
 }
 
@@ -324,6 +355,7 @@ function aggregate(events, dwellMap, firstSeen, days, now, metaBase) {
     return topN(m, 12, "name");
   };
   const regionMap = new Map(), provinceMap = new Map(), ispMap = new Map();
+  const geoSources = { ip2region: 0, fallback: 0 };
   for (const e of inRange) {
     const g = e.geo || {};
     // v6.1 起事件带 display（省 市 运营商）；旧事件仍按 country/region/city 拼
@@ -332,6 +364,9 @@ function aggregate(events, dwellMap, firstSeen, days, now, metaBase) {
     const province = g.province || shortProvince(g.region);
     if (province) bump(provinceMap, province);
     if (g.isp) bump(ispMap, g.isp);
+    // 离线库到底有没有生效，看真实事件里的 geo.source，而不是「聚合函数包里有没有 11MB 文件」。
+    if ((g.source || "") === "ip2region") geoSources.ip2region += 1;
+    else geoSources.fallback += 1;
   }
 
   /* 实时在线：pv 或 dwell 最近 5 分钟内有活动 */
@@ -403,6 +438,7 @@ function aggregate(events, dwellMap, firstSeen, days, now, metaBase) {
       lastEventAt, firstEventAt, daysWithData, daysRequested: days,
       eventsScanned: events.length, legacyEvents: metaBase.legacyCount,
       truncated: metaBase.truncated, warnings: metaBase.warnings,
+      geoSources,
     },
   };
 }
@@ -435,6 +471,7 @@ function emptyPayload(days, now, metaBase) {
       lastEventAt: null, firstEventAt: null, daysWithData: 0, daysRequested: days,
       eventsScanned: 0, legacyEvents: metaBase.legacyCount,
       truncated: metaBase.truncated, warnings: metaBase.warnings,
+      geoSources: { ip2region: 0, fallback: 0 },
     },
   };
 }
@@ -468,9 +505,12 @@ export default async function handler(req) {
   }
 
   const keys = new Set([...dateKeys(days, now), ...dateKeys(days * 2, now)]);
-  const loaded = await loadEvents(store, keys);
+  // loadFirstSeen 只 list visitors/ 键，与事件读取无依赖，并行省掉一个跨境 RTT。
+  const [loaded, firstSeen] = await Promise.all([
+    loadEvents(store, keys),
+    loadFirstSeen(store),
+  ]);
   const dwellMap = await loadDwell(store, loaded.events);
-  const firstSeen = await loadFirstSeen(store);
 
   const metaBase = {
     legacyCount: loaded.legacyCount,
@@ -525,7 +565,16 @@ export default async function handler(req) {
     legacyEvents: legacyScanned,
     dwellCoverage: payload.totals.dwellCoverage,
     truncated: h.truncated,
-    geoip: geoDiagnostics(),
+    // 基于本次扫描到的真实事件判断离线库是否生效，比「函数包里有没有 xdb」更可信。
+    // 11MB 库只随采集函数部署，聚合函数不再携带，冷启动更轻。
+    geoip: {
+      available: (h.geoSources && h.geoSources.ip2region > 0) || false,
+      database: "ip2region_v4.xdb",
+      source: "ip2region（离线 IPv4 库，仅采集函数加载）",
+      ip2regionEvents: (h.geoSources && h.geoSources.ip2region) || 0,
+      fallbackEvents: (h.geoSources && h.geoSources.fallback) || 0,
+      storesRawIp: false,
+    },
     machineFilter: {
       enabled: true,
       rules: MACHINE_FILTER_RULES.length,

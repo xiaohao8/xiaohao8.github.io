@@ -48,7 +48,7 @@
   （`.github/workflows/fcircle-refresh.yml`），这与 GitHub Pages 是两回事；
   只是别再建任何 Pages 部署 workflow。
 - Hexo 8.1.2 + fluid 主题已 vendor 进 `themes/fluid`（不再用子模块）。
-- `source/admin/` 是纯 ESM 后台 SPA（当前 v4.4.1），**无构建步骤**：hexo-all-minifier 的 uglify 会跳过 ES 模块，原样拷贝即正确，不要引入打包器。
+- `source/admin/` 是纯 ESM 后台 SPA（当前 v4.4.2），**无构建步骤**：hexo-all-minifier 的 uglify 会跳过 ES 模块，原样拷贝即正确，不要引入打包器。
   动态路由 import 由 `app.js` 的 `VERSION` 带 `?v=`；**所有**模块间的静态 import 也都带同一个硬编码版本号
   （`/admin/assets/*` 是 `max-age=600 + SWR`，不带版本会拿到旧模块；带与不带版本又会加载两份实例、
   让 `setMediaConfig` 只改到其中一份）。升级 `VERSION` 时必须把 `source/admin/` 下全部 `?v=` 引用
@@ -82,6 +82,25 @@
   bundle URL 必须带内容 hash 版本参数（`?v=`），且 `custom_head` 的 preload 与
   script 用同一个值；否则修完 bundle 后浏览器仍拿 `/js/*`（`max-age=3600`）里
   缓存的旧文件，看起来就像「没修好」。
+
+## 前台首屏体积约定（勿回退到全量内联）
+
+- **跨境带宽才是本站最大瓶颈**：实测 Netlify 到国内只有 2–8 KB/s。旧版把
+  `main.css` + `fonts.css` + `custom.css` 共 83 KB **未压缩源码逐页内联**，
+  首页还把 banner 内联成 74 KB base64，HTML 高达 197 KB，且每翻一页都要重新下载。
+  按 2 KB/s 计算光 HTML 就要 90 秒——这就是「加载巨慢」的根因。
+- `scripts/optimize-speed.js` 现在只给这三个 CSS 的 `<link>` 加内容 hash `?v=`，
+  **不再内联**；外链吃到 Hexo 压缩后的体积（29K/44K），并可跨页复用缓存。
+  `netlify.toml` 对这三个 CSS 与 `fluid-bundle.js` 设 `max-age=31536000, immutable`
+  （URL 随内容变化，不会被锁死），其余 `/css/*` `/js/*` 仍是 1 小时。
+- **CSS 版本号必须缓存「Promise」而不是结果对象**：`after_render:html` 并发渲染
+  多个页面，若在 `await` 前先赋一个空对象，其它页面会拿到空对象全部退化成 `v=1`。
+- banner 不再内联 base64，改为原图 URL + `<link rel="preload" as="image">`，
+  图片走 `/images/*` 的 7 天缓存。
+- `_config.fluid.yml` 的 Speculation Rules 保持 `eagerness: conservative`；
+  `moderate` 会在慢网下预取一堆文档抢当前页面的带宽。
+- 改动后首页约 40 KB、统计页约 30 KB；若某天 HTML 又回到 100 KB 以上，
+  先查是不是有人把 CSS / 图片重新内联了。
 
 ## 后台性能约定（勿回退）
 
@@ -192,7 +211,8 @@
   **不要借用后台的 `.grid-2` / `.card`**（前台 CSS 里没有）。
 - 采集配置是**仓库静态文件** `source/analytics/config.json` → `/analytics/config.json`：
   `enabled` / `days`(7–90) / `heartbeatSeconds`(15–300) / `excludePaths`。
-  `netlify.toml` 必须保持 `max-age=0, must-revalidate`；后台改配置需等 Netlify 部署才生效。
+  `netlify.toml` 用 `max-age=60, stale-while-revalidate=86400`（这份文件只有几百字节，
+  却每个页面都要读，强制回源白搭一个跨境 RTT）；后台改配置仍需等 Netlify 部署才生效。
 - 后台 `pages/stats.js` 与前台 `/stats/` 读同一个接口；后台额外提供「强制重算」(`?fresh=1`)
   绕过 60 秒缓存。改后台页面记得同步 `app.js` 的 `NAV` / `ROUTES` / `ROUTE_TITLES` 与版本号。
 - **访客地区**：`netlify/lib/geoip.mjs` 用 `context.ip` 查仓库内
@@ -200,9 +220,18 @@
   `国家|省份|城市|ISP`），清洗成「省 市 运营商」（如 `湖北 孝感 联通`）写进 `event.geo`。
   **绝不把原始 IP 写进事件 / Blobs / 日志 / 响应**；IPv6、库缺失、查询失败时降级到
   Netlify `context.geo`（有省市、无运营商）并在 `geo.source` 标注。
-  `netlify.toml` 的 `[functions].included_files = ["netlify/data/*.xdb"]` 必须保留，
-  否则线上函数找不到库；`health.geoip.available` 显示库是否随函数部署（诊断只查文件存在，不加载 11MB）。
+  `netlify.toml` 必须用**函数级** `[functions.collect] included_files = ["netlify/data/*.xdb"]`，
+  不要放回全局 `[functions]`：11 MB 库只属于采集函数，放全局会让 `/api/stats` 也背着它冷启动。
+  相应地 `stats.mjs` **绝不 import** `../lib/geoip.mjs`；`health.geoip` 改为按本次扫描事件的
+  `geo.source` 如实统计 `ip2regionEvents` / `fallbackEvents`，前后台健康条显示这两个数。
   自定义 `database` 与 `families` 互斥，构造 `IP2Region` 时不要同时传。
+- **聚合接口性能（勿回退）**：`stats.mjs` 里 `loadEvents` 与 `loadFirstSeen` 无依赖必须
+  `Promise.all` 并行，旧格式月份存档也并行读；`loadDwell` 先 `list({ prefix: "dwell/" })`
+  拿到真正有心跳的 eid，**不要为每条事件盲发一次 get**（旧版绝大多数是 404）。
+  `tools/analytics-probe.mjs` 有对应断言，改聚合前先跑一遍。
+- **统计页不能无限转圈**：前台 `/stats/` 与后台 `pages/stats.js` 必须先渲染骨架、
+  请求带 12 秒超时（AbortController + 超时 Promise）、失败给出重试按钮；
+  统计请求**不要串行等** `/analytics/config.json`，两者并行，默认 30 天。
 - **Netlify 机器流量过滤**：`netlify/lib/machine-filter.mjs` 按「来源域名 + UA」拦截
   `*.netlify.app` / `netlify.com` 的部署预览与后台跳转，以及 Netlify 构建服务、
   健康检查、监控、无头浏览器、脚本客户端。`collect.mjs` 必须在**写 Blobs 之前**、

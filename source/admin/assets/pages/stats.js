@@ -2,7 +2,7 @@
    与前台 /stats/ 读同一个 GET /api/stats，但额外提供「强制重算」绕过聚合缓存。
    采集开关 / 排除路径 / 统计天数在「设置 → 访问统计」写入仓库。 */
 
-import { ic, esc, el, toast } from "../app.js?v=4.4.1";
+import { ic, esc, el, toast } from "../app.js?v=4.4.2";
 
 const DAYS = 30;
 const API = "/api/stats?days=" + DAYS;
@@ -103,7 +103,8 @@ function healthHtml(d) {
     ["数据覆盖", `${h.daysWithData || 0} / ${h.daysRequested || 0} 天`],
     ["扫描事件", n(h.eventsScanned)],
     ["停留覆盖", `${h.dwellCoverage || 0}%`],
-    ["IP 归属库", h.geoip && h.geoip.available ? "本地库可用" : "降级兜底"],
+    // 按真实事件的 geo.source 计数：离线库到底生效没有，比「函数包里有没有 11MB 库」可信
+    ["IP 归属库", h.geoip ? `本地库 ${n(h.geoip.ip2regionEvents || 0)} / 降级 ${n(h.geoip.fallbackEvents || 0)}` : "未知"],
     ["机器流量", h.machineFilter && h.machineFilter.enabled ? "已过滤 " + (h.machineFilter.rules || 0) + " 类" : "未启用"],
     ["引擎", "v" + esc(m.schema || "6.0")],
   ];
@@ -225,19 +226,35 @@ export default async function stats(view, ctx, params, handleErr) {
       </p>`;
   }
 
+  const TIMEOUT_MS = 12000;
+  let seq = 0;
+
   async function load(force, quiet) {
-    if (!quiet) body.innerHTML = `<div class="inline-loading"><span class="ring"></span>正在读取统计…</div>`;
+    const my = ++seq; // 连点「刷新 / 强制重算」时，只认最后一次的结果
+    if (!quiet) body.innerHTML = `<div class="inline-loading"><span class="ring"></span>正在读取统计…（超过 ${TIMEOUT_MS / 1000} 秒会自动给出重试入口）</div>`;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
     try {
-      const res = await fetch(API + (force ? "&fresh=1" : ""), { cache: "no-store" });
+      const res = await fetch(API + (force ? "&fresh=1" : ""), { cache: "no-store", signal: ctrl.signal });
       if (!res.ok) throw new Error("HTTP " + res.status);
-      render(await res.json());
+      const data = await res.json();
+      clearTimeout(timer);
+      if (my !== seq) return;
+      render(data);
       if (quiet) toast(force ? "已绕过缓存重新聚合" : "统计已刷新", "success", 2400);
     } catch (e) {
+      clearTimeout(timer);
+      if (my !== seq) return;
+      const aborted = e && (e.name === "AbortError" || /abort/i.test(e.message || ""));
+      const reason = aborted ? `响应超过 ${TIMEOUT_MS / 1000} 秒` : (e && e.message ? e.message : "读取失败");
       body.innerHTML = `<div class="empty">${ic("alert")}
-          <p>统计接口暂不可用：${esc(e.message || "读取失败")}</p>
-          <p class="muted small">本地预览、Netlify Functions 正在部署，或站点尚未产生采集事件时会出现此提示；
-          部署完成并产生首次访问后会自动填充。</p></div>`;
-      if (quiet) toast("读取统计失败：" + (e.message || ""), "error", 4200);
+          <p>${aborted ? "统计响应超时" : "统计接口暂不可用"}：${esc(reason)}</p>
+          <p class="muted small">聚合函数首次冷启动或跨境链路较慢时可能超时，后台其余功能不受影响。
+          点下方按钮可重试；本地预览、Functions 部署中或尚无采集事件也会出现此提示。</p>
+          <button class="btn" id="st-retry" style="margin-top:.8rem">${ic("refresh")}重新加载</button></div>`;
+      const btn = body.querySelector("#st-retry");
+      if (btn) btn.addEventListener("click", () => load(force, false));
+      if (quiet) toast("读取统计失败：" + reason, "error", 4200);
     }
   }
 

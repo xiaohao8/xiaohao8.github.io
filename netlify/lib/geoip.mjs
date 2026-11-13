@@ -91,8 +91,9 @@ export function resolveGeo(ip, netlifyGeo) {
   }
 }
 
-/** 给 /api/stats 的健康条：只检查库文件是否随函数部署，不触发 11MB 加载，
-    否则聚合端点每次冷启动都要白读一次数据库。 */
+/** 本地排障入口：只检查库文件是否随函数部署，不触发 11MB 加载。
+    /api/stats 已不再调用它——聚合函数不携带 xdb，离线库是否生效
+    改为按事件的 geo.source 统计，在 health.geoip 里如实披露。 */
 export function geoDiagnostics() {
   const available = !!xdbPath();
   return {

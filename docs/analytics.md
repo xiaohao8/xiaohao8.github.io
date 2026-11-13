@@ -82,10 +82,12 @@ Netlify 边缘 `context.geo` 对国内 IP 常常只给到 `China`，也没有运
 - 聚合输出三个维度：`regions`（省 市 运营商）、`provinces`（省份）、`isps`（运营商），
   实时访客表也显示完整地区串。
 - IPv6、内网 IP、库缺失或查询失败时降级到 `context.geo`，此时有省市但无运营商，
-  `geo.source = "netlify-geo"`；健康条的 `geoip.available` 显示库是否随函数部署。
+  `geo.source = "netlify-geo"`。健康条的「IP 归属库」按本次扫描事件的 `geo.source`
+  如实显示 `本地库 N / 降级 M`，而不是「函数包里有没有这个文件」——前者才说明库真的生效了。
 
-> IPv4 库约 11 MB，靠 `netlify.toml` 的 `included_files = ["netlify/data/*.xdb"]`
-> 随函数部署；运行时懒加载单例，冷启动只读一次，之后都是内存二分查找。
+> IPv4 库约 11 MB，靠 `netlify.toml` 的**函数级** `[functions.collect]`
+> `included_files = ["netlify/data/*.xdb"]` 只随采集函数部署；聚合函数不带这份文件。
+> 运行时懒加载单例，冷启动只读一次，之后都是内存二分查找。
 
 ## Netlify 机器流量过滤（v6.2）
 
@@ -102,6 +104,26 @@ Netlify 边缘 `context.geo` 对国内 IP 常常只给到 `China`，也没有运
 VPN 或云主机的真实访客。过滤只影响新采集，**历史数据不回改**；健康条的
 「机器流量」显示规则数，`health.machineFilter.labels` 与口径文本给出完整清单。
 `tools/analytics-probe.mjs` 同时断言「拦截生效」与「正常访客不被误杀」。
+
+## 性能（v6.3，勿回退）
+
+「加载巨慢」的主要根因其实**不在统计接口**，而在页面体积：旧版把 83 KB 未压缩 CSS
+逐页内联、首页再内联 74 KB banner base64，HTML 最高 197 KB，跨境 2–8 KB/s 下要几十秒。
+现在 CSS 改为带内容 hash 的外链 + 永久缓存、banner 改为原图 + preload、预取降为
+`conservative`，首页约 40 KB、统计页约 30 KB（`scripts/optimize-speed.js`）。
+
+统计链路自身也做了提速：
+
+| 改动 | 之前 | 现在 |
+| --- | --- | --- |
+| 事件 / 访客 / 旧存档读取 | 串行三趟 | `loadEvents` 与 `loadFirstSeen` `Promise.all`，月份存档并行读 |
+| 停留数据 | 每条事件盲发一次 `get`（多数 404） | 先 `list({ prefix: "dwell/" })` 过滤，只 get 真正有心跳的 eid |
+| 11 MB IP 库 | 全局 `included_files`，聚合函数也背着 | 只配在 `[functions.collect]`，`stats.mjs` 不 import `geoip.mjs` |
+| `health.geoip` | 查文件是否存在 | 按事件 `geo.source` 统计 `ip2regionEvents` / `fallbackEvents` |
+| 看板加载 | 等配置 → 等接口 → 才渲染，无超时 | 骨架立即出、12 秒超时、失败可重试，统计请求与配置并行 |
+
+`tools/analytics-probe.mjs` 新增三条断言：dwell 只 get 1 次（而不是 4 次）、
+聚合函数不 import geoip、IP 库诊断来自真实事件。改聚合逻辑前先跑一遍。
 
 ## 数据可信度展示
 
@@ -139,7 +161,7 @@ VPN 或云主机的真实访客。过滤只影响新采集，**历史数据不�
 | `netlify/lib/analytics.mjs` | 共用库：北京时间、UA / 来源 / UTM 解析、地区清洗、指标口径文本 |
 | `netlify/lib/geoip.mjs` | 本地 IP 归属解析（`context.ip` → 省 市 运营商，懒加载单例，降级到边缘 geo） |
 | `netlify/lib/machine-filter.mjs` | Netlify 预览 / 健康检查 / 脚本请求的采集端过滤规则 |
-| `netlify/data/ip2region_v4.xdb` | 离线 IPv4 归属库（约 11 MB，Apache-2.0 / MIT），由 `included_files` 随函数部署 |
+| `netlify/data/ip2region_v4.xdb` | 离线 IPv4 归属库（约 11 MB，Apache-2.0 / MIT），由 `[functions.collect] included_files` **只随采集函数**部署 |
 | `netlify/functions/collect.mjs` | 采集端点（append-only 写入、幂等去重） |
 | `netlify/functions/stats.mjs` | 聚合端点 v6（完整 meta / 健康度 / 60 秒缓存） |
 | `source/js/custom.js` | 前台采集器 + `/stats/` 看板 |
@@ -150,12 +172,14 @@ VPN 或云主机的真实访客。过滤只影响新采集，**历史数据不�
 
 ## 排障
 
-- **显示「统计接口暂不可用」**：本地 `hexo s` 没有 Functions；或刚部署、Functions 尚未就绪。
+- **显示「统计暂时没加载出来 / 响应超时」**：本地 `hexo s` 没有 Functions、刚部署 Functions 尚未就绪，
+  或跨境链路超过 12 秒。页面会先出骨架并给出「重新加载」按钮，不需要整页刷新；
+  统计接口慢不会影响页面其余内容。
 - **所有面板为空但状态是「尚无采集数据」**：确实没有事件，属正常；随便浏览几个前台页面再回来。
 - **平均停留为 0:00 / 停留覆盖率低**：历史 v5.5 事件没有心跳数据；等新数据积累即可，不会被 0 秒拉低均值。
-- **地区只有 "China" 或没有运营商**：通常是 IPv6 访问或 IP 库没加载。看健康条
-  「IP 归属库」是否为「本地库可用」以及 `health.geoip.error`；
-  升级 xdb 后确认 `included_files` 仍包含 `netlify/data/*.xdb`。
+- **地区只有 "China" 或没有运营商**：通常是 IPv6 访问（离线库只覆盖 IPv4）或 IP 库没加载。
+  看健康条「IP 归属库」的 `本地库 N / 降级 M`：`本地库 0` 且 `降级` 有数，说明采集函数没拿到 xdb；
+  升级 xdb 后确认 `[functions.collect] included_files` 仍包含 `netlify/data/*.xdb`。
 - **数字看起来偏小**：先看健康条的「数据截至」与「数据覆盖」。若 `truncated=true`，缩小统计天数。
 - **Netlify 预览域名上看不到统计**：属预期。部署预览 / 分支预览的请求在采集端被静默丢弃，
   只统计正式域名的访问；健康条「机器流量」显示已启用的规则数。
