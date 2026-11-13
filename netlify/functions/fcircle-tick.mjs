@@ -111,6 +111,24 @@ function isDue(st, now) {
   return now - Number(st.checkedAt) >= gap - 1500; // 1.5 秒容差，避免 cron 抖动把频率打对折
 }
 
+/**
+ * 这个站点本轮允许试几个候选路径。
+ *
+ * 线上第一次跑（2026-11-13）一轮吃满 20 秒，原因就是 27 个死站各盲试 4 条路径、
+ * 每条都等到 4 秒超时：39 个站的预算全被它们吃掉。规则改成——
+ *   有缓存地址      → 不限制（正常第一个请求就 304，失败才有额外成本）
+ *   首次探测        → 4 条（尽量别漏掉任何常见路径）
+ *   失败 1–2 次     → 2 条（只试最常见的 atom.xml / rss.xml）
+ *   失败 3 次以上   → 1 条（多半是关站或被墙，别再花预算）
+ */
+function candidateBudget(st) {
+  if (st && st.feed) return 4;
+  const fails = Number((st && st.fails) || 0);
+  if (fails >= 3) return 1;
+  if (fails >= 1) return 2;
+  return 4;
+}
+
 export default async function handler(req, context) {
   const t0 = Date.now();
   const store = getStore({ name: STORE_NAME, consistency: "strong" });
@@ -155,20 +173,26 @@ export default async function handler(req, context) {
     const fresh = [];
     let okCount = 0;
     let failCount = 0;
+    let budgetSkipped = 0;
 
     if (due.length) {
       await mapLimit(due, CONCURRENCY, async (link) => {
         const st = state.links[link.link] || (state.links[link.link] = {});
         if (Date.now() > deadline - 800) {
           // 预算用完：不计失败、不动 checkedAt，下一轮自然还会到期
+          budgetSkipped += 1;
           return;
         }
         const hit = await probeFeed(link, st.feed || "", {
           timeoutMs: TIMEOUT_MS,
           deadline,
+          maxCandidates: candidateBudget(st),
           conditional: { etag: st.etag, lastModified: st.lastModified },
         });
-        if (hit && hit.budget) return; // 同样不算失败
+        if (hit && hit.budget) {
+          budgetSkipped += 1; // 同样不算失败
+          return;
+        }
         if (!hit) {
           st.checkedAt = Date.now();
           st.fails = Number(st.fails || 0) + 1;
@@ -200,6 +224,7 @@ export default async function handler(req, context) {
     const added = merged.filter((r) => !addedBefore.has(String(r.link || "").toLowerCase())).length;
     report.added = added;
     report.failed = failCount;
+    report.budgetSkipped = budgetSkipped;
 
     const active = countActive(links, state);
     const lastUpdated = added > 0 ? nowText() : prevStats.last_updated_time || "";

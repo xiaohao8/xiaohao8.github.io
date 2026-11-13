@@ -232,16 +232,24 @@ export async function fetchJson(url, timeoutMs = 6000) {
 /**
  * 探测单个站点的 feed。
  * 命中过就直连（1 个请求）；否则按候选路径顺序盲试，命中后由调用方写回缓存。
- * 返回 { url, xml, etag, lastModified } / { notModified: true } / null。
+ *
+ * maxCandidates 是「死站省预算」的关键：盲试 4 个路径 × 4 秒超时 = 16 秒，
+ * 一个打不开的站就能吃掉整轮预算。所以对于「没有缓存地址且已连续失败」的站点，
+ * 调用方会把它压到 1–2 个候选（见 fcircle-tick 的 candidateBudget）。
+ * 已有缓存地址的站点不受限制：正常情况下第一个请求就 304，压根走不到后面。
+ *
+ * 返回 { url, xml, etag, lastModified } / { notModified: true } / { budget: true } / null。
  */
 export async function probeFeed(link, cachedUrl, opts = {}) {
   const timeoutMs = opts.timeoutMs || 4000;
   const deadline = opts.deadline || Date.now() + timeoutMs;
   const cond = opts.conditional || {};
+  const limit = Math.max(1, Math.min(FEED_CANDIDATES.length, Number(opts.maxCandidates) || FEED_CANDIDATES.length));
 
   const urls = [];
   if (cachedUrl) urls.push(cachedUrl);
   for (const p of FEED_CANDIDATES) {
+    if (urls.length >= limit + (cachedUrl ? 1 : 0)) break;
     let u;
     try {
       u = new URL(p, link.link).href;

@@ -76,8 +76,10 @@ async function main() {
     res.end();
   });
 
-  // 死站：所有候选路径都 404
+  // 死站：所有候选路径都 404（记录被请求次数，用来验证「失败后退避收窄」）
+  let deadHits = 0;
   const deadSrv = await serve((req, res) => {
+    deadHits += 1;
     res.writeHead(404);
     res.end();
   });
@@ -152,6 +154,7 @@ async function main() {
   ok("R1 结束后锁已释放", !snap1["fcircle/lock.json"]);
   ok("R1 记录了下轮时间", snap1["fcircle/state.json"] && snap1["fcircle/state.json"].nextDue > Date.now() - 1000);
   ok("R1 死站累计失败 1 次", snap1["fcircle/state.json"].links[D + "/"].fails === 1);
+  ok("R1 首次探测会把 4 条候选路径都试一遍", deadHits === 4, "deadHits=" + deadHits);
 
   console.log("[R2] 紧接着再触发：必须被间隔闸门拦住");
   const r2 = await (await call()).json();
@@ -172,6 +175,7 @@ async function main() {
   ok("R3 命中 ETag 走 304", r3.ok304 === 1, "ok304=" + r3.ok304);
   ok("R3 没有新增（RSS 站仍有内容但已去重）", r3.added === 0, "added=" + r3.added);
   ok("R3 服务端确实收到 304", atom304 === 1, "atom304=" + atom304);
+  ok("R3 失败过的站点只试 2 条候选路径", deadHits === 6, "deadHits=" + deadHits);
   ok("R3 只写了锁与状态，没有重写文章 blob",
     !blobs._writtenKeys().includes("fcircle/moments.json"),
     blobs._writtenKeys().join(","));
@@ -224,6 +228,19 @@ async function main() {
   ok("R6 没有新文章", r6.added === 0, "added=" + r6.added);
   ok("R6 文章 blob 未被重写", !blobs._writtenKeys().includes("fcircle/moments.json"), blobs._writtenKeys().join(","));
   ok("R6 状态被更新（下一轮才会再跑）", blobs._writtenKeys().includes("fcircle/state.json"));
+
+  console.log("[R7] 连续失败 3 次后只花 1 个请求（保护 30 秒预算）");
+  const st4 = blobs._dump()["fcircle/state.json"];
+  st4.lastRun = 0;
+  st4.nextDue = 0;
+  for (const k of Object.keys(st4.links)) st4.links[k].checkedAt = 0;
+  st4.links[D + "/"].fails = 3;
+  await blobs.getStore().setJSON("fcircle/state.json", st4);
+  const deadBefore = deadHits;
+  const r7 = await (await call()).json();
+  ok("R7 正常完成", r7.ok === true);
+  ok("R7 死站只被请求 1 次", deadHits - deadBefore === 1, "delta=" + (deadHits - deadBefore));
+  ok("R7 没有新增文章", r7.added === 0, "added=" + r7.added);
 
   [atomSrv, rssSrv, deadSrv, siteSrv].forEach((s) => s.close());
 
