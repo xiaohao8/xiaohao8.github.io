@@ -1,5 +1,11 @@
 # 后台使用与维护（Qexo 风格 · Netlify 版）
 
+> v4.4.0：访客地区改成「省 市 运营商」（如 `湖北 孝感 联通`）。用 Netlify 提供的
+> `context.ip` 查仓库自带的离线 IPv4 归属库 `netlify/data/ip2region_v4.xdb`，
+> 不请求任何第三方 IP 接口；事件里**只保存解析后的标签，不保存原始 IP**。
+> 新增「省份分布」「运营商分布」面板与实时访客完整地区串，健康条显示 IP 库是否加载成功。
+> IPv6 或库缺失时自动降级到边缘 geo（有省市、无运营商）。
+
 > v4.3.0：统计按 51.la / Umami / Plausible 的口径整体重做（数据引擎 v6）。
 > 采集改为「一条浏览一个独立 key + 原子幂等写」，不再读整月 NDJSON 覆盖写回；
 > 服务端按 30 分钟空闲重建会话，新增页面可见心跳累计停留、跳出率、访问深度、
@@ -267,7 +273,8 @@ Vditor 的 Markdown 引擎 `lute.min.js` 压缩后约 700KB，从 Netlify（Clou
 | 停留 | `dwell/<日期>/<eid>` | 同一次浏览覆盖写最新累计秒数 |
 | 访客 | `visitors/<日期>/<vidHash>` | 只记首次出现日期，用于新老访客判定 |
 | 聚合 | `netlify/functions/stats.mjs` | 服务端按 vid + 30 分钟空闲重建会话，60 秒派生缓存 |
-| 共用库 | `netlify/lib/analytics.mjs` | 北京时间、UA / 来源 / UTM 解析、指标口径文本 |
+| 共用库 | `netlify/lib/analytics.mjs` | 北京时间、UA / 来源 / UTM 解析、地区清洗、指标口径文本 |
+| IP 归属 | `netlify/lib/geoip.mjs` + `netlify/data/ip2region_v4.xdb` | 离线 IPv4 库，把客户端 IP 解析成「省 市 运营商」，只存标签 |
 | 配置 | `source/analytics/config.json` | 部署为 `/analytics/config.json` |
 
 v5.5 的「读整月 NDJSON → 追加一行 → 覆盖写回」已废弃：Blobs 是 last-write-wins，
@@ -302,3 +309,6 @@ v5.5 的「读整月 NDJSON → 追加一行 → 覆盖写回」已废弃：Blob
 - **改了统计脚本但前台没变**：`source/js/custom.js` 会被合进 `fluid-bundle.js`，
   其 `?v=` 由内容 hash 自动生成；强刷一次或等 `/js/*` 的 1 小时缓存过期。
 - **本地 `hexo s` 看不到数据**：本地没有 Netlify Functions，属正常；后台统计页会提示接口不可用。
+- **地区只显示国家、没有运营商**：多为 IPv6 访问或 IP 库未加载。健康条会显示
+  「IP 归属库：本地库可用 / 降级兜底」；若长期降级，检查
+  `netlify.toml` 的 `included_files = ["netlify/data/*.xdb"]` 是否还在。

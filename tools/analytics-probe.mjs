@@ -15,11 +15,26 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const libUrl = pathToFileURL(path.join(ROOT, "netlify/lib/analytics.mjs")).href;
 
+/* geoip.mjs 依赖 11MB 二进制库，探针里换成固定结果的 mock；
+   格式化函数 formatGeoParts 仍用真实模块单独断言。 */
+const mockGeoUrl = "data:text/javascript;base64," + Buffer.from(`
+export function resolveGeo(ip) {
+  const isp = String(ip || "").indexOf("113.") === 0 ? "联通" : "电信";
+  return { country: "中国", province: "湖北", city: "孝感", isp,
+           display: "湖北 孝感 " + isp, source: "ip2region" };
+}
+export function geoDiagnostics() {
+  return { available: true, database: "ip2region_v4.xdb",
+           source: "ip2region（离线 IPv4 库）", error: "", storesRawIp: false };
+}
+`).toString("base64");
+
 function moduleUrl(file) {
   let src = fs.readFileSync(path.join(ROOT, file), "utf8");
   src = src.replace('import { getStore } from "@netlify/blobs";', "const getStore = () => globalThis.__STORE__;");
   src = src.replace('from "../lib/analytics.mjs";', `from ${JSON.stringify(libUrl)};`);
-  if (src.includes("@netlify/blobs") || src.includes("../lib/analytics.mjs")) {
+  src = src.replace('from "../lib/geoip.mjs";', `from ${JSON.stringify(mockGeoUrl)};`);
+  if (src.includes("@netlify/blobs") || src.includes("../lib/analytics.mjs") || src.includes("../lib/geoip.mjs")) {
     throw new Error("import rewrite failed for " + file);
   }
   return "data:text/javascript;base64," + Buffer.from(src).toString("base64");
@@ -44,7 +59,10 @@ const lib = await import(libUrl);
 
 const req = (url, body, headers = {}) => new Request(url, {
   method: body ? "POST" : "GET",
-  headers: { "Content-Type": "application/json", Origin: "https://202271.xyz", ...headers },
+  headers: {
+    "Content-Type": "application/json", Origin: "https://202271.xyz",
+    "X-Nf-Client-Connection-Ip": "113.57.20.1", ...headers,
+  },
   body: body ? JSON.stringify(body) : undefined,
 });
 
@@ -56,6 +74,14 @@ function check(name, cond, extra) {
   console.log((cond ? "PASS " : "FAIL ") + name + (extra === undefined ? "" : "  -> " + JSON.stringify(extra)));
   if (!cond) failures++;
 }
+
+/* 0a. 地区标签：中国|湖北省|孝感市|联通 → 湖北 孝感 联通 */
+const g1 = lib.formatGeoParts({ country: "中国", province: "湖北省", city: "孝感市", isp: "中国联通", source: "ip2region" });
+check("geo: 省 市 运营商格式", g1.display === "湖北 孝感 联通", g1);
+const g2 = lib.formatGeoParts({ country: "中国", province: "北京市", city: "北京市", isp: "中国联通" });
+check("geo: 直辖市不重复", g2.display === "北京 联通", g2);
+const g3 = lib.formatGeoParts({ country: "中国", province: "新疆维吾尔自治区", city: "乌鲁木齐市", isp: "中国电信" });
+check("geo: 自治区清洗", g3.display === "新疆 乌鲁木齐 电信", g3);
 
 /* 0. 日期序列必须是过去 N 天（升序、末项=今天）——曾因写成 +i 天而全盘错位 */
 const k30 = lib.dateKeys(30, now);
@@ -95,6 +121,11 @@ await collect(req("https://202271.xyz/api/collect", pv(v2, e3, "/about/")), {});
 r = await collect(req("https://202271.xyz/api/collect", pv(v1, e1, "/")), {});
 check("collect pv: 重复 eid 返回 204", r.status === 204, r.status);
 
+/* 隐私：事件里只能有标签，绝不能有原始 IP */
+const storedEvent = memory.get(`ev/${z.date}/${e1}`) || {};
+check("privacy: 事件 geo 带省市运营商", storedEvent.geo && storedEvent.geo.display === "湖北 孝感 联通", storedEvent.geo);
+check("privacy: 事件不含原始 IP", !("ip" in storedEvent) && JSON.stringify(storedEvent).indexOf("113.57.20.1") < 0, Object.keys(storedEvent));
+
 /* 3. 停留心跳 + 离开 */
 await collect(req("https://202271.xyz/api/collect", { v: v1, eid: e1, e: "dwell", d: 42, dt: z.date, ua: UA }), {});
 await collect(req("https://202271.xyz/api/collect", { v: v1, eid: e1, e: "leave", d: 75, dt: z.date, ua: UA }), {});
@@ -133,6 +164,11 @@ check("aggregate: UTM 提取", Array.isArray(d.utm.sources) && d.utm.sources.len
 check("aggregate: 热门页面", Array.isArray(d.pages) && d.pages.length > 0, d.pages.slice(0, 2));
 check("aggregate: 旧格式事件计入 warnings", d.health.legacyEvents >= 1 || (d.health.warnings || []).some((w) => w.includes("旧格式")), [d.health.legacyEvents, d.health.warnings]);
 check("aggregate: realtime 结构", d.realtime && Array.isArray(d.realtime.visitors), d.realtime && d.realtime.online);
+check("aggregate: 访客地区带运营商", (d.regions || []).some((x) => x.name.indexOf("联通") >= 0), d.regions);
+check("aggregate: 省份分布", (d.provinces || []).length > 0, d.provinces);
+check("aggregate: 运营商分布", (d.isps || []).length > 0, d.isps);
+check("aggregate: 实时访客地区是完整串", (d.realtime.visitors || []).every((v) => !v.region || v.region.indexOf("湖北") >= 0), d.realtime.visitors.length);
+check("health: IP 库诊断且不存原始 IP", d.health.geoip && d.health.geoip.available === true && d.health.geoip.storesRawIp === false, d.health.geoip);
 check("aggregate: 上一周期有数据（环比基准）", d.compare.pv.previous >= 1, d.compare.pv);
 
 /* 6. 缓存命中，且强制重算的结果已回写 */

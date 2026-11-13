@@ -515,6 +515,7 @@
         ["数据覆盖", (h.daysWithData || 0) + " / " + (h.daysRequested || 0) + " 天"],
         ["扫描事件", thousands(h.eventsScanned)],
         ["停留覆盖", (h.dwellCoverage || 0) + "%"],
+        ["IP 归属库", h.geoip && h.geoip.available ? "本地库可用" : "降级兜底"],
         ["引擎", "v" + esc(m.schema || "6.0")],
       ];
       var grid = items.map(function (it) {
@@ -581,7 +582,9 @@
       panels += panel("设备类型", rowsHtml(d.devices, "name"));
       panels += panel("屏幕分辨率", rowsHtml(d.screens, "name"));
       panels += panel("语言", rowsHtml(d.languages, "name"));
-      panels += panel("访客地区", rowsHtml(d.regions, "name"), false, "由边缘节点推断，不记录 IP");
+      panels += panel("访客地区", rowsHtml(d.regions, "name"), false, "省 市 运营商，如 湖北 孝感 联通");
+      panels += panel("省份分布", rowsHtml(d.provinces, "name"));
+      panels += panel("运营商分布", rowsHtml(d.isps, "name"));
       panels += panel("搜索关键词", rowsHtml(refs.keywords, "name"));
       panels += panel("外部链接域名", rowsHtml(refs.domains, "name"));
       panels += panel("活动参数 UTM",

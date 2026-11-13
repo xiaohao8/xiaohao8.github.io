@@ -18,8 +18,9 @@ import {
   SCHEMA, TZ_NAME, TZ_OFFSET_MIN, SESSION_IDLE_MS, ONLINE_WINDOW_MS,
   CACHE_TTL_MS, MAX_EVENTS, CORS_READ, DEFINITIONS, CATEGORY_LABELS,
   zoned, beijingISO, beijingDisplay, dateKeys,
-  dwellKey, legacyKey, cacheKey, mapLimit, shortHash, safeStr,
+  dwellKey, legacyKey, cacheKey, mapLimit, shortHash, safeStr, shortProvince,
 } from "../lib/analytics.mjs";
+import { geoDiagnostics } from "../lib/geoip.mjs";
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
   status,
@@ -53,7 +54,7 @@ function normalizeLegacy(line) {
       refDomain: "", keyword: "", utm: EMPTY_UTM(),
       br: safeStr(o.br, 40) || "未知", os: safeStr(o.os, 40) || "未知",
       dv: safeStr(o.dv, 40) || "未知",
-      geo: { country: "", region: "", city: "" },
+      geo: { country: "", region: "", city: "", province: "", isp: "", display: "", source: "legacy" },
       screen: o.w && o.h ? o.w + "x" + o.h : "", lang: "",
       date: z.date, hour: z.hour, legacy: true,
     };
@@ -321,11 +322,15 @@ function aggregate(events, dwellMap, firstSeen, days, now, metaBase) {
     for (const e of inRange) bump(m, safeStr(e[field], 40) || "未知");
     return topN(m, 12, "name");
   };
-  const regionMap = new Map();
+  const regionMap = new Map(), provinceMap = new Map(), ispMap = new Map();
   for (const e of inRange) {
     const g = e.geo || {};
-    const label = g.country ? [g.country, g.region, g.city].filter(Boolean).join(" · ") : "";
+    // v6.1 起事件带 display（省 市 运营商）；旧事件仍按 country/region/city 拼
+    const label = g.display || [g.country, g.region, g.city].filter(Boolean).join(" · ");
     if (label) bump(regionMap, label);
+    const province = g.province || shortProvince(g.region);
+    if (province) bump(provinceMap, province);
+    if (g.isp) bump(ispMap, g.isp);
   }
 
   /* 实时在线：pv 或 dwell 最近 5 分钟内有活动 */
@@ -341,7 +346,7 @@ function aggregate(events, dwellMap, firstSeen, days, now, metaBase) {
         id: shortHash(e.v), path: e.p,
         source: e.refName || CATEGORY_LABELS[e.refCategory || "direct"] || "直接访问",
         device: e.dv || "未知", browser: e.br || "未知",
-        region: (e.geo && (e.geo.city || e.geo.region || e.geo.country)) || "",
+        region: (e.geo && (e.geo.display || e.geo.city || e.geo.region || e.geo.country)) || "",
         dwell: d ? Number(d.d) || 0 : 0,
         at: beijingISO(t),
       });
@@ -384,7 +389,9 @@ function aggregate(events, dwellMap, firstSeen, days, now, metaBase) {
     devices: dim("dv"),
     screens: dim("screen"),
     languages: dim("lang"),
-    regions: topN(regionMap, 12, "name"),
+    regions: topN(regionMap, 15, "name"),
+    provinces: topN(provinceMap, 12, "name"),
+    isps: topN(ispMap, 12, "name"),
     realtime: {
       online: onlineVids.length,
       windowMinutes: ONLINE_WINDOW_MS / 60000,
@@ -421,7 +428,7 @@ function emptyPayload(days, now, metaBase) {
     pages: [], entryPages: [], exitPages: [],
     referrers: { categories: [], details: [], domains: [], keywords: [] },
     utm: { sources: [], mediums: [], campaigns: [] },
-    browsers: [], os: [], devices: [], screens: [], languages: [], regions: [],
+    browsers: [], os: [], devices: [], screens: [], languages: [], regions: [], provinces: [], isps: [],
     realtime: { online: 0, windowMinutes: 5, last5m: 0, visitors: [] },
     _healthExtra: {
       lastEventAt: null, firstEventAt: null, daysWithData: 0, daysRequested: days,
@@ -517,6 +524,7 @@ export default async function handler(req) {
     legacyEvents: legacyScanned,
     dwellCoverage: payload.totals.dwellCoverage,
     truncated: h.truncated,
+    geoip: geoDiagnostics(),
     warnings,
   };
 

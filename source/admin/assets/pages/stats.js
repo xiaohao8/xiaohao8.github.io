@@ -2,7 +2,7 @@
    与前台 /stats/ 读同一个 GET /api/stats，但额外提供「强制重算」绕过聚合缓存。
    采集开关 / 排除路径 / 统计天数在「设置 → 访问统计」写入仓库。 */
 
-import { ic, esc, el, toast } from "../app.js?v=4.3.0";
+import { ic, esc, el, toast } from "../app.js?v=4.4.0";
 
 const DAYS = 30;
 const API = "/api/stats?days=" + DAYS;
@@ -103,6 +103,7 @@ function healthHtml(d) {
     ["数据覆盖", `${h.daysWithData || 0} / ${h.daysRequested || 0} 天`],
     ["扫描事件", n(h.eventsScanned)],
     ["停留覆盖", `${h.dwellCoverage || 0}%`],
+    ["IP 归属库", h.geoip && h.geoip.available ? "本地库可用" : "降级兜底"],
     ["引擎", "v" + esc(m.schema || "6.0")],
   ];
   const warns = (h.warnings || []).length
@@ -198,7 +199,9 @@ export default async function stats(view, ctx, params, handleErr) {
         ${listCard("操作系统", d.os, "name")}
         ${listCard("设备类型", d.devices, "name")}
         ${listCard("屏幕分辨率", d.screens, "name")}
-        ${listCard("访客地区", d.regions, "name", false, "边缘节点推断，不记录 IP")}
+        ${listCard("访客地区", d.regions, "name", false, "省 市 运营商，如 湖北 孝感 联通")}
+        ${listCard("省份分布", d.provinces, "name")}
+        ${listCard("运营商分布", d.isps, "name")}
         ${listCard("UTM 来源", utm.sources, "name")}
         ${listCard("UTM 活动", utm.campaigns, "name")}
       </div>` +

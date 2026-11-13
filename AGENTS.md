@@ -48,7 +48,7 @@
   （`.github/workflows/fcircle-refresh.yml`），这与 GitHub Pages 是两回事；
   只是别再建任何 Pages 部署 workflow。
 - Hexo 8.1.2 + fluid 主题已 vendor 进 `themes/fluid`（不再用子模块）。
-- `source/admin/` 是纯 ESM 后台 SPA（当前 v4.3.0），**无构建步骤**：hexo-all-minifier 的 uglify 会跳过 ES 模块，原样拷贝即正确，不要引入打包器。
+- `source/admin/` 是纯 ESM 后台 SPA（当前 v4.4.0），**无构建步骤**：hexo-all-minifier 的 uglify 会跳过 ES 模块，原样拷贝即正确，不要引入打包器。
   动态路由 import 由 `app.js` 的 `VERSION` 带 `?v=`；**所有**模块间的静态 import 也都带同一个硬编码版本号
   （`/admin/assets/*` 是 `max-age=600 + SWR`，不带版本会拿到旧模块；带与不带版本又会加载两份实例、
   让 `setMediaConfig` 只改到其中一份）。升级 `VERSION` 时必须把 `source/admin/` 下全部 `?v=` 引用
@@ -195,6 +195,14 @@
   `netlify.toml` 必须保持 `max-age=0, must-revalidate`；后台改配置需等 Netlify 部署才生效。
 - 后台 `pages/stats.js` 与前台 `/stats/` 读同一个接口；后台额外提供「强制重算」(`?fresh=1`)
   绕过 60 秒缓存。改后台页面记得同步 `app.js` 的 `NAV` / `ROUTES` / `ROUTE_TITLES` 与版本号。
+- **访客地区**：`netlify/lib/geoip.mjs` 用 `context.ip` 查仓库内
+  `netlify/data/ip2region_v4.xdb`（ip2region IPv4 离线库，Apache-2.0 / MIT，字段
+  `国家|省份|城市|ISP`），清洗成「省 市 运营商」（如 `湖北 孝感 联通`）写进 `event.geo`。
+  **绝不把原始 IP 写进事件 / Blobs / 日志 / 响应**；IPv6、库缺失、查询失败时降级到
+  Netlify `context.geo`（有省市、无运营商）并在 `geo.source` 标注。
+  `netlify.toml` 的 `[functions].included_files = ["netlify/data/*.xdb"]` 必须保留，
+  否则线上函数找不到库；`health.geoip.available` 显示库是否随函数部署（诊断只查文件存在，不加载 11MB）。
+  自定义 `database` 与 `families` 互斥，构造 `IP2Region` 时不要同时传。
 - 已删除：空转的 `.github/workflows/analytics.yml`（每 6h 推只改时间戳的空提交、
   制造推送冲突）、`tools/aggregate-analytics.mjs`、`netlify/functions/archive.mjs`、
   `analytics/stats.json`、`source/analytics/stats.json`。**不要恢复**。

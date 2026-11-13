@@ -1,7 +1,7 @@
 /* pages/pages.js — 页面管理：关于 / 友链页 / 说说页 / 朋友圈 / 计划清单 */
 
-import { ic, esc, el, loading, fmtSize } from "../app.js?v=4.3.0";
-import { splitFrontMatter } from "../yaml.js?v=4.3.0";
+import { ic, esc, el, loading, fmtSize } from "../app.js?v=4.4.0";
+import { splitFrontMatter } from "../yaml.js?v=4.4.0";
 
 const PAGE_FILES = [
   { file: "source/about/index.md", label: "关于页", icon: "user", desc: "个人介绍" },

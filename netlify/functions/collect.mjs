@@ -17,6 +17,7 @@ import {
   validDateKey, isBot, parseUA, classifyReferrer, parseCampaign, zoned,
   eventKey, dwellKey, shortHash,
 } from "../lib/analytics.mjs";
+import { resolveGeo } from "../lib/geoip.mjs";
 
 const SITE_URL = (process.env.SITE_URL || "https://202271.xyz").replace(/\/$/, "");
 const SITE_HOST = (() => { try { return new URL(SITE_URL).hostname.replace(/^www\./, ""); } catch (_) { return "202271.xyz"; } })();
@@ -42,15 +43,20 @@ function allowedOrigin(origin) {
   } catch (_) { return false; }
 }
 
-function geoOf(context) {
-  try {
-    const g = (context && context.geo) || {};
-    return {
-      country: safeStr((g.country && (g.country.name || g.country.code)) || "", 60),
-      region: safeStr((g.subdivision && (g.subdivision.name || g.subdivision.code)) || "", 60),
-      city: safeStr(g.city || "", 60),
-    };
-  } catch (_) { return { country: "", region: "", city: "" }; }
+/* 客户端 IP 只在本次请求内用于查本地归属库，绝不写入事件 / Blobs / 日志。
+   context.ip 由 Netlify 提供、不可被请求头伪造，优先使用。 */
+function clientIp(req, context) {
+  const candidates = [
+    context && context.ip,
+    req.headers.get("x-nf-client-connection-ip"),
+    req.headers.get("x-forwarded-for"),
+  ];
+  for (const c of candidates) {
+    if (!c) continue;
+    const first = String(c).split(",")[0].trim().replace(/^::ffff:/, "");
+    if (first) return first;
+  }
+  return "";
 }
 
 export const config = { path: "/api/collect" };
@@ -122,7 +128,7 @@ export default async function handler(req, context) {
     br: dev.browser,
     os: dev.os,
     dv: dev.device,
-    geo: geoOf(context),
+    geo: resolveGeo(clientIp(req, context), context && context.geo),
     screen,
     lang: safeStr(body.lang || "", 24),
     date: z.date,              // 北京时间

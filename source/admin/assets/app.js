@@ -1,10 +1,10 @@
 /* app.js — Qexo 风格后台入口：会话 / 路由 / 骨架 / 通用 UI */
 
-import { GitHubAPI, setMediaConfig, mediaFallbackUrls } from "./github.js?v=4.3.0";
-import { NetlifyAPI } from "./netlify.js?v=4.3.0";
-import { DemoAPI } from "./demo.js?v=4.3.0";
+import { GitHubAPI, setMediaConfig, mediaFallbackUrls } from "./github.js?v=4.4.0";
+import { NetlifyAPI } from "./netlify.js?v=4.4.0";
+import { DemoAPI } from "./demo.js?v=4.4.0";
 
-export const VERSION = "4.3.0";
+export const VERSION = "4.4.0";
 export const ADMIN_TITLE = "醉里博客";
 
 const LS_SESSION = "qexo4_session";

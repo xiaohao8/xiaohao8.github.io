@@ -5,6 +5,9 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+  # 访客地区解析用的离线 IPv4 归属库（省 / 市 / 运营商），随函数一起部署；
+  # 查询完全在本地完成，不调用任何第三方 IP 接口。
+  included_files = ["netlify/data/*.xdb"]
 
 [build.environment]
   NODE_VERSION = "22"

@@ -25,7 +25,8 @@
   └─ leave 离开 / pagehide（sendBeacon 兜底）
         │
         ▼  POST /api/collect
-   Netlify Function：来源校验 · 爬虫过滤 · UA/来源/UTM/Geo 解析
+   Netlify Function：来源校验 · 爬虫过滤 · UA/来源/UTM 解析
+                    · context.ip → 本地 ip2region 库（省 市 运营商）
         │
         ├─ ev/<北京时间日期>/<eid>        ← onlyIfNew，一条浏览一个 key
         ├─ dwell/<日期>/<eid>             ← 覆盖写，取最新累计停留
@@ -43,7 +44,7 @@
 
 | 键 | 内容 | 写入方式 |
 | --- | --- | --- |
-| `ev/YYYY-MM-DD/<eid>` | 完整浏览事件（路径/标题/来源/UTM/UA 解析/Geo/屏幕/语言/北京时间） | `setJSON(..., { onlyIfNew: true })` |
+| `ev/YYYY-MM-DD/<eid>` | 完整浏览事件（路径/标题/来源/UTM/UA 解析/`geo.display`/屏幕/语言/北京时间） | `setJSON(..., { onlyIfNew: true })` |
 | `dwell/YYYY-MM-DD/<eid>` | `{ d: 累计停留秒, t, final }` | `setJSON` 覆盖（同一次浏览取最新值） |
 | `visitors/YYYY-MM-DD/<vidHash>` | 访客首次出现日期（日期编码在 key 里） | `setJSON(..., { onlyIfNew: true })` |
 | `raw/YYYY-MM.ndjson` | **只读兼容**：v5.5 旧格式事件 | 聚合时读取并重算为北京时间 |
@@ -64,6 +65,27 @@
 - **新老访客**：按 `visitors/` 里编码的首次出现日期判断，清除浏览器缓存会重新计数。
 
 另有环比（与上一等长周期对比）、入口页 / 退出页、访问深度、来源分类（搜索 / 社交 / 外链 / 直接 / 站内）、搜索关键词、UTM、浏览器 / 系统 / 设备 / 分辨率 / 语言 / 地区、实时访客列表。
+
+## 访客地区（v6.1）
+
+Netlify 边缘 `context.geo` 对国内 IP 常常只给到 `China`，也没有运营商。现在改为：
+
+- `collect.mjs` 从 `context.ip`（Netlify 提供、不可被请求头伪造）取客户端 IP，
+  用 `netlify/lib/geoip.mjs` 查**仓库自带的离线 IPv4 库**
+  `netlify/data/ip2region_v4.xdb`（ip2region，Apache-2.0 / MIT，
+  字段 `国家|省份|城市|ISP|国家码`），零网络请求、零第三方接口。
+- `formatGeoParts()` 把 `中国|湖北省|孝感市|联通|CN` 清洗成 `湖北 孝感 联通`：
+  去掉省 / 市后缀、自治区简称、直辖市重复、ISP 的「中国」前缀。
+  国内省略「中国」，国外保留国家名（如 `United States California Google LLC`）。
+- 落库的只有 `geo = { country, province, city, isp, display, source }`；
+  **原始 IP 不写入事件、Blobs、日志或响应**。
+- 聚合输出三个维度：`regions`（省 市 运营商）、`provinces`（省份）、`isps`（运营商），
+  实时访客表也显示完整地区串。
+- IPv6、内网 IP、库缺失或查询失败时降级到 `context.geo`，此时有省市但无运营商，
+  `geo.source = "netlify-geo"`；健康条的 `geoip.available` 显示库是否随函数部署。
+
+> IPv4 库约 11 MB，靠 `netlify.toml` 的 `included_files = ["netlify/data/*.xdb"]`
+> 随函数部署；运行时懒加载单例，冷启动只读一次，之后都是内存二分查找。
 
 ## 数据可信度展示
 
@@ -98,7 +120,9 @@
 
 | 文件 | 作用 |
 | --- | --- |
-| `netlify/lib/analytics.mjs` | 共用库：北京时间、UA / 来源 / UTM 解析、指标口径文本 |
+| `netlify/lib/analytics.mjs` | 共用库：北京时间、UA / 来源 / UTM 解析、地区清洗、指标口径文本 |
+| `netlify/lib/geoip.mjs` | 本地 IP 归属解析（`context.ip` → 省 市 运营商，懒加载单例，降级到边缘 geo） |
+| `netlify/data/ip2region_v4.xdb` | 离线 IPv4 归属库（约 11 MB，Apache-2.0 / MIT），由 `included_files` 随函数部署 |
 | `netlify/functions/collect.mjs` | 采集端点（append-only 写入、幂等去重） |
 | `netlify/functions/stats.mjs` | 聚合端点 v6（完整 meta / 健康度 / 60 秒缓存） |
 | `source/js/custom.js` | 前台采集器 + `/stats/` 看板 |
@@ -112,6 +136,9 @@
 - **显示「统计接口暂不可用」**：本地 `hexo s` 没有 Functions；或刚部署、Functions 尚未就绪。
 - **所有面板为空但状态是「尚无采集数据」**：确实没有事件，属正常；随便浏览几个前台页面再回来。
 - **平均停留为 0:00 / 停留覆盖率低**：历史 v5.5 事件没有心跳数据；等新数据积累即可，不会被 0 秒拉低均值。
+- **地区只有 "China" 或没有运营商**：通常是 IPv6 访问或 IP 库没加载。看健康条
+  「IP 归属库」是否为「本地库可用」以及 `health.geoip.error`；
+  升级 xdb 后确认 `included_files` 仍包含 `netlify/data/*.xdb`。
 - **数字看起来偏小**：先看健康条的「数据截至」与「数据覆盖」。若 `truncated=true`，缩小统计天数。
 - **改了采集脚本但没生效**：`source/js/custom.js` 被合进 `fluid-bundle.js`，其 `?v=` 由内容 hash 自动生成，构建后即换 URL；必要时强刷一次。
 - **想绕过缓存**：后台点「强制重算」，或直接请求 `/api/stats?days=30&fresh=1`。
@@ -121,6 +148,8 @@
 
 ## 隐私
 
-不写 Cookie（仅 localStorage 存匿名随机 ID）、不记录 IP（Geo 只保留国家/地区/城市名称）、
+不写 Cookie（仅 localStorage 存匿名随机 ID）。
+客户端 IP **只在采集函数内**用于查询本地离线归属库，落库的是「省 市 运营商」标签，
+原始 IP 不写入事件、Blobs、日志或响应，也不发给任何第三方服务。
 不存原始 User-Agent（只存解析后的浏览器 / 系统 / 设备类别）、不采集页面正文与表单内容。
 `dwell` 与 `visitors` 里的访客标识均为不可逆短哈希。

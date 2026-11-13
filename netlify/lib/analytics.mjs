@@ -216,6 +216,57 @@ export const validDateKey = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ""));
 export const legacyKey = (ym) => `raw/${ym}.ndjson`;
 export const cacheKey = (days) => `cache/stats-${days}.json`;
 
+/* ---------- 地区标签清洗：中国|湖北省|孝感市|联通 → 湖北 孝感 联通 ---------- */
+const PROVINCE_ALIAS = {
+  "内蒙古自治区": "内蒙古", "广西壮族自治区": "广西", "新疆维吾尔自治区": "新疆",
+  "宁夏回族自治区": "宁夏", "西藏自治区": "西藏", "香港特别行政区": "香港",
+  "澳门特别行政区": "澳门", "台湾省": "台湾",
+};
+
+export function shortProvince(s) {
+  const v = safeStr(s, 40).trim();
+  if (!v || v === "0") return "";
+  if (PROVINCE_ALIAS[v]) return PROVINCE_ALIAS[v];
+  return v.replace(/(省|市)$/u, "");
+}
+
+export function shortCity(s) {
+  const v = safeStr(s, 40).trim();
+  if (!v || v === "0") return "";
+  return v.replace(/市$/u, "");
+}
+
+export function shortIsp(s) {
+  const v = safeStr(s, 60).trim();
+  if (!v || v === "0") return "";
+  const alias = {
+    "中国联通": "联通", "中国网通": "联通", "中国电信": "电信",
+    "中国移动": "移动", "中国铁通": "铁通", "中国科技网": "科技网",
+    "中国教育和科研计算机网": "教育网", "阿里": "阿里云", "腾讯": "腾讯云",
+  };
+  if (alias[v]) return alias[v];
+  return v.replace(/^中国/, "").replace(/(股份有限公司|有限责任公司|有限公司)$/u, "").slice(0, 12);
+}
+
+/** 只产出可安全落库的标签对象；调用方负责不要传原始 IP 进来。 */
+export function formatGeoParts(raw = {}) {
+  const country = safeStr(raw.country, 40).trim();
+  const province = shortProvince(raw.province);
+  let city = shortCity(raw.city);
+  if (city && city === province) city = ""; // 直辖市不重复写「北京 北京」
+  const isp = shortIsp(raw.isp);
+  const parts = [];
+  if (country && country !== "中国") parts.push(country); // 国内省略「中国」，直接「湖北 孝感 联通」
+  if (province) parts.push(province);
+  if (city) parts.push(city);
+  if (isp) parts.push(isp);
+  return {
+    country, province, city, isp,
+    display: parts.join(" "),
+    source: safeStr(raw.source, 20) || "",
+  };
+}
+
 /* ---------- 指标口径（直接下发给 UI，避免前后台说法不一） ---------- */
 export const DEFINITIONS = {
   pv: "页面浏览量：一次有效页面浏览记 1 次，5 秒内同一访客重复上报同一页面会去重。",
@@ -230,6 +281,9 @@ export const DEFINITIONS = {
   returningVisitors: "老访客：此前已经访问过的访客。",
   lastEventAt: "数据截至：最后一条原始采集事件的北京时间，不是接口请求时间。",
   computedAt: "本次计算：本次聚合实际执行的时间；命中缓存时会同时标注缓存年龄。",
+  regions: "访客地区：用客户端 IP 查本地离线归属库，格式化为「省 市 运营商」（如 湖北 孝感 联通）。仅在服务端查询，事件里只保存标签，不记录原始 IP。",
+  provinces: "省份分布：按 IP 归属库的省份聚合；未解析出省份的访问不计入。",
+  isps: "运营商分布：按 IP 归属库的 ISP 聚合（联通 / 电信 / 移动 / 阿里云等）；IPv6 或查询失败的事件没有运营商。",
 };
 
 /* ---------- 小工具 ---------- */
