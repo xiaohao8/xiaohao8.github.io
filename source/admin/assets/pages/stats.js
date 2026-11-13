@@ -2,7 +2,7 @@
    与前台 /stats/ 读同一个 GET /api/stats，但额外提供「强制重算」绕过聚合缓存。
    采集开关 / 排除路径 / 统计天数在「设置 → 访问统计」写入仓库。 */
 
-import { ic, esc, el, toast } from "../app.js?v=4.4.3";
+import { ic, esc, el, toast } from "../app.js?v=4.4.4";
 
 const DAYS = 30;
 const API = "/api/stats?days=" + DAYS;

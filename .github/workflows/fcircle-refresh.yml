@@ -1,16 +1,18 @@
 name: 朋友圈数据刷新
 
-# 分工（v4.4.3 起）：
-#   实时层——Netlify Scheduled Function fcircle-tick 每分钟探测一次，写 Netlify Blobs，
-#           页面读 /api/fcircle；GitHub Actions 的 cron 最小间隔是 5 分钟，做不到 1 分钟。
-#   基线层——本 workflow 每天跑一次完整抓取，把结果提交回 source/fcircle/moments.json，
-#           作用是「全量对齐 + 把数据留一份在仓库里」，即使 Blobs 被清空也能立刻恢复。
+# 朋友圈唯一的采集通道（v4.4.4 起）：
+#   每 5 分钟抓一次友链 Atom/RSS，有新文章才提交回 source/fcircle/moments.json，
+#   提交触发 Netlify 部署，页面读到的就是更新的静态 JSON。
+#
+# 5 分钟是 GitHub Actions 定时任务的硬下限（官方不支持更短，写 "* * * * *" 也按 5 分钟跑）。
+# v4.4.3 曾用 Netlify 定时函数做到每分钟，但那是 1440 次/天的函数调用与运行时，
+# 换来的还是「几分钟后才看得到」的同一份数据，已被删除。**不要再把这层搬回 Netlify。**
+#
 # 本机不跑任何刷新任务；Netlify 构建期也不抓，只复制静态 JSON。
 on:
   schedule:
-    # 每天 01:00 UTC = 北京时间 09:00。
-    # 频率不用调高：分钟级更新已经交给 Netlify 的定时函数，这里只做每日全量对齐。
-    - cron: "0 1 * * *"
+    # 每 5 分钟（UTC）。想省额度：*/15 * * * * 或 0 * * * *。
+    - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
       reason:
@@ -21,9 +23,12 @@ on:
 permissions:
   contents: write
 
+# 不要 cancel-in-progress：5 分钟一轮，若某轮稍慢（抓取 60 秒 + 安装依赖），
+# 新一轮会把正在提交的那轮掐掉，结果是「永远跑不完、数据永远不更新」。
+# 排队执行更安全，最坏只是延后几分钟。
 concurrency:
   group: fcircle-refresh
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   refresh:
@@ -77,4 +82,13 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add source/fcircle/moments.json .github/scripts/fcircle-feeds.json
           git commit -m "chore(pyq): 自动刷新朋友圈数据"
+          # 5 分钟一轮后，运行期间远端被别人（或上一轮）推进的概率显著上升，
+          # 直接 push 容易 non-fast-forward。先 rebase 再推；冲突就放弃本次，
+          # 数据下一轮会重新抓到，不会丢。
+          git fetch origin "${GITHUB_REF_NAME}"
+          if ! git rebase "origin/${GITHUB_REF_NAME}"; then
+            git rebase --abort || true
+            echo "远端已前进且 rebase 冲突，放弃本次提交（下一轮会重抓）"
+            exit 0
+          fi
           git push

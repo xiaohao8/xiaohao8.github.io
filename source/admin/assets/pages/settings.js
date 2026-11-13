@@ -2,10 +2,10 @@
 
 import {
   ic, esc, el, toast, loading, store, safeHttpUrl,
-} from "../app.js?v=4.4.3";
-import { NetlifyAPI } from "../netlify.js?v=4.4.3";
-import { setMediaConfig, mediaFallbackUrls } from "../github.js?v=4.4.3";
-import { loadYaml, dumpYaml } from "../yaml.js?v=4.4.3";
+} from "../app.js?v=4.4.4";
+import { NetlifyAPI } from "../netlify.js?v=4.4.4";
+import { setMediaConfig, mediaFallbackUrls } from "../github.js?v=4.4.4";
+import { loadYaml, dumpYaml } from "../yaml.js?v=4.4.4";
 
 const SITE_META_PATH = "source/_data/site_meta.yml";
 const FLUID_PATH = "source/_data/fluid_config.yml";
@@ -461,29 +461,27 @@ export default async function settings(view, ctx, params, handleErr) {
 
   indexCard.querySelector("#save-index").addEventListener("click", saveFluid);
 
-  /* ---------- N. 朋友圈自动更新（GitHub Actions 云端） ---------- */
+  /* ---------- N. 朋友圈自动更新（GitHub Actions 云端，每 5 分钟） ---------- */
   const s0 = store.getSettings();
   const fcActionsUrl = "https://github.com/" + encodeURIComponent(s0.owner || "") + "/" +
     encodeURIComponent(s0.repo || "") + "/actions/workflows/fcircle-refresh.yml";
   const fcCard = el(`<div class="card settings-section">
-      <div class="card-header">${ic("refresh")}<h2>朋友圈自动更新</h2><div class="sub">实时层每分钟（Netlify）· 基线层每天（GitHub Actions），本机零任务</div></div>
+      <div class="card-header">${ic("refresh")}<h2>朋友圈自动更新</h2><div class="sub">GitHub Actions 每 5 分钟抓取，本机零任务</div></div>
       <div class="hint" style="margin-bottom:.9rem">
-        数据源是本站 <code>fluid_config.yml</code> 的友情链接，采集全部在云端完成。<br>
-        <b>实时层</b>：Netlify 定时函数每分钟探测一次各站 Atom/RSS，增量写入 Blobs，
-        页面读 <code>/api/fcircle</code> 就能立刻看到新文章（GitHub Actions 的 cron
-        最小 5 分钟，做不到 1 分钟，所以高频这层放在 Netlify）。<br>
-        <b>基线层</b>：GitHub Actions 每天 09:00（北京时间）全量抓一次，有变化才提交
-        <code>source/fcircle/moments.json</code>，既做全量对齐，也在仓库里留一份备份，
-        Blobs 被清空时页面会立刻回落到这份静态快照。<br>
-        浏览器只读本站，不请求任何第三方接口；本机与构建期都不跑刷新。
+        数据源是本站 <code>fluid_config.yml</code> 的友情链接。GitHub Actions
+        <b>每 5 分钟</b>抓一次各站 Atom/RSS，<b>只有抓到新文章才</b>写入
+        <code>source/fcircle/moments.json</code> 并提交，提交触发 Netlify 部署，页面随即可见。<br>
+        5 分钟是 Actions 定时任务的<b>硬下限</b>：官方不支持更短，再快就得在 Netlify 侧跑
+        每分钟的定时函数（1440 次/天的调用与运行时，纯浪费），v4.4.4 已把那条路删掉。<br>
+        没有新文章时不写文件、不产生空提交；浏览器只读本站静态 JSON，不请求任何第三方接口。
       </div>
       <div class="grid-2" style="gap:1rem">
-        <div class="field" style="margin:0"><label>每日基线任务</label>
+        <div class="field" style="margin:0"><label>定时抓取</label>
           <select class="input" id="fc-enabled">
             <option value="true">开启（推荐）</option>
             <option value="false">暂停</option>
           </select>
-          <div class="hint">只影响每日基线；实时层与手动触发不受影响</div>
+          <div class="hint">暂停只影响定时任务，手动触发仍可刷新</div>
         </div>
         <div class="field" style="margin:0"><label>每个友链取几篇</label>
           <input class="input" id="fc-perlink" type="number" min="1" max="20" value="5" />
@@ -493,46 +491,34 @@ export default async function settings(view, ctx, params, handleErr) {
       <div class="field" style="margin-top:.8rem"><label>当前数据</label>
         <div class="hint" id="fc-status">读取中…</div>
       </div>
-      <div class="field" style="margin-top:.8rem"><label>实时层（每分钟）</label>
-        <div class="hint" id="fc-live">读取中…</div>
-      </div>
-      <div class="field" style="margin-top:.8rem"><label>基线任务运行记录（每天）</label>
+      <div class="field" style="margin-top:.8rem"><label>最近运行记录</label>
         <div class="hint" id="fc-last-run">读取中…</div>
       </div>
       <div class="settings-actions">
         <button class="btn btn-primary" id="fc-save">${ic("save")}保存配置</button>
-        <button class="btn" id="fc-run">${ic("deploy")}立即对齐基线</button>
-        <button class="btn" id="fc-live-reload">${ic("refresh")}实时层状态</button>
-        <button class="btn" id="fc-runs-reload">${ic("refresh")}基线运行记录</button>
+        <button class="btn" id="fc-run">${ic("deploy")}立即刷新</button>
+        <button class="btn" id="fc-runs-reload">${ic("refresh")}刷新记录</button>
         <a class="btn" href="${esc(fcActionsUrl)}" target="_blank" rel="noopener noreferrer">Actions ↗</a>
       </div>
       <details style="margin-top:.9rem">
         <summary style="cursor:pointer;font-weight:600">操作说明</summary>
         <ol style="margin:.6rem 0 0;padding-left:1.3rem;line-height:1.9">
-          <li><b>频率怎么调</b>：实时层<b>不用改任何文件</b>，到 Netlify →
-            Site settings → Environment variables 设
-            <code>FCIRCLE_INTERVAL_SEC</code>（秒，默认 60）即可，改完重新部署生效；
-            想彻底停掉实时层，删掉 <code>netlify.toml</code> 里
-            <code>[functions."fcircle-tick"]</code> 的 <code>schedule</code> 行。
-            基线层改 <code>.github/workflows/fcircle-refresh.yml</code> 的
-            <code>cron</code>（UTC，北京时间 = UTC+8），默认每天 09:00。</li>
-          <li><b>为什么实时层不放 GitHub Actions</b>：Actions 的 <code>schedule</code>
-            最小间隔是 5 分钟，官方不支持 1 分钟，高峰时还会延迟或跳过；
-            Netlify 定时函数可以每分钟触发，但单次只有 30 秒，所以它只做
-            「增量探测 + 合并」，全量对齐留给每天的基线任务。</li>
-          <li><b>立即刷新</b>：「立即对齐基线」触发的是 GitHub Actions，约 1–2 分钟后点
-            「基线运行记录」看结果；实时层不需要手动触发，下一分钟自己就会跑，
-            想马上确认就点「实时层状态」。</li>
-          <li><b>新增友链</b>：改完 <code>fluid_config.yml</code> 部署一次即可，
-            实时层与基线层都会自动包含它（构建期会导出 <code>/fcircle/links.json</code>
-            给函数读）。抓不到的站点不影响已有文章。</li>
-          <li><b>排障</b>：浏览器打开 <code>/api/fcircle?debug=1</code>，能看到最近一轮的
-            <code>lastRun</code>（应在一分钟内）、<code>sweep.active</code>（能抓到 feed 的站点数）、
-            <code>failingSites</code>（正在退避的站点数）；每轮摘要
-            <code>{due, ok304, okNew, added, ms}</code> 在 Netlify → Functions →
-            <code>fcircle-tick</code> → Logs。</li>
+          <li><b>频率</b>：默认每 5 分钟一次，写在
+            <code>.github/workflows/fcircle-refresh.yml</code> 的 <code>cron: "*/5 * * * *"</code>
+            （UTC，且 Actions 的定时最小间隔就是 5 分钟，写成 <code>* * * * *</code> 也只会按 5 分钟跑）。
+            想省额度可改成 <code>*/15 * * * *</code> 或 <code>0 * * * *</code>。</li>
+          <li><b>为什么不在 Netlify 侧每分钟跑</b>：那需要定时函数每分钟触发一次去探 39 个友链，
+            一天 1440 次调用、每次几秒运行时，换来的还是「几分钟后才看得到」的同一份数据，
+            不划算；v4.4.4 已移除 <code>fcircle-tick</code> 与 <code>/api/fcircle</code>，
+            页面回到只读静态 JSON。</li>
+          <li><b>立即刷新</b>：点上方「立即刷新」，或到 GitHub → Actions → 朋友圈数据刷新 →
+            Run workflow。前者要求登录 Token 具备 <b>Actions 写入权限</b>；权限不足或后台
+            走了 gh-proxy 镜像时，请直接用 GitHub 页面手动运行。</li>
+          <li><b>新增友链</b>：改完 <code>fluid_config.yml</code> 无需额外操作，下一轮自动纳管；
+            抓不到 feed 的站点不影响已有文章。</li>
           <li><b>为什么「更新于」可能不动</b>：那是<b>最后一次抓到新文章</b>的时间，不是执行时间。
-            现在还有「检查于」字段，表示最近一次真正跑完探测的时刻，两者分开看才不会误会。</li>
+            友链没发新文时任务照样每 5 分钟跑，但故意不写文件、不产生空提交；
+            想看任务到底跑没跑，看「最近运行记录」或点右侧「Actions ↗」。</li>
           <li><b>完全离线维护</b>：直接编辑 <code>source/fcircle/moments.json</code>，
             保持 <code>statistical_data</code> / <code>article_data</code> 结构即可。</li>
         </ol>
@@ -557,70 +543,28 @@ export default async function settings(view, ctx, params, handleErr) {
     }
   });
 
-  /* 「当前数据」优先读实时层，读不到再读静态快照——与前台 /pyq/ 的降级顺序一致 */
+  /* 当前数据：读的就是页面在用的那份静态 JSON，假不了 */
   function loadFCStatus() {
     const box = fcCard.querySelector("#fc-status");
     if (!box) return;
-    const read = (url, live) => fetch(url, { cache: "no-store" }).then((r) => {
+    fetch("/fcircle/moments.json", { cache: "no-store" }).then((r) => {
       if (!r.ok) throw new Error("HTTP " + r.status);
       return r.json();
     }).then((d) => {
       const rows = (d && d.article_data) || [];
       const st = (d && d.statistical_data) || {};
       box.textContent =
-        (live ? "实时层 · " : "静态快照 · ") + "当前 " + rows.length + " 篇 · 活跃友链 " +
+        "当前 " + rows.length + " 篇 · 活跃友链 " +
         (st.active_num != null ? st.active_num : "-") + " / " +
         (st.friends_num != null ? st.friends_num : "-") +
-        " · 更新于 " + (st.last_updated_time || "-") +
-        (st.last_checked_time ? " · 检查于 " + st.last_checked_time : "");
+        " · 更新于 " + (st.last_updated_time || "-");
+    }).catch(() => {
+      box.textContent = "本地数据暂不可读（演示模式或尚未部署）";
     });
-    read("/api/fcircle?t=" + Date.now(), true)
-      .catch(() => read("/fcircle/moments.json", false))
-      .catch(() => { box.textContent = "数据暂不可读（演示模式或尚未部署）"; });
   }
   loadFCStatus();
 
-  /* 实时层状态：直接问函数「最近一轮什么时候跑的」，比看数据文件时间可信 */
-  function loadFCLive() {
-    const box = fcCard.querySelector("#fc-live");
-    if (!box) return;
-    box.textContent = "读取中…";
-    fetch("/api/fcircle?debug=1&t=" + Date.now(), { cache: "no-store" })
-      .then((r) => {
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        return r.json();
-      })
-      .then((d) => {
-        if (!d) throw new Error("空响应");
-        if (!d.lastRun) {
-          box.textContent = "实时层还没跑过第一轮（部署后约 1 分钟开始）";
-          return;
-        }
-        const sweep = d.sweep || {};
-        box.innerHTML =
-          "最近一轮 " + esc(d.lastRun) + "（耗时 " + esc(d.lastRunMs || 0) + " ms）" +
-          " · 实时层" + (d.live ? "已建立" : "尚未建立，页面暂用静态快照") +
-          " · 本轮探测 " + esc(sweep.due != null ? sweep.due : "-") + " 站" +
-          "<br>能抓到 feed 的站点 " + esc(sweep.active != null ? sweep.active : "-") +
-          " / " + esc(sweep.total != null ? sweep.total : "-") +
-          " · 文章 " + esc(d.articles || 0) + " 篇" +
-          " · 退避中 " + esc(d.failingSites || 0) + " 站" +
-          " · 累计跑了 " + esc((d.counters && d.counters.ticks) || 0) + " 轮" +
-          (d.lastError ? '<br><span class="muted">最近错误：' + esc(d.lastError) + "</span>" : "") +
-          '<br><span class="muted">默认每分钟一轮；想降负载到 Netlify 设 FCIRCLE_INTERVAL_SEC。</span>';
-      })
-      .catch((e) => {
-        box.textContent = "实时层接口不可读（" + (e && e.message) +
-          "）：可能还没部署这版，或函数未启用。静态快照仍可用。";
-      });
-  }
-  loadFCLive();
-  fcCard.querySelector("#fc-live-reload").addEventListener("click", () => {
-    loadFCLive();
-    loadFCStatus();
-  });
-
-  /* GitHub Actions 最近运行记录：让「自动更新到底跑没跑」变得可见。
+  /* GitHub Actions 最近运行记录：让「每 5 分钟到底跑没跑」变得可见。
      数据文件只在抓到新文章时才写，所以绝不能拿 last_updated_time 判断任务是否执行。 */
   function loadFCRuns() {
     const box = fcCard.querySelector("#fc-last-run");
@@ -635,7 +579,7 @@ export default async function settings(view, ctx, params, handleErr) {
     ).then((d) => {
       const runs = (d && d.workflow_runs) || [];
       if (!runs.length) {
-        box.textContent = "基线任务尚未运行过；每天 09:00（北京时间）自动执行，也可点「立即对齐基线」";
+        box.textContent = "还没有运行记录；定时任务每 5 分钟自动执行，也可点「立即刷新」";
         return;
       }
       const lines = runs.slice(0, 3).map((r) => {
@@ -653,14 +597,17 @@ export default async function settings(view, ctx, params, handleErr) {
           : Math.floor(age / 86400000) + " 天";
       box.innerHTML = lines.join("<br>") +
         '<br><span class="muted">最近一次距今 ' + esc(ago) + "。" +
-        "这是每天的基线任务；分钟级更新走实时层（上面的「实时层状态」）。</span>";
+        "「更新于」不变不代表任务没跑：只有抓到新文章才写数据文件。</span>";
     }).catch((e) => {
       box.textContent = "运行记录读取失败：" + (e && e.message) +
         "；可点右侧「Actions ↗」到 GitHub 确认";
     });
   }
   loadFCRuns();
-  fcCard.querySelector("#fc-runs-reload").addEventListener("click", loadFCRuns);
+  fcCard.querySelector("#fc-runs-reload").addEventListener("click", () => {
+    loadFCRuns();
+    loadFCStatus();
+  });
 
   async function saveFC() {
     if (!fcLoaded) {
@@ -685,7 +632,7 @@ export default async function settings(view, ctx, params, handleErr) {
       fresh.enabled = enabled;
       fresh.per_link = per;
       await ctx.api.writeFile(FCIRCLE_PATH, dumpYaml(fresh), "Update Fcircle Config by Qexo");
-      toast("配置已保存，GitHub Actions 下次运行生效", "success");
+      toast("配置已保存，下一轮定时任务生效（最长 5 分钟）", "success");
     } catch (e) { handleErr(e); }
     loading.hide();
   }
@@ -700,7 +647,7 @@ export default async function settings(view, ctx, params, handleErr) {
           "/actions/workflows/fcircle-refresh.yml/dispatches",
         { method: "POST", body: { ref: s.branch || "main", inputs: { reason: "后台手动触发" } } }
       );
-      toast("已触发，约 1–2 分钟后点「基线运行记录」查看结果", "success");
+      toast("已触发，约 1–2 分钟后点「刷新记录」查看结果", "success");
       setTimeout(loadFCRuns, 4000);
     } catch (e) {
       toast("触发失败（Token 需具备 Actions 写入权限，或改用 GitHub 页面手动运行）：" + (e && e.message), "error");

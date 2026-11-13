@@ -12,17 +12,10 @@
 [functions.collect]
   included_files = ["netlify/data/*.xdb"]
 
-# 朋友圈实时刷新：每分钟探测一次友链 RSS，增量写 Netlify Blobs。
-# GitHub Actions 的 schedule 最小间隔是 5 分钟，做不到 1 分钟，所以高频这一层放在 Netlify；
-# Actions 保留为「每天一次全量对齐 + 把基线提交进仓库」的兜底通道。
-#
-# 想降负载不用改 cron，设环境变量即可（函数内已读取）：
-#   FCIRCLE_INTERVAL_SEC=180   改成 3 分钟一轮
-#   FCIRCLE_SITE_INTERVAL_SEC=300  单个站点 5 分钟才探测一次
-# 想彻底停掉：删掉下面这行 schedule 并重新部署。
-# 注意：函数里也写了同样的 schedule（export const config），两处必须一致。
-[functions."fcircle-tick"]
-  schedule = "* * * * *"
+# 注：v4.4.4 已移除朋友圈的 Netlify 定时函数（fcircle-tick）。
+# 每分钟触发一个函数去探 39 个友链是纯浪费：1440 次/天的调用与运行时，
+# 换来的还是「几分钟后才更新」的同一份数据。现在全部交给 GitHub Actions 的
+# 5 分钟 cron（Actions 的硬下限），新数据提交后随部署变成静态 JSON。
 
 [build.environment]
   NODE_VERSION = "22"
@@ -113,13 +106,6 @@
   for = "/fcircle/moments.json"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
-    X-Content-Type-Options = "nosniff"
-
-# 友链清单只在部署时变，实时刷新函数每分钟读一次，60 秒缓存刚好
-[[headers]]
-  for = "/fcircle/links.json"
-  [headers.values]
-    Cache-Control = "public, max-age=60, stale-while-revalidate=600"
     X-Content-Type-Options = "nosniff"
 
 # 采集开关由后台写入仓库。这份配置只有几百字节，却是每个页面都要读的，
