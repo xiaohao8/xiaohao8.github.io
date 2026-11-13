@@ -1,10 +1,10 @@
 /* app.js — Qexo 风格后台入口：会话 / 路由 / 骨架 / 通用 UI */
 
-import { GitHubAPI, setMediaConfig, mediaFallbackUrls } from "./github.js?v=4.1.9";
-import { NetlifyAPI } from "./netlify.js?v=4.1.9";
-import { DemoAPI } from "./demo.js?v=4.1.9";
+import { GitHubAPI, setMediaConfig, mediaFallbackUrls } from "./github.js?v=4.2.0";
+import { NetlifyAPI } from "./netlify.js?v=4.2.0";
+import { DemoAPI } from "./demo.js?v=4.2.0";
 
-export const VERSION = "4.1.9";
+export const VERSION = "4.2.0";
 export const ADMIN_TITLE = "醉里博客";
 
 const LS_SESSION = "qexo4_session";
@@ -445,6 +445,7 @@ const NAV = [
   { route: "/talks", icon: "talk", label: "说说", group: "内容" },
   { route: "/friends", icon: "friend", label: "友链", group: "内容" },
   { route: "/images", icon: "image", label: "图库", group: "站点" },
+  { route: "/stats", icon: "eye", label: "访问统计", group: "站点" },
   { route: "/settings", icon: "settings", label: "设置", group: "站点" },
 ];
 
@@ -457,6 +458,7 @@ const ROUTE_TITLES = {
   "/talks": ["说说", "短内容时间线"],
   "/friends": ["友链管理", "fluid_config.yml"],
   "/images": ["图库", "source/images/uploads"],
+  "/stats": ["访问统计", "自托管实时统计 / 近 30 天"],
   "/settings": ["设置", "仓库 / Netlify / 站点资料"],
 };
 
@@ -578,6 +580,7 @@ const ROUTES = {
   "/talks": () => import("./pages/talks.js?v=" + VERSION),
   "/friends": () => import("./pages/friends.js?v=" + VERSION),
   "/images": () => import("./pages/images.js?v=" + VERSION),
+  "/stats": () => import("./pages/stats.js?v=" + VERSION),
   "/settings": () => import("./pages/settings.js?v=" + VERSION),
 };
 

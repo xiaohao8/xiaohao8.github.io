@@ -2,14 +2,15 @@
 
 import {
   ic, esc, el, toast, loading, store, safeHttpUrl,
-} from "../app.js?v=4.1.9";
-import { NetlifyAPI } from "../netlify.js?v=4.1.9";
-import { setMediaConfig, mediaFallbackUrls } from "../github.js?v=4.1.9";
-import { loadYaml, dumpYaml } from "../yaml.js?v=4.1.9";
+} from "../app.js?v=4.2.0";
+import { NetlifyAPI } from "../netlify.js?v=4.2.0";
+import { setMediaConfig, mediaFallbackUrls } from "../github.js?v=4.2.0";
+import { loadYaml, dumpYaml } from "../yaml.js?v=4.2.0";
 
 const SITE_META_PATH = "source/_data/site_meta.yml";
 const FLUID_PATH = "source/_data/fluid_config.yml";
 const FCIRCLE_PATH = "source/_data/fcircle.yml";
+const ANALYTICS_PATH = "source/analytics/config.json";
 
 export default async function settings(view, ctx, params, handleErr) {
   view.innerHTML = "";
@@ -590,6 +591,117 @@ export default async function settings(view, ctx, params, handleErr) {
     }
     loading.hide();
   });
+
+  /* ---------- N+1. 访问统计（采集开关写入仓库静态配置） ---------- */
+  const anCard = el(`<div class="card settings-section">
+      <div class="card-header">${ic("eye")}<h2>访问统计</h2><div class="sub">采集开关 / 排除路径 / 统计天数</div></div>
+      <div class="hint" style="margin-bottom:.9rem">
+        统计完全自托管：前台 <code>/api/collect</code> 上报、<code>/api/stats</code> 实时聚合（Netlify Blobs），
+        无 Cookie、不记录 IP、不存原始 UA。这里的配置写入
+        <code>source/analytics/config.json</code>，构建后成为 <code>/analytics/config.json</code>。
+        <b>保存后需等 Netlify 重新部署，前台才会读到新配置</b>；数据本身不在仓库里。
+      </div>
+      <div class="grid-2" style="gap:1rem">
+        <div class="field" style="margin:0"><label>访问采集</label>
+          <select class="input" id="an-enabled">
+            <option value="true">开启（推荐）</option>
+            <option value="false">暂停（前台不再上报）</option>
+          </select>
+          <div class="hint">暂停后历史数据保留，只是不再新增</div>
+        </div>
+        <div class="field" style="margin:0"><label>前台统计天数</label>
+          <input class="input" id="an-days" type="number" min="7" max="90" value="30" />
+          <div class="hint">7–90，决定图表横轴长度和接口查询区间</div>
+        </div>
+      </div>
+      <div class="field" style="margin-top:.8rem"><label>排除路径（每行一个前缀）</label>
+        <textarea class="input" id="an-excludes" rows="3" placeholder="/admin&#10;/stats"></textarea>
+        <div class="hint">以这些前缀开头的页面不上报；默认排除后台和统计页，避免自己污染数据。留空表示全部统计</div>
+      </div>
+      <div class="field"><label>当前状态</label><div class="hint" id="an-status">读取中…</div></div>
+      <div class="settings-actions">
+        <button class="btn btn-primary" id="an-save">${ic("save")}保存统计设置</button>
+        <a class="btn" href="#/stats">${ic("eye")}查看统计</a>
+        <a class="btn" href="/stats/" target="_blank" rel="noopener">${ic("external")}前台统计页 ↗</a>
+      </div>
+      <details style="margin-top:.9rem">
+        <summary style="cursor:pointer;font-weight:600">操作说明</summary>
+        <ol style="margin:.6rem 0 0;padding-left:1.3rem;line-height:1.9">
+          <li><b>保存后不是立刻生效</b>：配置是静态文件，保存会向仓库提交一次，
+            Netlify 部署完成（约 1–2 分钟）后前台才会读到新值。</li>
+          <li><b>彻底停用</b>：把「访问采集」设为暂停即可，已采集的数据仍在，
+            恢复开启后继续累计；不会清空历史。</li>
+          <li><b>排除路径</b>：写路径前缀，例如 <code>/admin</code>、<code>/pyq</code>。
+            不写开头的斜杠会自动补上。</li>
+          <li><b>数据在哪</b>：事件存放在 Netlify Blobs（<code>zui-analytics</code> 存储），
+            由 <code>netlify/functions/collect.mjs</code> 与 <code>stats.mjs</code> 读写，仓库里看不到明细。</li>
+          <li><b>查看</b>：后台侧栏「访问统计」与前台 <code>/stats/</code> 读的是同一个接口，
+            只是两套界面。</li>
+        </ol>
+      </details>
+    </div>`);
+  view.appendChild(anCard);
+
+  const anStatus = anCard.querySelector("#an-status");
+  let anLoaded = false;
+  function applyAn(c) {
+    anCard.querySelector("#an-enabled").value = c.enabled === false ? "false" : "true";
+    const d = Number(c.days);
+    anCard.querySelector("#an-days").value = d >= 7 && d <= 90 ? d : 30;
+    anCard.querySelector("#an-excludes").value = Array.isArray(c.excludePaths)
+      ? c.excludePaths.join("\n") : ["/admin", "/stats"].join("\n");
+    anStatus.textContent = "配置文件已读取 · 采集" + (c.enabled === false ? "暂停" : "开启");
+    anLoaded = true;
+  }
+  ctx.api.readFile(ANALYTICS_PATH).then((raw) => {
+    try { applyAn(JSON.parse(raw) || {}); }
+    catch (e) { anStatus.textContent = "配置文件不是合法 JSON：" + e.message; }
+  }).catch((e) => {
+    if (e && e.status === 404) {
+      applyAn({ enabled: true, days: 30, excludePaths: ["/admin", "/stats"] });
+      anStatus.textContent += "（仓库暂无配置文件，保存时新建）";
+    } else {
+      anStatus.textContent = "配置读取失败：" + (e && e.message);
+    }
+  });
+  fetch("/api/stats?days=1", { cache: "no-store" }).then((r) => {
+    anStatus.textContent += r.ok ? " · 统计接口可用" : " · 统计接口 HTTP " + r.status;
+  }).catch(() => {
+    anStatus.textContent += " · 统计接口不可用（本地预览或 Functions 未部署）";
+  });
+
+  async function saveAn() {
+    if (!anLoaded) {
+      toast("配置未成功加载，已禁用保存以免覆盖", "error");
+      return;
+    }
+    const days = parseInt(anCard.querySelector("#an-days").value, 10);
+    if (!(days >= 7 && days <= 90)) {
+      toast("统计天数需为 7–90", "error");
+      return;
+    }
+    const excludes = anCard.querySelector("#an-excludes").value
+      .split("\n").map((s) => s.trim()).filter(Boolean)
+      .map((s) => s.charAt(0) === "/" ? s : "/" + s.replace(/^\/+/, ""));
+    loading.show("正在保存统计设置…");
+    try {
+      // 写前重读，保留表单之外的未知键；文件不存在或配置损坏时按新建处理
+      let raw = null;
+      try { raw = await ctx.api.readFile(ANALYTICS_PATH, { fresh: true }); }
+      catch (e) { if (!(e && (e.status === 404 || ctx.demo))) throw e; }
+      let fresh = {};
+      if (raw) { try { fresh = JSON.parse(raw) || {}; } catch (_) { fresh = {}; } }
+      fresh.enabled = anCard.querySelector("#an-enabled").value === "true";
+      fresh.days = days;
+      fresh.excludePaths = excludes;
+      fresh.note = "由后台「设置 → 访问统计」维护；改动写入仓库后需 Netlify 重新部署才会在前台生效";
+      await ctx.api.writeFile(ANALYTICS_PATH, JSON.stringify(fresh, null, 2) + "\n", "Update Analytics Config by Qexo");
+      applyAn(fresh);
+      toast("统计设置已保存，Netlify 部署完成后在前台生效", "success", 5200);
+    } catch (e) { handleErr(e); }
+    loading.hide();
+  }
+  anCard.querySelector("#an-save").addEventListener("click", saveAn);
 
   loading.hide();
 }

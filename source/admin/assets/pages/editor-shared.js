@@ -10,7 +10,7 @@
 
    失败会抛出可读错误，由页面降级为纯文本编辑，绝不静默空白。 */
 
-import { VERSION } from "../app.js?v=4.1.9";
+import { VERSION } from "../app.js?v=4.2.0";
 
 export const VDITOR_BASE = "/admin/vendor/vditor";
 

@@ -1,0 +1,6 @@
+{
+  "enabled": true,
+  "days": 30,
+  "excludePaths": ["/admin", "/stats"],
+  "note": "由后台「设置 → 访问统计」维护；改动写入仓库后需 Netlify 重新部署才会在前台生效"
+}

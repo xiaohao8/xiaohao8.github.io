@@ -9,6 +9,9 @@
 3. `node tools/git-api-push.mjs main --dry-run` 预览，再去掉 `--dry-run` 真实推送。
    脚本通过 GitHub Git Data API 按内容寻址逐个重放 blob/tree/commit（每步比对 SHA，与本地不一致立即中止），最后 `PATCH /git/refs/heads/main`（`force:false`，纯快进），效果与 `git push` 逐字节等价。
    **CLI 工具必须放在 `tools/`，不能放 `scripts/`**：Hexo 会把 `scripts/` 下所有 `.js/.mjs` 当 Hexo 脚本用 vm 包装加载，带 shebang / ESM import 的独立 CLI 会报 `SyntaxError: Invalid or unexpected token`，甚至被误执行。
+   旧 v1 统计聚合 `tools/aggregate-analytics.mjs`（v5.5 起已不是数据源，只被
+   `.github/workflows/analytics.yml` 每 6h 调用生成静态快照）也曾误放 `scripts/`，
+   导致 `hexo clean` / `hexo generate` 各输出一条 `ERROR Script load failed`；已移出，别放回去。
 4. 推送后 `git fetch origin` 同步本地引用；不要 `git reset` / `git stash` 远端协作产物。
 
 备用（用户自己的终端，非沙箱）：`git push https://x-access-token@github.com/xiaohao8/xiaohao8.github.io.git main` —— 带 userinfo 前缀可绕开 insteadOf 重写。
@@ -45,7 +48,7 @@
   （`.github/workflows/fcircle-refresh.yml`），这与 GitHub Pages 是两回事；
   只是别再建任何 Pages 部署 workflow。
 - Hexo 8.1.2 + fluid 主题已 vendor 进 `themes/fluid`（不再用子模块）。
-- `source/admin/` 是纯 ESM 后台 SPA（当前 v4.1.9），**无构建步骤**：hexo-all-minifier 的 uglify 会跳过 ES 模块，原样拷贝即正确，不要引入打包器。
+- `source/admin/` 是纯 ESM 后台 SPA（当前 v4.2.0），**无构建步骤**：hexo-all-minifier 的 uglify 会跳过 ES 模块，原样拷贝即正确，不要引入打包器。
   动态路由 import 由 `app.js` 的 `VERSION` 带 `?v=`；**所有**模块间的静态 import 也都带同一个硬编码版本号
   （`/admin/assets/*` 是 `max-age=600 + SWR`，不带版本会拿到旧模块；带与不带版本又会加载两份实例、
   让 `setMediaConfig` 只改到其中一份）。升级 `VERSION` 时必须把 `source/admin/` 下全部 `?v=` 引用
@@ -153,6 +156,30 @@
   入库基线逐步增长。
 - 也可以完全离线直接编辑 `source/fcircle/moments.json`，
   保持 `{ statistical_data, article_data }` 结构即可。
+
+## 访问统计 /stats/ 与后台统计（v4.2.0）
+
+- 统计完全自托管：`netlify/functions/collect.mjs`（POST `/api/collect`）写
+  Netlify Blobs 的 `zui-analytics` 存储，`stats.mjs`（GET `/api/stats?days=N`）实时聚合，
+  返回 `totals / daily / hourly / pages / referrers / browsers / os / devices / realtime`。
+  `source/analytics/stats.json` 只是旧静态快照，**不是**当前数据源，别拿它当接口。
+- 采集配置是**仓库里的静态文件** `source/analytics/config.json` → 部署为
+  `/analytics/config.json`：`enabled`（总开关）、`days`（前台统计天数）、
+  `excludePaths`（路径前缀数组）。`source/js/custom.js` 的 `beacon()` 先读它再决定是否上报，
+  默认排除 `/admin` 与 `/stats` 以免自我污染。`netlify.toml` 必须保持该文件
+  `max-age=0, must-revalidate`，否则后台改配置会被 CDN 缓存住。
+- **后台改配置不是即时生效**：写入仓库 → 触发 Netlify 部署 → 新静态文件上线后才生效。
+  这一点必须在设置页说明里讲清楚，别设计成运行时开关。
+- 前台 `renderStats()` 必须自行把 `daily` 补齐到完整 N 天、`hourly` 补齐到 24 小时
+  （接口只返回有数据的日期/小时，直接渲染就会只剩两三根柱子），并给空值柱加 `.is-empty`；
+  明细面板用 `source/css/custom.css` 自带的 `.zui-stat-panels` / `.zui-stat-panel`，
+  **不要借用后台的 `.grid-2` / `.card`**（后台类名不在前台 CSS 里，会散架）。
+- `source/js/custom.js` 属于 `/js/*`，会被 `scripts/optimize-speed.js` 合进
+  `fluid-bundle.js`；bundle 的 `?v=` 由 6 个源文件的内容 hash 自动生成，
+  改完统计脚本**不需要**手动清缓存或改版本号。
+- 后台侧栏「访问统计」（`pages/stats.js`）是只读概览，与前台 `/stats/` 读同一个接口；
+  `pages/settings.js` 的「访问统计」卡片负责写 `source/analytics/config.json`。
+  新增/修改后台页面时，记得同步 `app.js` 的 `NAV` / `ROUTES` / `ROUTE_TITLES`。
 - 抓取率参考：39 条友链中约 13 个能拿到 feed、26 个失败（站点关停或网络不可达）；
   去重后可新增约 59 篇。可达性随网络波动，以当次运行为准。
 - `source/fcircle/app.js` 必须是 **ES5 语法**（`js_minifier` 开启且 mangle）。

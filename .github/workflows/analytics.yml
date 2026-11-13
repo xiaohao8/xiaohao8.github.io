@@ -23,7 +23,7 @@ jobs:
           node-version: 22
 
       - name: 聚合统计数据
-        run: node scripts/aggregate-analytics.mjs
+        run: node tools/aggregate-analytics.mjs
 
       - name: 有变化才提交（避免空构建）
         id: diff

@@ -1,5 +1,12 @@
 # 后台使用与维护（Qexo 风格 · Netlify 版）
 
+> v4.2.0：新增「访问统计」侧栏页与「设置 → 访问统计」配置卡片，并修复前台
+> `/stats/` 看板 UI。之前明细区误用了后台的 `.grid-2` / `.card` 类名（前台 CSS 里没有，
+> 所以卡片边框和间距全丢）、`.zui-hbar` / `.zui-bars-sm` 缺样式（24 小时只剩一排数字），
+> 而且图表直接渲染接口返回的日子，只有几天有数据就只剩两三根细条。现在序列会补齐到
+> 完整 N 天和 24 小时、标签抽样显示、空值画灰色基线，并补上操作系统 / 设备类型 / 实时动态面板。
+> 采集开关、排除路径、统计天数统一由 `source/analytics/config.json` 控制。
+
 > v4.1.9：编辑器资源换源 + 先可写后升级。实测 Netlify（Cloudflare 边缘）到国内只有
 > 3~8 KB/s，而 Vditor 的 Markdown 引擎 lute 压缩后约 700KB，按这个速度要 200 多秒——
 > 之前 30 秒超时正是卡在这里。现在：① 资源按「npmmirror（阿里 npm 镜像，同版本同文件
@@ -115,7 +122,8 @@ raw 地址会 302 到签名直链，`<img>` 会自动跟随。Gitee 镜像尚未
 | 说说 | 快发框（Markdown + 配图 + 时间）、时间线编辑/删除 | `source/_data/talks.yml` |
 | 友链 | 表格增删改 | `source/_data/fluid_config.yml` → `links.items` |
 | 图库 | 拖拽多图上传、缩略图预览（Gitee + 本站兜底）、复制相对路径/本站 URL/Gitee 直链/Markdown、删除 | `source/images/uploads/` |
-| 设置 | 仓库连接、Netlify、图片预览源、站点资料、导航菜单、首页外观 | localStorage + `site_meta.yml` + `fluid_config.yml` |
+| 访问统计 | 近 30 天实时概览、迷你趋势图、热门页面 / 来源 / 浏览器 / 系统 / 设备 / 实时动态 | 只读 `GET /api/stats?days=30` |
+| 设置 | 仓库连接、Netlify、图片预览源、站点资料、导航菜单、首页外观、朋友圈自动更新、访问统计 | localStorage + `site_meta.yml` + `fluid_config.yml` + `fcircle.yml` + `analytics/config.json` |
 
 ## 注意事项
 
@@ -225,3 +233,49 @@ Vditor 的 Markdown 引擎 `lute.min.js` 压缩后约 700KB，从 Netlify（Clou
   否则日志显示「数据无变化，跳过提交」。
 - **注意**：39 个友链里通常只有约 13 个能抓到 feed，其余多为站点关停或
   网络不可达；抓不到不影响已有文章，最坏情况是本次没有新增。
+
+## 访问统计（v4.2.0）
+
+### 看什么
+
+- 后台侧栏「站点 → 访问统计」是只读概览：6 个概览数字、近 30 天迷你趋势图，
+  以及热门页面 / 访问来源 / 浏览器 / 操作系统 / 设备类型 / 实时动态 6 个面板。
+  「刷新数据」重新拉取，「打开前台统计页」跳到 `/stats/`，「统计设置」回到设置页。
+- 前台 `/stats/` 是同一份数据的完整看板（30 天柱状图 + 24 小时分布 + 明细面板）。
+  两处都直接请求 `GET /api/stats?days=30`，不经过 GitHub，也不需要登录。
+
+### 数据链路
+
+| 环节 | 位置 | 说明 |
+| --- | --- | --- |
+| 上报 | `netlify/functions/collect.mjs` | 前台 `source/js/custom.js` 的 `beacon()` POST `/api/collect` |
+| 存储 | Netlify Blobs `zui-analytics` | 月度 NDJSON 原始事件，仓库里看不到明细 |
+| 聚合 | `netlify/functions/stats.mjs` | 实时算 PV / UV / 会话 / 跳出率 / 在线人数 |
+| 配置 | `source/analytics/config.json` | 部署为 `/analytics/config.json`，控制采集行为 |
+
+无 Cookie、不记录 IP、不存原始 UA。`source/analytics/stats.json` 是早年的静态快照，
+**不是**当前数据源，不要改它来调统计。
+
+### 在后台配置
+
+「设置 → 访问统计」可改三项：
+
+- **访问采集**：开启 / 暂停。暂停只停止上报，历史数据保留，恢复后继续累计。
+- **前台统计天数**：7–90，决定图表横轴长度与接口查询区间，默认 30。
+- **排除路径**：每行一个路径前缀（如 `/admin`、`/pyq`），命中就不上报。
+  默认排除 `/admin` 与 `/stats`，避免后台操作和统计页自己污染数据。
+
+**保存后不是立刻生效**：这是仓库里的静态文件，保存会提交一次并触发 Netlify 部署，
+部署完成（约 1–2 分钟）后前台才读到新值。`netlify.toml` 已给
+`/analytics/config.json` 配 `max-age=0, must-revalidate`，避免 CDN 缓存旧开关。
+
+### 常见问题
+
+- **后台/前台显示「统计接口暂不可用」**：本地 `hexo s` 预览没有 Netlify Functions，
+  或站点刚部署、第一次访问还没写入 Blobs。部署完成并产生首次访问后会自动出现数据；
+  此时所有面板为空是正常的。
+- **柱状图只有几根**：v4.2.0 之前接口只返回有数据的日期，没有补齐序列；
+  现在应始终显示完整的 N 天 + 24 小时（无数据的位置是灰色基线）。
+- **改了统计脚本但前台没变**：`source/js/custom.js` 会被合进 `fluid-bundle.js`，
+  其 `?v=` 由内容 hash 自动生成，正常情况下改完构建即换 URL；
+  若仍看到旧界面，强刷一次或等待 `/js/*` 的 1 小时缓存过期。

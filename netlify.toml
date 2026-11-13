@@ -75,6 +75,13 @@
     Cache-Control = "public, max-age=0, must-revalidate"
     X-Content-Type-Options = "nosniff"
 
+# 采集开关由后台写入仓库，部署后必须立刻生效，不能被 CDN 缓存住旧值
+[[headers]]
+  for = "/analytics/config.json"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    X-Content-Type-Options = "nosniff"
+
 [[redirects]]
   from = "/talks"
   to = "/talks.html"
