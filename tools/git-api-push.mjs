@@ -12,12 +12,18 @@
  * 用法：
  *   node tools/git-api-push.mjs [branch] [--remote origin] [--repo owner/name] [--dry-run]
  *
+ *   GIT_API_PROXY=http://127.0.0.1:7897 node tools/git-api-push.mjs main
+ *     → 让 API 请求走本机 Clash / 其它 HTTP 代理。Node 的 fetch 不读 HTTP(S)_PROXY，
+ *       必须显式设置 dispatcher；默认不启用，避免影响已有的直连行为。
+ *
  * token 来源（不会打印、不会落盘）：
  *   1) 环境变量 GITHUB_TOKEN / GH_TOKEN
  *   2) `git credential fill`（Git Credential Manager，从凭据管理器取）
  */
 
 import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { createRequire } from "node:module";
 
 const args = process.argv.slice(2);
 let branch = "main";
@@ -45,6 +51,21 @@ function git(a, opts = {}) {
 }
 
 ROOT = git(["rev-parse", "--show-toplevel"]);
+
+// 可选代理：只在显式设置 GIT_API_PROXY 时启用。
+// 本机装了 Clash Verge（mixed-port 7897）但没开系统代理时，直连 GitHub 会超时；
+// 修好节点后带上这个环境变量就能正常推送，不用改脚本或改 git config。
+const proxyUrl = process.env.GIT_API_PROXY || "";
+if (proxyUrl) {
+  try {
+    const requireFromRepo = createRequire(path.join(ROOT, "package.json"));
+    const { setGlobalDispatcher, ProxyAgent } = requireFromRepo("undici");
+    setGlobalDispatcher(new ProxyAgent(proxyUrl));
+    console.log(`API 请求走代理：${proxyUrl}`);
+  } catch (e) {
+    fail(`GIT_API_PROXY 已设置但无法启用：${e.message}（需要仓库内已安装 undici）`);
+  }
+}
 
 // ---------- 收集本地要重放的提交 ----------
 
