@@ -1,7 +1,7 @@
 /* pages/posts.js — 文章管理：列表 / 搜索 / 新建 / 删除 */
 
-import { ic, esc, el, toast, fmtSize, fmtTime, confirmDialog, modal, loading } from "../app.js?v=4.2.0";
-import { splitFrontMatter, nowLocal } from "../yaml.js?v=4.2.0";
+import { ic, esc, el, toast, fmtSize, fmtTime, confirmDialog, modal, loading } from "../app.js?v=4.3.0";
+import { splitFrontMatter, nowLocal } from "../yaml.js?v=4.3.0";
 
 const CACHE_KEY = "qexo4_cache_posts";
 const CACHE_TTL = 5 * 60 * 1000;

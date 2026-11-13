@@ -1,163 +1,150 @@
 /* ============================================================
-   醉里博客统计 v5.5 — 采集端点
-   存储：Netlify Blobs（原生，免 Token / 免 API / 实时）
-   效果对标 Umami：会话跟踪 / 爬虫过滤 / 来源识别 / 设备解析
+   醉里博客统计 v6 — 采集端点 POST /api/collect
+
+   与 v5.5 的根本区别（可信度修复）：
+   - 旧版「读整月 NDJSON → 拼一行 → 覆盖写回」是 last-write-wins 反模式，
+     并发访问会静默丢事件，数据变大后还会超时丢整批。Netlify 官方明确不建议。
+   - v6 改为 **每条浏览事件一个独立 blob key + onlyIfNew 原子写**，
+     append-only、幂等、无 read-modify-write，任何并发都不会覆盖别人的数据。
+   - 停留心跳写 dwell/<date>/<eid>，同一次浏览反复覆盖同一个 key 是期望语义
+     （取最新累计停留秒数），不产生 key 膨胀。
+   - 会话不再信任前端 sessionStorage，由 stats.mjs 按 vid + 30 分钟空闲重建。
    ============================================================ */
 
 import { getStore } from "@netlify/blobs";
-
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
-
-const json = (data, status = 200) =>
-  new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json", ...CORS },
-  });
+import {
+  SCHEMA, TZ_NAME, CORS_COLLECT, safeStr, safePath, validVid, validEid,
+  validDateKey, isBot, parseUA, classifyReferrer, parseCampaign, zoned,
+  eventKey, dwellKey, shortHash,
+} from "../lib/analytics.mjs";
 
 const SITE_URL = (process.env.SITE_URL || "https://202271.xyz").replace(/\/$/, "");
+const SITE_HOST = (() => { try { return new URL(SITE_URL).hostname.replace(/^www\./, ""); } catch (_) { return "202271.xyz"; } })();
 
-/* ---------- 爬虫过滤 ---------- */
-const BOT_RE = /bot|crawl|spider|slurp|bingpreview|facebookexternalhit| monitoring|preview|headless|phantom|wget|curl|python-requests|httpx|Go-http|java\/|okhttp|axios\/|scraping|semrush|ahrefs|majestic|dotbot|petalbot|bytespider|pinterest|discord|slack|telegram|whatsapp|embedly|quora|linkpreview/i;
+const json = (data, status, headers = CORS_COLLECT) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...headers },
+  });
 
-function isBot(ua) {
-  return !ua || BOT_RE.test(ua) || ua.length < 10;
-}
+const noContent = () => new Response(null, {
+  status: 204,
+  headers: { ...CORS_COLLECT, "Cache-Control": "no-store" },
+});
 
-/* ---------- 来源识别 ---------- */
-const SEARCH_ENGINES = [
-  [/google\./, "Google"], [/bing\.com/, "Bing"], [/baidu\.com/, "百度"],
-  [/sogou\.com/, "搜狗"], [/so\.com/, "360搜索"], [/sm\.cn/, "神马"],
-  [/duckduckgo\./, "DuckDuckGo"], [/yandex\./, "Yandex"], [/search\.brave/, "Brave"],
-];
-const SOCIAL = [
-  [/twitter\.com|x\.com/, "Twitter/X"], [/facebook\.com/, "Facebook"],
-  [/weibo\.com|weibo\.cn/, "微博"], [/zhihu\.com/, "知乎"],
-  [/bilibili\.com/, "Bilibili"], [/douban\.com/, "豆瓣"],
-  [/reddit\.com/, "Reddit"], [/v2ex\.com/, "V2EX"],
-  [/juejin\.cn/, "掘金"], [/csdn\.net/, "CSDN"],
-  [/github\.com/, "GitHub"], [/t\.cn/, "微博短链"],
-];
-const referrerSource = (r) => {
-  if (!r) return "";
+function allowedOrigin(origin) {
+  if (!origin) return true; // 同源 sendBeacon / 隐私模式下可能不带
   try {
-    const host = new URL(r.startsWith("http") ? r : "https://" + r).hostname.replace(/^www\./, "");
-    for (const [re, name] of SEARCH_ENGINES) if (re.test(host)) return "搜索: " + name;
-    for (const [re, name] of SOCIAL) if (re.test(host)) return "社交: " + name;
-    return host;
-  } catch (_) { return ""; }
-};
-
-/* ---------- 浏览器/设备解析 ---------- */
-function parseUA(ua) {
-  if (!ua) return { browser: "未知", os: "未知", device: "桌面" };
-  let browser = "其他";
-  if (/Edg\//.test(ua)) browser = "Edge";
-  else if (/OPR\/|Opera/.test(ua)) browser = "Opera";
-  else if (/Firefox\//.test(ua)) browser = "Firefox";
-  else if (/Chrome\//.test(ua) && !/Edg/.test(ua)) browser = "Chrome";
-  else if (/Safari\//.test(ua) && !/Chrome/.test(ua)) browser = "Safari";
-  else if (/MSIE|Trident/.test(ua)) browser = "IE";
-
-  let os = "其他";
-  if (/Windows/.test(ua)) os = "Windows";
-  else if (/Mac OS X/.test(ua)) os = "macOS";
-  else if (/Android/.test(ua)) os = "Android";
-  else if (/iPhone|iPad|iPod/.test(ua)) os = "iOS";
-  else if (/Linux/.test(ua) && !/Android/.test(ua)) os = "Linux";
-
-  const device = /Mobile|Android.*Mobile|iPhone|iPod/.test(ua) ? "移动端"
-    : /iPad|Tablet/.test(ua) ? "平板" : "桌面";
-
-  return { browser, os, device };
+    const u = new URL(origin);
+    const host = u.hostname.replace(/^www\./, "");
+    if (u.protocol !== "https:" && u.protocol !== "http:") return false;
+    return host === SITE_HOST || host.endsWith(".netlify.app");
+  } catch (_) { return false; }
 }
 
-/* ---------- 会话 ID ---------- */
-function sessionID(vid, body) {
-  // 30 分钟窗口会话：同一 vid + 30 分钟内 = 同会话
-  return (body.s || "").slice(0, 40) || vid + ":" + Math.floor(Date.now() / 1800000);
+function geoOf(context) {
+  try {
+    const g = (context && context.geo) || {};
+    return {
+      country: safeStr((g.country && (g.country.name || g.country.code)) || "", 60),
+      region: safeStr((g.subdivision && (g.subdivision.name || g.subdivision.code)) || "", 60),
+      city: safeStr(g.city || "", 60),
+    };
+  } catch (_) { return { country: "", region: "", city: "" }; }
 }
 
-/* ============================================================
-   POST /api/collect — 采集匿名浏览事件
-   ============================================================ */
 export const config = { path: "/api/collect" };
 
-export default async function handler(req) {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
-  if (req.method !== "POST") return json({ ok: false, error: "method" }, 405, CORS);
-
-  const site = SITE_URL;
-  const origin = req.headers.get("origin") || "";
-  if (origin && !origin.startsWith(site)) return json({ ok: false, error: "forbidden" }, 403, CORS);
+export default async function handler(req, context) {
+  if (req.method === "OPTIONS") return noContent();
+  if (req.method !== "POST") return json({ ok: false, error: "method" }, 405);
+  if (!allowedOrigin(req.headers.get("origin"))) return json({ ok: false, error: "forbidden" }, 403);
 
   let body;
-  try { body = await req.json(); } catch (_) { return json({ ok: false }, 400, CORS); }
+  try { body = await req.json(); }
+  catch (_) { return json({ ok: false, error: "bad json" }, 400); }
 
-  // 路径校验
-  const p = String(body.p || "/").slice(0, 300);
-  if (!p.startsWith("/") || /^\/(admin|api|\.netlify|analytics)\b/.test(p)) return new Response(null, { status: 204, headers: CORS });
+  const kind = safeStr(body.e || "pv", 12);
+  const vid = safeStr(body.v || "", 64);
+  const eid = safeStr(body.eid || "", 80);
+  if (!validVid(vid) || !validEid(eid)) return noContent();
 
-  // 爬虫过滤
-  const ua = String(body.ua || "").slice(0, 300);
-  if (isBot(ua)) return new Response(null, { status: 204, headers: CORS });
-
-  // 匿名访客 ID
-  const vid = String(body.v || "").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 64);
-  if (!vid) return new Response(null, { status: 204, headers: CORS });
-
-  // 来源解析
-  const rawRef = String(body.r || "").slice(0, 500);
-  const ref = referrerSource(rawRef);
-
-  // 设备解析
-  const dev = parseUA(ua);
-
-  // 会话
-  const s = sessionID(vid, body);
-
+  const store = getStore({ name: "zui-analytics", consistency: "strong" });
   const now = Date.now();
-  const day = new Date(now).toISOString().slice(0, 10);
-  const hour = new Date(now).getUTCHours();
+  const z = zoned(now);
+
+  /* ---------- 停留心跳 / 离开：只更新该次浏览的 dwell 记录 ---------- */
+  if (kind === "dwell" || kind === "leave") {
+    const date = safeStr(body.dt || z.date, 10);
+    if (!validDateKey(date)) return noContent();
+    const dwell = Math.max(0, Math.min(86400, Math.round(Number(body.d) || 0)));
+    try {
+      await store.setJSON(dwellKey(date, eid), {
+        eid, v: shortHash(vid), d: dwell, t: now, final: kind === "leave",
+      });
+      return noContent();
+    } catch (e) {
+      console.error("[collect] dwell write error:", e.message);
+      return json({ ok: false, error: "storage" }, 500);
+    }
+  }
+
+  if (kind !== "pv") return noContent();
+
+  /* ---------- 页面浏览 ---------- */
+  const p = safePath(body.p || "/");
+  if (!p || /^\/(admin|api|\.netlify|analytics|fcircle)(\/|$)/i.test(p)) return noContent();
+
+  const ua = safeStr(body.ua || "", 400);
+  if (isBot(ua)) return noContent();
+
+  const dev = parseUA(ua);
+  const rawRef = safeStr(body.r || "", 500);
+  const ref = classifyReferrer(rawRef, SITE_HOST);
+  const fullUrl = safeStr(body.u || "", 500);
+  const utm = parseCampaign(fullUrl || p);
+  const screen = safeStr(body.screen || (Number(body.w) + "x" + Number(body.h)), 24);
 
   const event = {
-    t: Math.floor(now / 1000),
+    schema: SCHEMA,
+    e: "pv",
+    eid,
+    t: now,                    // 毫秒，旧格式是秒，stats 会做兼容
     v: vid,
-    s,
-    p: p.slice(0, 200),
-    ref: ref || "",
-    refRaw: rawRef ? rawRef.slice(0, 200) : "",
+    p,
+    title: safeStr(body.t || "", 120),
+    r: rawRef ? rawRef.slice(0, 200) : "",
+    refCategory: ref.category,
+    refName: ref.source,
+    refDomain: ref.domain,
+    keyword: ref.keyword,
+    utm,
     br: dev.browser,
     os: dev.os,
     dv: dev.device,
-    w: parseInt(body.w, 10) || 0,
-    h: parseInt(body.h, 10) || 0,
-    ct: String(body.ct || "").slice(0, 10), // country 留空，可后续接 GeoIP
-    hr: hour,
+    geo: geoOf(context),
+    screen,
+    lang: safeStr(body.lang || "", 24),
+    date: z.date,              // 北京时间
+    hour: z.hour,              // 北京时间小时
+    tz: TZ_NAME,
   };
 
-  // 写入 Netlify Blobs
   try {
-    const store = getStore({ name: "zui-analytics", consistency: "strong" });
-    const monthKey = `raw/${day.slice(0, 7)}.ndjson`;
+    // onlyIfNew：同一个 eid 重复上报不会覆盖，也不会重复计数
+    const res = await store.setJSON(eventKey(event.date, eid), event, { onlyIfNew: true });
+    if (res && res.modified === false) return noContent(); // 幂等重复
 
-    // 追加：先读现有内容再整体写入（Netlify Blobs 无原生 append，数据量小可接受）
-    let existing = "";
+    // 访客首次出现日期编码在 key 里：stats 用一次 list 即可判定新老访客，
+    // 不需要逐条 get，也不会存原始 vid 之外的任何身份信息。
     try {
-      existing = (await store.get(monthKey)) || "";
-    } catch (_) { /* key 不存在 */ }
-    const content = existing ? existing.replace(/\n$/, "") + "\n" + JSON.stringify(event) + "\n" : JSON.stringify(event) + "\n";
-    await store.set(monthKey, content);
+      await store.setJSON(`visitors/${event.date}/${shortHash(vid)}`, { first: event.date }, { onlyIfNew: true });
+    } catch (_) { /* 首次访问标记失败不影响本次浏览统计 */ }
 
-    // 实时在线标记（30 分钟窗口）
-    await store.setJSON(`online/${Math.floor(now / 60000)}`, { t: now, v: vid }, { metadata: null });
-
-    return new Response(null, { status: 204, headers: CORS });
+    // 回传服务端认定的北京时间日期，前端心跳据此写 dwell 键，避免跨午夜错配
+    return json({ ok: true, date: event.date, eid: eid }, 200);
   } catch (e) {
-    console.error("[collect] blob write error:", e.message);
-    return json({ ok: false, error: "storage" }, 500, CORS);
+    console.error("[collect] event write error:", e.message);
+    return json({ ok: false, error: "storage" }, 500);
   }
 }

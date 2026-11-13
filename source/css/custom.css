@@ -1006,23 +1006,36 @@ html[data-user-color-scheme="dark"] #updated-time {
 #stats-root { margin: 0.5rem 0 1rem; }
 .zui-stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.8rem;
   margin-bottom: 1.4rem;
 }
 .zui-stat-card {
   background: linear-gradient(135deg, rgba(83, 72, 200, 0.1), rgba(165, 147, 224, 0.08));
   border: 1px solid rgba(141, 123, 224, 0.25);
   border-radius: 14px;
-  padding: 1.1rem 0.6rem;
+  padding: 0.9rem 0.6rem;
   text-align: center;
+  position: relative;
+  min-width: 0;
 }
 .zui-stat-card b {
   display: block;
-  font-size: 1.7rem;
+  font-size: 1.5rem;
+  line-height: 1.25;
+  word-break: break-all;
   color: var(--zui-primary);
   font-family: var(--zui-font-display);
 }
+.zui-stat-kpi-sub {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.74em;
+  font-style: normal;
+  color: var(--sec-text-color);
+}
+.zui-stat-up { color: #16a34a !important; }
+.zui-stat-down { color: #d97706 !important; }
 .zui-stat-card span { font-size: 0.85em; color: var(--sec-text-color); }
 /* 柱状图：序列永远补齐到完整天数／24 小时，避免只剩几根细条 */
 .zui-bars {
@@ -1108,13 +1121,87 @@ html[data-user-color-scheme="dark"] #updated-time {
 .zui-stat-row a { color: var(--text-color); }
 .zui-stat-row a:hover { color: var(--zui-primary); }
 .zui-stat-row b { color: var(--zui-primary); flex-shrink: 0; }
-.zui-stat-foot { color: var(--sec-text-color); font-size: 0.85em; margin-top: 0.8rem; }
+.zui-stat-foot { color: var(--sec-text-color); font-size: 0.85em; margin-top: 0.8rem; line-height: 1.7; }
 .markdown-body h3 { font-family: var(--font-family-base, inherit); margin-top: 1.8rem; }
+
+/* ---------- v6：数据健康条 / 环比 / 来源占比 / 实时表 / 指标口径 ---------- */
+.zui-stat-health {
+  border: 1px solid rgba(141, 123, 224, 0.25);
+  border-radius: 14px;
+  padding: 0.9rem 1.1rem;
+  margin: 0 0 1.3rem;
+  background: rgba(141, 123, 224, 0.05);
+}
+.zui-stat-health.ok { border-color: rgba(34, 168, 116, 0.38); background: rgba(34, 168, 116, 0.06); }
+.zui-stat-health.warn { border-color: rgba(214, 158, 46, 0.45); background: rgba(214, 158, 46, 0.07); }
+.zui-stat-health.empty { border-color: var(--line-color); background: transparent; }
+.zui-stat-health-head { display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+.zui-stat-dot { width: 9px; height: 9px; border-radius: 50%; background: #22a874; flex: 0 0 auto; }
+.zui-stat-health.warn .zui-stat-dot { background: #d69e2e; }
+.zui-stat-health.empty .zui-stat-dot { background: #9aa0b5; }
+.zui-stat-health-hint { color: var(--sec-text-color); font-size: 0.8em; margin-left: auto; }
+.zui-stat-health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 0.6rem 1rem;
+}
+.zui-stat-health-item { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.zui-stat-health-item span { color: var(--sec-text-color); font-size: 0.78em; }
+.zui-stat-health-item b { font-size: 0.92em; font-weight: 600; word-break: break-all; }
+.zui-stat-health-warn {
+  margin-top: 0.75rem; padding-top: 0.65rem;
+  border-top: 1px dashed var(--line-color);
+  color: #b7791f; font-size: 0.84em; line-height: 1.7;
+}
+html[data-user-color-scheme="dark"] .zui-stat-health-warn { color: #e2b565; }
+.zui-stat-empty {
+  padding: 0.8rem 1rem; border-left: 3px solid var(--zui-primary);
+  background: rgba(141, 123, 224, 0.06); border-radius: 0 10px 10px 0;
+  color: var(--sec-text-color); font-size: 0.9em;
+}
+.zui-stat-panel-note { font-size: 0.75em; font-weight: 400; color: var(--sec-text-color); margin-left: 0.4rem; }
+.zui-stat-row-extra { color: var(--sec-text-color); margin-left: auto; font-size: 0.82em; }
+.zui-stat-bar-row {
+  display: grid;
+  grid-template-columns: minmax(70px, 110px) 1fr auto;
+  align-items: center; gap: 0.7rem;
+  padding: 0.35rem 0; font-size: 0.9em;
+}
+.zui-stat-track { height: 8px; border-radius: 6px; background: rgba(141, 123, 224, 0.14); overflow: hidden; }
+.zui-stat-track i { display: block; height: 100%; border-radius: 6px; background: var(--zui-grad); }
+.zui-stat-bar-row b { color: var(--zui-primary); font-size: 0.9em; white-space: nowrap; }
+.zui-stat-bar-row b small { color: var(--sec-text-color); font-weight: 400; }
+.zui-stat-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.zui-stat-table { width: 100%; border-collapse: collapse; font-size: 0.86em; min-width: 520px; }
+.zui-stat-table th, .zui-stat-table td {
+  text-align: left; padding: 0.45rem 0.6rem;
+  border-bottom: 1px dashed var(--line-color); white-space: nowrap;
+}
+.zui-stat-table th { color: var(--sec-text-color); font-weight: 500; }
+.zui-stat-table td:first-child { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.zui-stat-table a { color: var(--text-color); }
+.zui-stat-table a:hover { color: var(--zui-primary); }
+.zui-stat-defs {
+  margin: 1.2rem 0; border: 1px solid var(--line-color);
+  border-radius: 12px; padding: 0.8rem 1rem;
+}
+.zui-stat-defs summary { cursor: pointer; font-weight: 600; }
+.zui-stat-defs dl {
+  display: grid; grid-template-columns: minmax(100px, 160px) 1fr;
+  gap: 0.4rem 0.9rem; margin: 0.9rem 0 0; font-size: 0.86em;
+}
+.zui-stat-defs dt { color: var(--zui-primary); font-weight: 600; }
+.zui-stat-defs dd { margin: 0; color: var(--sec-text-color); line-height: 1.6; }
+
 @media (max-width: 768px) {
   .zui-stats-grid { grid-template-columns: repeat(2, 1fr); }
   .zui-stat-panels { grid-template-columns: 1fr; }
   .zui-stat-panel--wide { grid-column: auto; }
   .zui-bars { height: 110px; }
+  .zui-stat-health-hint { margin-left: 0; width: 100%; }
+  .zui-stat-defs dl { grid-template-columns: 1fr; gap: 0.15rem; }
+  .zui-stat-defs dd { margin-bottom: 0.5rem; }
+  .zui-stat-bar-row { grid-template-columns: minmax(64px, 90px) 1fr auto; }
 }
 
 /* ============================================================

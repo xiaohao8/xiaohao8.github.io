@@ -2,10 +2,10 @@
 
 import {
   ic, esc, el, toast, loading, store, safeHttpUrl,
-} from "../app.js?v=4.2.0";
-import { NetlifyAPI } from "../netlify.js?v=4.2.0";
-import { setMediaConfig, mediaFallbackUrls } from "../github.js?v=4.2.0";
-import { loadYaml, dumpYaml } from "../yaml.js?v=4.2.0";
+} from "../app.js?v=4.3.0";
+import { NetlifyAPI } from "../netlify.js?v=4.3.0";
+import { setMediaConfig, mediaFallbackUrls } from "../github.js?v=4.3.0";
+import { loadYaml, dumpYaml } from "../yaml.js?v=4.3.0";
 
 const SITE_META_PATH = "source/_data/site_meta.yml";
 const FLUID_PATH = "source/_data/fluid_config.yml";
@@ -596,10 +596,11 @@ export default async function settings(view, ctx, params, handleErr) {
   const anCard = el(`<div class="card settings-section">
       <div class="card-header">${ic("eye")}<h2>访问统计</h2><div class="sub">采集开关 / 排除路径 / 统计天数</div></div>
       <div class="hint" style="margin-bottom:.9rem">
-        统计完全自托管：前台 <code>/api/collect</code> 上报、<code>/api/stats</code> 实时聚合（Netlify Blobs），
-        无 Cookie、不记录 IP、不存原始 UA。这里的配置写入
+        统计完全自托管（v6）：前台 <code>/api/collect</code> 上报、<code>/api/stats</code> 实时聚合（Netlify Blobs），
+        每条浏览事件独立写入并原子去重，并发不会再互相覆盖；会话按 30 分钟空闲在服务端重建，
+        时间统一按北京时间。无 Cookie 追踪、不记录 IP、不存原始 UA。配置写入
         <code>source/analytics/config.json</code>，构建后成为 <code>/analytics/config.json</code>。
-        <b>保存后需等 Netlify 重新部署，前台才会读到新配置</b>；数据本身不在仓库里。
+        <b>保存后需等 Netlify 重新部署，前台才会读到新配置</b>；统计数据本身不在仓库里。
       </div>
       <div class="grid-2" style="gap:1rem">
         <div class="field" style="margin:0"><label>访问采集</label>
@@ -612,6 +613,10 @@ export default async function settings(view, ctx, params, handleErr) {
         <div class="field" style="margin:0"><label>前台统计天数</label>
           <input class="input" id="an-days" type="number" min="7" max="90" value="30" />
           <div class="hint">7–90，决定图表横轴长度和接口查询区间</div>
+        </div>
+        <div class="field" style="margin:0"><label>停留心跳间隔（秒）</label>
+          <input class="input" id="an-beat" type="number" min="15" max="300" value="60" />
+          <div class="hint">15–300，页面可见时定时上报停留；越短越准，请求越多</div>
         </div>
       </div>
       <div class="field" style="margin-top:.8rem"><label>排除路径（每行一个前缀）</label>
@@ -636,7 +641,12 @@ export default async function settings(view, ctx, params, handleErr) {
           <li><b>数据在哪</b>：事件存放在 Netlify Blobs（<code>zui-analytics</code> 存储），
             由 <code>netlify/functions/collect.mjs</code> 与 <code>stats.mjs</code> 读写，仓库里看不到明细。</li>
           <li><b>查看</b>：后台侧栏「访问统计」与前台 <code>/stats/</code> 读的是同一个接口，
-            只是两套界面。</li>
+            只是两套界面。后台多一个「强制重算」按钮，可绕过 60 秒聚合缓存。</li>
+          <li><b>数据可信度</b>：页面顶部健康条分别显示「数据截至」（最后一条采集事件的北京时间）、
+            「本次计算」（聚合执行时间）、是否命中缓存、数据覆盖天数、扫描事件数、停留覆盖率。
+            这些都不是页面打开时间；没有数据时会明确显示「尚无采集数据」，不会伪装成刚更新。</li>
+          <li><b>停留时长</b>：由页面可见心跳累计，只对有心跳数据的会话求平均；
+            旧版历史数据没有心跳，健康条里的「停留覆盖」偏低属于正常，等新数据积累后会上升。</li>
         </ol>
       </details>
     </div>`);
@@ -648,6 +658,8 @@ export default async function settings(view, ctx, params, handleErr) {
     anCard.querySelector("#an-enabled").value = c.enabled === false ? "false" : "true";
     const d = Number(c.days);
     anCard.querySelector("#an-days").value = d >= 7 && d <= 90 ? d : 30;
+    const beat = Number(c.heartbeatSeconds);
+    anCard.querySelector("#an-beat").value = beat >= 15 && beat <= 300 ? beat : 60;
     anCard.querySelector("#an-excludes").value = Array.isArray(c.excludePaths)
       ? c.excludePaths.join("\n") : ["/admin", "/stats"].join("\n");
     anStatus.textContent = "配置文件已读取 · 采集" + (c.enabled === false ? "暂停" : "开启");
@@ -658,7 +670,7 @@ export default async function settings(view, ctx, params, handleErr) {
     catch (e) { anStatus.textContent = "配置文件不是合法 JSON：" + e.message; }
   }).catch((e) => {
     if (e && e.status === 404) {
-      applyAn({ enabled: true, days: 30, excludePaths: ["/admin", "/stats"] });
+      applyAn({ enabled: true, days: 30, heartbeatSeconds: 60, excludePaths: ["/admin", "/stats"] });
       anStatus.textContent += "（仓库暂无配置文件，保存时新建）";
     } else {
       anStatus.textContent = "配置读取失败：" + (e && e.message);
@@ -680,6 +692,11 @@ export default async function settings(view, ctx, params, handleErr) {
       toast("统计天数需为 7–90", "error");
       return;
     }
+    const beat = parseInt(anCard.querySelector("#an-beat").value, 10);
+    if (!(beat >= 15 && beat <= 300)) {
+      toast("心跳间隔需为 15–300 秒", "error");
+      return;
+    }
     const excludes = anCard.querySelector("#an-excludes").value
       .split("\n").map((s) => s.trim()).filter(Boolean)
       .map((s) => s.charAt(0) === "/" ? s : "/" + s.replace(/^\/+/, ""));
@@ -693,6 +710,7 @@ export default async function settings(view, ctx, params, handleErr) {
       if (raw) { try { fresh = JSON.parse(raw) || {}; } catch (_) { fresh = {}; } }
       fresh.enabled = anCard.querySelector("#an-enabled").value === "true";
       fresh.days = days;
+      fresh.heartbeatSeconds = beat;
       fresh.excludePaths = excludes;
       fresh.note = "由后台「设置 → 访问统计」维护；改动写入仓库后需 Netlify 重新部署才会在前台生效";
       await ctx.api.writeFile(ANALYTICS_PATH, JSON.stringify(fresh, null, 2) + "\n", "Update Analytics Config by Qexo");
