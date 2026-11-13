@@ -11,7 +11,7 @@ const PAGE_CACHE = "zui-pages-" + VERSION;
 const ASSET_CACHE = "zui-assets-" + VERSION;
 const ALL_CACHES = [PAGE_CACHE, ASSET_CACHE];
 
-const SKIP = [/\/admin\//, /busuanzi\.ibruce\.info/, /open-kounter\.mintimate\.cn/, /sw\.js$/];
+const SKIP = [/\/admin\//, /\/api\//, /busuanzi\.ibruce\.info/, /open-kounter\.mintimate\.cn/, /sw\.js$/];
 const STATIC_RE = /\.(css|js|mjs|png|jpe?g|webp|svg|gif|ico|avif|woff2?|ttf|eot|otf)(\?|$)/i;
 
 self.addEventListener("install", (event) => {
