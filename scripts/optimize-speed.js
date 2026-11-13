@@ -179,19 +179,6 @@ hexo.extend.filter.register("after_render:html", async function (html) {
     );
   }
   out = bannerPreload(out);
-  out = giteeImages(out);
   return out;
 });
 
-/* ---------- 5. Gitee 镜像加速：站内图片改走国内 raw 源 ----------
-   src 改为 Gitee raw（国内快），onerror 回退源站。
-   Gitee 镜像由 GitHub 同步，同步延迟期间 fallback 保底。 */
-const GITEE_IMG_BASE = "https://gitee.com/xiaohao3/xiaohao8.github.io/raw/main";
-const IMG_UPLOADS_RE = /src="(\/images\/uploads\/[^"]+\.(?:png|jpe?g|webp|svg|gif|avif))"/g;
-function giteeImages(html) {
-  return html.replace(IMG_UPLOADS_RE, function (m, path) {
-    const gitee = GITEE_IMG_BASE + path;
-    const fallback = "this.onerror=null;this.src='" + path + "'";
-    return 'src="' + gitee + '" onerror="' + fallback + '"';
-  });
-}
