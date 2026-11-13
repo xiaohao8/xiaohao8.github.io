@@ -125,10 +125,16 @@ function tag(block, name) {
 
 function dayOf(s) {
   if (!s) return "";
-  const direct = String(s).match(/\d{4}-\d{2}-\d{2}/);
-  if (direct) return direct[0];
-  const d = new Date(s);
-  if (isNaN(d.getTime())) return "";
+  const raw = String(s).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  // 有时间但没时区：按作者的本地时间取原文日期（不能交给 Date，Actions 跑在 UTC）
+  const noTz = raw.match(/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2})?)?$/);
+  if (noTz) return raw.slice(0, 10);
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) {
+    const any = raw.match(/\d{4}-\d{2}-\d{2}/);
+    return any ? any[0] : "";
+  }
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit",
   }).formatToParts(d);

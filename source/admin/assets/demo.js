@@ -178,6 +178,11 @@ export class DemoAPI {
     return lines.join("\n");
   }
 
+  async req(path, opts) {
+    // demo 模式不发起真实请求，返回合理的空响应
+    return { ok: true, status: 200, headers: new Map(), json: async () => ({ workflow_runs: [] }), text: async () => '' };
+  }
+
   async validate() {
     return { login: "demo", name: "演示用户", avatar: "", repoUrl: "#", private: false };
   }
@@ -251,7 +256,7 @@ export class DemoAPI {
 
   async readPost(path) {
     const text = await this.readFile(path);
-    const { splitFrontMatter } = await import("./yaml.js?v=4.4.2");
+    const { splitFrontMatter } = await import("./yaml.js?v=4.4.3");
     return splitFrontMatter(text);
   }
 

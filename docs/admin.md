@@ -1,5 +1,14 @@
 # 后台使用与维护（Qexo 风格 · Netlify 版）
 
+> v4.4.3：朋友圈改成**每分钟更新**。GitHub Actions 的 `schedule` 最小间隔是 5 分钟、
+> 高峰还会延迟或跳过，做不到 1 分钟，所以新增 Netlify 定时函数 `fcircle-tick`
+> （cron `* * * * *`）做「增量探测 + 合并」，结果写 Netlify Blobs，页面读 `GET /api/fcircle`；
+> GitHub Actions 退化为每天一次的全量基线任务。函数单次只有 30 秒，因此用
+> 「已知 feed 直连 + ETag 条件请求（常态 304）+ 总预算 20 秒 + 死站指数退避」控制开销；
+> 空转的分钟只写约 6 KB 状态，不重写文章 JSON。后台设置页新增「实时层状态」与
+> 「基线运行记录」两块，`/api/fcircle?debug=1` 可直接看最近一轮探测摘要。
+> 数据三层兜底：Blobs 实时层 → 静态 `/fcircle/moments.json` → 页面骨架。
+
 > v4.4.2：修「加载巨慢」。根因不是统计接口，而是**页面体积**：旧版把 83 KB 未压缩 CSS
 > 逐页内联、首页再内联 74 KB banner base64，HTML 最高 197 KB，且每翻一页都要重新下载
 > （实测 Netlify 到国内仅 2–8 KB/s）。现在 CSS 改成带内容 hash 的外链 + 永久缓存、
@@ -239,30 +248,46 @@ Vditor 的 Markdown 引擎 `lute.min.js` 压缩后约 700KB，从 Netlify（Clou
 - **预连接**：`custom_head` 注入了 baomitu / alicdn 的 preconnect 与
   busuanzi / gitee 的 dns-prefetch，降低首次请求延迟。
 
-## 朋友圈自动更新（v4.1.6，GitHub Actions）
+## 朋友圈自动更新（v4.4.3 · 每分钟实时层 + 每日基线）
 
 后台「设置 → 朋友圈自动更新」是唯一操作入口，**本机不需要跑任何刷新命令**。
 
-- **工作机制**：`.github/workflows/fcircle-refresh.yml` 每周一 09:00（北京时间）
-  在 GitHub 云端读取 `source/_data/fluid_config.yml` 的友情链接，抓取各站
-  Atom/RSS，去重后**只有抓到新文章才写入** `source/fcircle/moments.json`，自动提交并推送；
-  push 触发 Netlify 部署。没有新文章时不覆盖数据文件、不产生空提交。
-  页面始终只读静态 JSON，运行时零外部请求。
+从 v4.4.3 起分成两层，两者都全自动、都不需要你的电脑开机：
+
+| | 谁来跑 | 多久一次 | 写到哪里 | 作用 |
+| --- | --- | --- | --- | --- |
+| 实时层 | Netlify 定时函数 `fcircle-tick` | **每分钟** | Netlify Blobs | 页面读 `/api/fcircle` 立刻看到新文章 |
+| 基线层 | GitHub Actions `fcircle-refresh.yml` | 每天 09:00 | 仓库里的 `source/fcircle/moments.json` | 全量对齐 + 留一份数据在仓库，Blobs 被清空也能恢复 |
+
+> 为什么实时层不放 GitHub Actions：Actions 的 `schedule` 最小间隔是 5 分钟，
+> 官方明确不支持 1 分钟，而且高峰期还会延迟或跳过，做不到「每分钟」。
+
+- **页面怎么取数**：先请求 `/api/fcircle`（实时层），失败自动回落到
+  `/fcircle/moments.json`（静态快照）。两者结构完全一致，任何一边挂了页面都不会空。
+  页脚「更新于」只在新文章入库时变，「检查于」是最近一次真正跑完探测的时间。
 - **配置项**（`source/_data/fcircle.yml`，后台可直接编辑）：
-  - `enabled`：`false` 只暂停每周定时任务，手动触发不受影响。
+  - `enabled`：`false` 只暂停每日基线任务，实时层与手动触发不受影响。
   - `per_link`：每个友链每次最多取几篇（1–20，默认 5）。
-- **立即刷新**：后台点「立即刷新」，或 GitHub → Actions → 朋友圈数据刷新 →
-  Run workflow。前者调用 `workflow_dispatch` API，要求登录 Token 具备
-  **Actions 写入权限**；若 Token 只有 Contents 权限、或后台 API 走 gh-proxy
-  镜像，请直接用 GitHub 页面手动运行。
-- **改定时频率**：编辑 workflow 里的 `cron`（UTC，北京时间 = UTC+8）后提交。
-- **新增友链**：改完 `fluid_config.yml` 无需额外操作，下次任务自动抓取。
-- **查看结果与日志**：Actions 运行记录里有成功/失败站点清单；数据在
-  `source/fcircle/moments.json`，已知 feed 地址缓存在
-  `.github/scripts/fcircle-feeds.json`。只有抓到新文章或发现新 feed 地址才会提交，
-  否则日志显示「数据无变化，跳过提交」。
+- **降负载 / 改频率**：不用改代码，在 Netlify → Site settings → Environment variables 里设
+  - `FCIRCLE_INTERVAL_SEC`：全局间隔秒数，默认 60；改成 180 就是 3 分钟一轮
+  - `FCIRCLE_SITE_INTERVAL_SEC`：单个站点最小探测间隔，默认 60
+  - `FCIRCLE_MAX_PER_TICK` / `FCIRCLE_CONCURRENCY` / `FCIRCLE_TIMEOUT_MS` / `FCIRCLE_BUDGET_MS`
+  改完重新部署生效。**想彻底停掉实时层**：删掉 `netlify.toml` 里
+  `[functions."fcircle-tick"]` 的 `schedule` 行并重新部署，页面会自动回到静态快照。
+- **立即刷新**：后台点「立即刷新」触发的是**每日基线任务**（GitHub Actions），
+  约 1–2 分钟后点「运行状态」看结果；实时层不需要手动触发，下一分钟自己就会跑。
+- **验证实时层是否在工作**：
+  1. 浏览器打开 `https://202271.xyz/api/fcircle?debug=1`，
+     `ok: true` 且 `lastRun` 在一分钟内 = 正常；
+  2. `sweep.active` 是当前能抓到 feed 的站点数（39 条友链里通常 13 个左右）；
+  3. `failingSites` 是正在退避的站点数，偶尔为 0 也正常。
+- **新增友链**：改完 `fluid_config.yml` 部署一次即可，实时层与基线层都会自动包含它
+  （构建期由 `scripts/fcircle-links.js` 导出成 `/fcircle/links.json` 给函数用）。
+- **查看结果与日志**：Netlify → Functions → `fcircle-tick` → Logs 有每轮
+  `{due, ok304, okNew, added, ms}` 摘要；Actions 运行记录里有成功/失败站点清单。
 - **注意**：39 个友链里通常只有约 13 个能抓到 feed，其余多为站点关停或
-  网络不可达；抓不到不影响已有文章，最坏情况是本次没有新增。
+  网络不可达；抓不到不影响已有文章，实时层会让失败站点自动退避（最长 30 分钟一次），
+  不会因为它们把每分钟的额度耗光。
 
 ## 访问统计（v4.3.0 · 数据引擎 v6）
 

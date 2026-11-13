@@ -2,8 +2,8 @@
 
 import {
   ic, esc, el, toast, loading, confirmDialog, modal, safeHttpUrl, safeImgUrl,
-} from "../app.js?v=4.4.2";
-import { loadYaml, dumpYaml } from "../yaml.js?v=4.4.2";
+} from "../app.js?v=4.4.3";
+import { loadYaml, dumpYaml } from "../yaml.js?v=4.4.3";
 
 const CONFIG_PATH = "source/_data/fluid_config.yml";
 

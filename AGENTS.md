@@ -48,7 +48,7 @@
   （`.github/workflows/fcircle-refresh.yml`），这与 GitHub Pages 是两回事；
   只是别再建任何 Pages 部署 workflow。
 - Hexo 8.1.2 + fluid 主题已 vendor 进 `themes/fluid`（不再用子模块）。
-- `source/admin/` 是纯 ESM 后台 SPA（当前 v4.4.2），**无构建步骤**：hexo-all-minifier 的 uglify 会跳过 ES 模块，原样拷贝即正确，不要引入打包器。
+- `source/admin/` 是纯 ESM 后台 SPA（当前 v4.4.3），**无构建步骤**：hexo-all-minifier 的 uglify 会跳过 ES 模块，原样拷贝即正确，不要引入打包器。
   动态路由 import 由 `app.js` 的 `VERSION` 带 `?v=`；**所有**模块间的静态 import 也都带同一个硬编码版本号
   （`/admin/assets/*` 是 `max-age=600 + SWR`，不带版本会拿到旧模块；带与不带版本又会加载两份实例、
   让 `setMediaConfig` 只改到其中一份）。升级 `VERSION` 时必须把 `source/admin/` 下全部 `?v=` 引用
@@ -144,10 +144,11 @@
   article_data:[{floor,title,link,author,avatar,created,updated}]}`。
   入库基线 167 篇（停在旧后端最后更新 2024-06-27）；云端任务抓取后会累积增长，
   线上已到 226 篇 / 39 友链 / 13 活跃。
-- 页面运行时**零外部请求**：`source/fcircle/app.js` 只 `fetch("/fcircle/moments.json")`，
+- 页面运行时**只读本站**：`source/fcircle/app.js` 先 `fetch("/api/fcircle")`（实时层），
+  失败再 `fetch("/fcircle/moments.json")`（静态兜底），两处同源、结构一致，都没有第三方请求。
   排序（created / updated）、分页（每页 24）、随机钓鱼全在本地完成。
   `netlify.toml` 不给 `/fcircle/` 配任何 proxy；`/fcircle/moments.json` 保持
-  `max-age=0, must-revalidate`。
+  `max-age=0, must-revalidate`，`/fcircle/links.json` 为 60 秒。
 - `github.com/xiaohao8/pyq` 后端仓库已删除（GitHub API 404），`/all` 端点虽仍
   返回旧数据但随时会断，**不要再作为数据源**。
 - 刷新脚本 `.github/scripts/fcircle-refresh.mjs`：从 `source/_data/fluid_config.yml`
@@ -156,13 +157,20 @@
   `--concurrency` / `--max-total` / `--limit`。
   **只由 GitHub Actions 调用**：用户明确要求删掉本机刷新，
   本机与 Netlify 构建期都不跑它，也不要放回 `tools/`。
-- **自动化全在云端（勿回退到本机定时任务或构建期抓取）**：
-  `.github/workflows/fcircle-refresh.yml` 每周一 01:00 UTC（北京 09:00）
-  定时 + `workflow_dispatch` 手动触发；检出仓库 → 装 `js-yaml` →
-  读 `source/_data/fcircle.yml` → 跑脚本 `--write` → 有变化才 commit + push。
-  `permissions: contents: write` 用 Actions 自带 `GITHUB_TOKEN`；
-  push 触发 Netlify 部署。`netlify.toml` 的 command 保持纯 `npm run build`。
-  workflow 没有 `push` 触发，不会自循环；已删除 WorkBuddy 每周自动刷新任务。
+- **自动化全在云端（勿回退到本机定时任务或构建期抓取）**，且分两层：
+  - **实时层（v4.4.3，每分钟）**：`netlify/functions/fcircle-tick.mjs` 是 Netlify
+    Scheduled Function，`netlify.toml` 的 `[functions."fcircle-tick"] schedule = "* * * * *"`。
+    每轮只探测「到期」的站点，增量合并进 Netlify Blobs（`fcircle/moments.json`），
+    由 `netlify/functions/fcircle.mjs`（`GET /api/fcircle`）对外提供。
+    **GitHub Actions 的 schedule 最小间隔是 5 分钟，官方不支持 1 分钟**，
+    这是把高频层放到 Netlify 的唯一原因，别把 cron 改回 5 分钟以上当成实时层。
+  - **基线层（每天）**：`.github/workflows/fcircle-refresh.yml` 每天 01:00 UTC
+    （北京 09:00）+ `workflow_dispatch`；检出仓库 → 装 `js-yaml` →
+    读 `source/_data/fcircle.yml` → 跑脚本 `--write` → 有变化才 commit + push。
+    `permissions: contents: write` 用 Actions 自带 `GITHUB_TOKEN`；push 触发 Netlify 部署。
+    作用是「全量对齐 + 把数据留一份在仓库里」，Blobs 被清空时也能立刻恢复。
+  - `netlify.toml` 的 command 保持纯 `npm run build`（构建期不抓取）。
+    workflow 没有 `push` 触发，不会自循环；已删除 WorkBuddy 每周自动刷新任务。
 - 后台「设置 → 朋友圈自动更新」（v4.1.9）可编辑 `source/_data/fcircle.yml`
   的 `enabled`（总开关，只管定时任务；手动触发不受影响）与 `per_link`（1–20），
   显示当前数据状态，提供「立即刷新」（`POST /actions/workflows/.../dispatches`，
@@ -253,3 +261,34 @@
 - 动态内容一律 `textContent` / `createElement`，URL 只允许 `http(s)://`；
   头像必须带 `onerror` 内联 SVG 兜底。
 - 旧的 `hexo-friendcircle-demo`（`fetch.js` / `fcircle.js` / `akilar-SAO.css`）不要恢复。
+
+## 朋友圈实时层 v4.4.3（每分钟，勿回退）
+
+- 文件分工（别合并成一个函数）：
+  - `netlify/lib/fcircle.mjs`：解析 / 合并 / 探测 feed 的纯函数，无 Blobs 依赖，可离线测。
+  - `netlify/functions/fcircle-tick.mjs`：Scheduled Function，`* * * * *`，写 Blobs。
+  - `netlify/functions/fcircle.mjs`：`GET /api/fcircle` 只读端点，`max-age=30` + SWR。
+  - `scripts/fcircle-links.js`：构建期把 `source/_data/fluid_config.yml` 的友链
+    导出成 `/fcircle/links.json`，让函数与友链页共用同一份名单
+    （函数包只带 `netlify/`，读不到 `source/`）。
+- **30 秒硬上限是这一层的设计前提**：Netlify Scheduled Function 单次执行 30 秒。
+  所以 tick 里必须有：① 已知 feed 直连（不再盲试 4 个候选路径）；
+  ② `If-None-Match` / `If-Modified-Since` 条件请求，正常情况是 304；
+  ③ `FCIRCLE_BUDGET_MS`（默认 20s）总预算，到点即收工并保留已抓结果；
+  ④ 失败站点按 2 的幂退避到最长 30 分钟。**删掉任何一条都会在友链多的时候超时**。
+- 降负载只改环境变量，不动 cron：`FCIRCLE_INTERVAL_SEC`（全局，默认 60）、
+  `FCIRCLE_SITE_INTERVAL_SEC`（单站，默认 60）、`FCIRCLE_MAX_PER_TICK`（默认 40）、
+  `FCIRCLE_CONCURRENCY`（12）、`FCIRCLE_TIMEOUT_MS`（4000）、`FCIRCLE_BUDGET_MS`（20000）。
+- 费用量级：1440 次/天、约 40k 次/月调用。空转的一分钟只写 ~6KB 状态文件，
+  文章 blob 只在有新文章时才重写（`last_checked_time` / `active_num` 在
+  `/api/fcircle` 读状态时合并），**不要为了刷新时间戳每分钟重写整份 JSON**。
+- 数据三层，任何一层挂掉页面都有数据：Blobs 实时层 → 静态 `/fcircle/moments.json`
+  → 页面自身骨架。Blobs 为空时 `/api/fcircle` 直接 302 到静态基线。
+- 排障入口：`GET /api/fcircle?debug=1` 返回最近一轮的 `lastRun` / `lastRunMs` /
+  `sweep` / `counters` / `failingSites`（只有数量和时间，没有链接明细）。
+- 改这一层之前先跑两个离线探针（都不联网、不碰真实 Blobs，FAIL 不要发布）：
+  - `NODE_OPTIONS= node tools/fcircle-probe.mjs`：解析 / 去重 / 条件请求 304；
+  - `NODE_OPTIONS= node tools/fcircle-tick-sim.mjs`：用内存 Blobs 把 tick 跑四轮，
+    断言「首次播种并新增」「间隔闸门拦住重复调用」「304 不重写文章 blob」
+    「死站只累加 fails」「实时层缺失时 302 回落」。
+- 别把 `fcircle-tick` 改成由 Actions 或本机调用：那等于回到 5 分钟 / 需要开机的老路。

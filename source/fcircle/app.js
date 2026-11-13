@@ -1,13 +1,18 @@
 /* ============================================================
-   醉里博客 · 朋友圈（本地数据版）
+   醉里博客 · 朋友圈（本地数据 + 云端每分钟刷新）
 
-   数据源只有一个：本站静态文件 /fcircle/moments.json
-   （source/fcircle/moments.json 入库，来自本站友情链接的朋友圈数据）。
-   运行时不请求任何第三方接口，也没有反代 / CORS 问题。
+   两个数据源，同一份结构，拿不到就自动降级：
+   1. /api/fcircle —— Netlify 函数读 Blobs 实时层，由 fcircle-tick 每分钟
+      探测友链 RSS 增量合并（GitHub Actions 的 cron 最小 5 分钟，做不到 1 分钟）。
+   2. /fcircle/moments.json —— 随仓库入库的静态快照，实时层还没建立或函数
+      异常时的兜底，任何情况下页面都不会空着。
+
+   仍然不请求任何第三方聚合接口：抓取发生在服务端定时任务里，浏览器只读本站。
    排序、分页、随机文章全部在本地完成。
 
    字段（hexo-circle-of-friends /all 原始格式）：
-     statistical_data: friends_num / active_num / error_num / article_num / last_updated_time
+     statistical_data: friends_num / active_num / error_num / article_num
+                       last_updated_time（有新文章才变）/ last_checked_time（最近一次探测）
      article_data[]:   floor / title / link / author / avatar / created / updated
 
    全部原生 JS、ES5 语法（js_minifier 开启且 mangle），
@@ -17,7 +22,8 @@
   "use strict";
 
   var CFG = {
-    dataUrl: "/fcircle/moments.json",
+    // 顺序即优先级：实时层失败自动落到静态快照
+    dataUrls: ["/api/fcircle", "/fcircle/moments.json"],
     pageSize: 24,
     defaultAvatar: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="#8899aa"/><text x="32" y="42" font-size="28" text-anchor="middle" fill="#fff" font-family="sans-serif">友</text></svg>'
@@ -29,7 +35,8 @@
     shown: CFG.pageSize,
     stats: null,
     sort: "created",
-    loaded: false
+    loaded: false,
+    live: false
   };
 
   /* ---------- 基础工具 ---------- */
@@ -83,15 +90,23 @@
   }
 
   function load() {
-    return fetch(CFG.dataUrl).then(function (res) {
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return res.json();
-    }).then(function (payload) {
-      if (!payload || !Array.isArray(payload.article_data)) {
-        throw new Error("数据结构不符合预期");
-      }
-      return payload;
-    });
+    var urls = CFG.dataUrls;
+    var i = 0;
+    function step() {
+      if (i >= urls.length) return Promise.reject(new Error("实时接口与本地快照都不可用"));
+      var url = urls[i++];
+      return fetch(url).then(function (res) {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.json();
+      }).then(function (payload) {
+        if (!payload || !Array.isArray(payload.article_data)) {
+          throw new Error("数据结构不符合预期");
+        }
+        payload.fcLive = (url === urls[0]);
+        return payload;
+      }).catch(function () { return step(); });
+    }
+    return step();
   }
 
   /* ---------- 骨架 ---------- */
@@ -174,7 +189,9 @@
       box.appendChild(el("span", "fc-info-value", items[i][1] === undefined ? "-" : items[i][1]));
       foot.appendChild(box);
     }
-    foot.appendChild(el("span", "fc-update", "更新于：" + (s.last_updated_time || "-")));
+    foot.appendChild(el("span", "fc-update",
+      "更新于：" + (s.last_updated_time || "-") +
+      (s.last_checked_time ? "　检查于：" + s.last_checked_time : "")));
   }
 
   function updateMore() {
@@ -200,7 +217,8 @@
     renderFoot();
     updateMore();
     var s = state.stats || {};
-    setSource("本地数据 · 共 " + state.all.length + " 篇 · 更新于 " + (s.last_updated_time || "-"));
+    setSource((state.live ? "实时数据 · 云端每分钟同步" : "本地快照 · 实时接口暂不可用") +
+      " · 共 " + state.all.length + " 篇 · 更新于 " + (s.last_updated_time || "-"));
   }
 
   function setSource(text) {
@@ -277,6 +295,7 @@
     load().then(function (payload) {
       state.all = payload.article_data.slice();
       state.stats = payload.statistical_data || {};
+      state.live = !!payload.fcLive;
       state.shown = CFG.pageSize;
       state.loaded = true;
       sortRows();

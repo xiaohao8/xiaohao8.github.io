@@ -2,14 +2,14 @@
 
 import {
   ic, esc, el, toast, loading, confirmDialog,
-} from "../app.js?v=4.4.2";
+} from "../app.js?v=4.4.3";
 import {
   splitFrontMatter, buildFrontMatter, toInputDate, fromInputDate,
   nowLocal, extractExcerpt,
-} from "../yaml.js?v=4.4.2";
-import { ensureVditorLib, getVditorBase } from "./editor-shared.js?v=4.4.2";
-import { uploadImage, runUploadQueue } from "../upload.js?v=4.4.2";
-import { invalidatePostsCache, setPostOverride } from "./posts.js?v=4.4.2";
+} from "../yaml.js?v=4.4.3";
+import { ensureVditorLib, getVditorBase } from "./editor-shared.js?v=4.4.3";
+import { uploadImage, runUploadQueue } from "../upload.js?v=4.4.3";
+import { invalidatePostsCache, setPostOverride } from "./posts.js?v=4.4.3";
 
 export default async function editor(view, ctx, params, handleErr) {
   const isPage = location.hash.startsWith("#/editpage");

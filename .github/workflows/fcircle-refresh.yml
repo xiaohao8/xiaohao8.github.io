@@ -1,12 +1,16 @@
 name: 朋友圈数据刷新
 
-# 云端定时刷新朋友圈：从 source/_data/fluid_config.yml 的友链抓 Atom/RSS，
-# 与 source/fcircle/moments.json 去重后增量合并，提交回仓库并触发 Netlify 部署。
+# 分工（v4.4.3 起）：
+#   实时层——Netlify Scheduled Function fcircle-tick 每分钟探测一次，写 Netlify Blobs，
+#           页面读 /api/fcircle；GitHub Actions 的 cron 最小间隔是 5 分钟，做不到 1 分钟。
+#   基线层——本 workflow 每天跑一次完整抓取，把结果提交回 source/fcircle/moments.json，
+#           作用是「全量对齐 + 把数据留一份在仓库里」，即使 Blobs 被清空也能立刻恢复。
 # 本机不跑任何刷新任务；Netlify 构建期也不抓，只复制静态 JSON。
 on:
   schedule:
-    # 每周一 01:00 UTC = 北京时间 09:00
-    - cron: "0 1 * * 1"
+    # 每天 01:00 UTC = 北京时间 09:00。
+    # 频率不用调高：分钟级更新已经交给 Netlify 的定时函数，这里只做每日全量对齐。
+    - cron: "0 1 * * *"
   workflow_dispatch:
     inputs:
       reason:
