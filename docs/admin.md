@@ -1,5 +1,13 @@
 # 后台使用与维护（Qexo 风格 · Netlify 版）
 
+> v4.4.1：排除 Netlify 自身的机器流量。采集端在写数据之前统一拦截
+> `*.netlify.app` / `netlify.com` 的部署预览与后台跳转、Netlify 构建/健康检查服务、
+> 监控、无头浏览器与脚本客户端（curl / Go-http-client / UptimeRobot 等），
+> pv / dwell / leave 全部静默丢弃，不计入任何指标。判定只看来源域名与明确机器 UA，
+> 不按 IP 段或云厂商猜，避免误杀走代理的真实访客；正常浏览器访问不受影响。
+> 健康条新增「机器流量：已过滤 N 类」，`health.machineFilter.labels` 列出完整规则。
+> 过滤只影响新采集，**历史数据不回改**。
+
 > v4.4.0：访客地区改成「省 市 运营商」（如 `湖北 孝感 联通`）。用 Netlify 提供的
 > `context.ip` 查仓库自带的离线 IPv4 归属库 `netlify/data/ip2region_v4.xdb`，
 > 不请求任何第三方 IP 接口；事件里**只保存解析后的标签，不保存原始 IP**。
@@ -312,3 +320,6 @@ v5.5 的「读整月 NDJSON → 追加一行 → 覆盖写回」已废弃：Blob
 - **地区只显示国家、没有运营商**：多为 IPv6 访问或 IP 库未加载。健康条会显示
   「IP 归属库：本地库可用 / 降级兜底」；若长期降级，检查
   `netlify.toml` 的 `included_files = ["netlify/data/*.xdb"]` 是否还在。
+- **在 Netlify 预览域名访问却没有统计**：属预期，部署预览 / 分支预览、
+  Netlify 后台跳转和内部抓取已在采集端被排除，只统计正式域名。
+  健康条「机器流量」会显示已过滤的规则数。

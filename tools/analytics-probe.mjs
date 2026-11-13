@@ -14,6 +14,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const libUrl = pathToFileURL(path.join(ROOT, "netlify/lib/analytics.mjs")).href;
+// machine-filter.mjs 是纯 JS（只依赖 analytics.mjs），可以直接用真实模块跑断言
+const filterUrl = pathToFileURL(path.join(ROOT, "netlify/lib/machine-filter.mjs")).href;
 
 /* geoip.mjs 依赖 11MB 二进制库，探针里换成固定结果的 mock；
    格式化函数 formatGeoParts 仍用真实模块单独断言。 */
@@ -34,7 +36,9 @@ function moduleUrl(file) {
   src = src.replace('import { getStore } from "@netlify/blobs";', "const getStore = () => globalThis.__STORE__;");
   src = src.replace('from "../lib/analytics.mjs";', `from ${JSON.stringify(libUrl)};`);
   src = src.replace('from "../lib/geoip.mjs";', `from ${JSON.stringify(mockGeoUrl)};`);
-  if (src.includes("@netlify/blobs") || src.includes("../lib/analytics.mjs") || src.includes("../lib/geoip.mjs")) {
+  src = src.replace('from "../lib/machine-filter.mjs";', `from ${JSON.stringify(filterUrl)};`);
+  if (src.includes("@netlify/blobs") || src.includes("../lib/analytics.mjs") ||
+      src.includes("../lib/geoip.mjs") || src.includes("../lib/machine-filter.mjs")) {
     throw new Error("import rewrite failed for " + file);
   }
   return "data:text/javascript;base64," + Buffer.from(src).toString("base64");
@@ -184,6 +188,39 @@ r = await collect(req("https://202271.xyz/api/collect", { e: "pv", v: v1, eid: "
 check("collect: /admin 路径被排除", r.status === 204, r.status);
 r = await stats(req("https://202271.xyz/api/stats", null, { Origin: "https://evil.example" }));
 check("stats: GET 不受 Origin 限制", r.status === 200, r.status);
+
+/* 8. Netlify 机器流量过滤：拦得准，也别误杀正常访客 */
+const C = "https://202271.xyz/api/collect";
+r = await collect(req(C, pv("machine-visitor-a", "event-machine-01", "/", {
+  u: "https://deploy-preview-12--zuili.netlify.app/",
+})), {});
+check("filter: netlify.app 部署预览被排除", r.status === 204, r.status);
+
+r = await collect(req(C, pv("machine-visitor-b", "event-machine-02", "/"), {
+  Origin: "https://preview--zuili.netlify.app",
+}), {});
+check("filter: Origin 落在 netlify.app 被排除", r.status === 204, r.status);
+
+r = await collect(req(C, pv("machine-visitor-c", "event-machine-03", "/", {
+  r: "https://zuili.netlify.app/",
+})), {});
+check("filter: 来自 Netlify 域名的跳转被排除", r.status === 204, r.status);
+
+r = await collect(req(C, pv("machine-visitor-d", "event-machine-04", "/", {
+  ua: "Netlify Build Bot/1.0",
+})), {});
+check("filter: UA 含 Netlify 被排除", r.status === 204, r.status);
+
+r = await collect(req(C, { v: v1, eid: e1, e: "dwell", d: 10, dt: z.date,
+  ua: "Go-http-client/1.1", u: "https://202271.xyz/" }), {});
+check("filter: 健康检查 UA 的 dwell 心跳也被排除", r.status === 204, r.status);
+
+r = await collect(req(C, pv("real-visitor-z", "event-real-099", "/about/", { ua: UA })), {});
+check("filter: 正常访客不被误杀", r.status === 200, r.status);
+const evKeys = [...memory.keys()].filter((k) => k.startsWith("ev/"));
+check("filter: 被拦截请求没有写入任何事件", evKeys.length === 4, evKeys.length);
+check("health: 机器流量过滤状态可见", d.health.machineFilter &&
+  d.health.machineFilter.enabled === true && d.health.machineFilter.rules === 3, d.health.machineFilter);
 
 console.log("\nTOTALS " + JSON.stringify(d.totals));
 console.log("FAILURES=" + failures);

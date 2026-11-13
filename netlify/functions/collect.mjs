@@ -18,6 +18,7 @@ import {
   eventKey, dwellKey, shortHash,
 } from "../lib/analytics.mjs";
 import { resolveGeo } from "../lib/geoip.mjs";
+import { netlifyMachine } from "../lib/machine-filter.mjs";
 
 const SITE_URL = (process.env.SITE_URL || "https://202271.xyz").replace(/\/$/, "");
 const SITE_HOST = (() => { try { return new URL(SITE_URL).hostname.replace(/^www\./, ""); } catch (_) { return "202271.xyz"; } })();
@@ -74,6 +75,16 @@ export default async function handler(req, context) {
   const vid = safeStr(body.v || "", 64);
   const eid = safeStr(body.eid || "", 80);
   if (!validVid(vid) || !validEid(eid)) return noContent();
+
+  /* Netlify 部署预览 / 后台跳转 / 健康检查 / 内部脚本：所有事件类型统一静默丢弃。
+     放在写 Blobs 之前，pv / dwell / leave 都不会留下任何记录。 */
+  const machine = netlifyMachine({
+    ua: body.ua,
+    url: body.u,
+    referrer: body.r,
+    origin: req.headers.get("origin") || "",
+  });
+  if (machine.blocked) return noContent();
 
   const store = getStore({ name: "zui-analytics", consistency: "strong" });
   const now = Date.now();

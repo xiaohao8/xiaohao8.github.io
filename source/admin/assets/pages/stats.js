@@ -2,7 +2,7 @@
    与前台 /stats/ 读同一个 GET /api/stats，但额外提供「强制重算」绕过聚合缓存。
    采集开关 / 排除路径 / 统计天数在「设置 → 访问统计」写入仓库。 */
 
-import { ic, esc, el, toast } from "../app.js?v=4.4.0";
+import { ic, esc, el, toast } from "../app.js?v=4.4.1";
 
 const DAYS = 30;
 const API = "/api/stats?days=" + DAYS;
@@ -104,6 +104,7 @@ function healthHtml(d) {
     ["扫描事件", n(h.eventsScanned)],
     ["停留覆盖", `${h.dwellCoverage || 0}%`],
     ["IP 归属库", h.geoip && h.geoip.available ? "本地库可用" : "降级兜底"],
+    ["机器流量", h.machineFilter && h.machineFilter.enabled ? "已过滤 " + (h.machineFilter.rules || 0) + " 类" : "未启用"],
     ["引擎", "v" + esc(m.schema || "6.0")],
   ];
   const warns = (h.warnings || []).length

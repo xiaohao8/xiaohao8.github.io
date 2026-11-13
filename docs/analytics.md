@@ -25,7 +25,7 @@
   └─ leave 离开 / pagehide（sendBeacon 兜底）
         │
         ▼  POST /api/collect
-   Netlify Function：来源校验 · 爬虫过滤 · UA/来源/UTM 解析
+   Netlify Function：来源校验 · 爬虫 / Netlify 机器流量过滤 · UA/来源/UTM 解析
                     · context.ip → 本地 ip2region 库（省 市 运营商）
         │
         ├─ ev/<北京时间日期>/<eid>        ← onlyIfNew，一条浏览一个 key
@@ -87,6 +87,22 @@ Netlify 边缘 `context.geo` 对国内 IP 常常只给到 `China`，也没有运
 > IPv4 库约 11 MB，靠 `netlify.toml` 的 `included_files = ["netlify/data/*.xdb"]`
 > 随函数部署；运行时懒加载单例，冷启动只读一次，之后都是内存二分查找。
 
+## Netlify 机器流量过滤（v6.2）
+
+`netlify/lib/machine-filter.mjs` 在**写 Blobs 之前**，对 pv / dwell / leave
+全部事件类型统一判断；命中就静默返回 204，不写任何记录、不计入任何指标：
+
+| 规则 | 拦截对象 |
+| --- | --- |
+| `*.netlify.app` / `netlify.com` 来源 | 部署预览、分支预览、Netlify 后台跳转（即使用正常浏览器 UA 访问也算） |
+| UA 含 `Netlify` / `deploy-preview` | 构建、部署、预览服务与内部抓取 |
+| 健康检查 / 监控 / 无头浏览器 / 脚本客户端 | curl、Go-http-client、UptimeRobot、Lighthouse、Playwright 等 |
+
+判定只看**来源域名与明确的机器 UA**，不按 IP 段或云厂商 ISP 猜，避免误杀走代理、
+VPN 或云主机的真实访客。过滤只影响新采集，**历史数据不回改**；健康条的
+「机器流量」显示规则数，`health.machineFilter.labels` 与口径文本给出完整清单。
+`tools/analytics-probe.mjs` 同时断言「拦截生效」与「正常访客不被误杀」。
+
 ## 数据可信度展示
 
 前台与后台顶部都有健康条，分别列出：
@@ -122,6 +138,7 @@ Netlify 边缘 `context.geo` 对国内 IP 常常只给到 `China`，也没有运
 | --- | --- |
 | `netlify/lib/analytics.mjs` | 共用库：北京时间、UA / 来源 / UTM 解析、地区清洗、指标口径文本 |
 | `netlify/lib/geoip.mjs` | 本地 IP 归属解析（`context.ip` → 省 市 运营商，懒加载单例，降级到边缘 geo） |
+| `netlify/lib/machine-filter.mjs` | Netlify 预览 / 健康检查 / 脚本请求的采集端过滤规则 |
 | `netlify/data/ip2region_v4.xdb` | 离线 IPv4 归属库（约 11 MB，Apache-2.0 / MIT），由 `included_files` 随函数部署 |
 | `netlify/functions/collect.mjs` | 采集端点（append-only 写入、幂等去重） |
 | `netlify/functions/stats.mjs` | 聚合端点 v6（完整 meta / 健康度 / 60 秒缓存） |
@@ -140,6 +157,8 @@ Netlify 边缘 `context.geo` 对国内 IP 常常只给到 `China`，也没有运
   「IP 归属库」是否为「本地库可用」以及 `health.geoip.error`；
   升级 xdb 后确认 `included_files` 仍包含 `netlify/data/*.xdb`。
 - **数字看起来偏小**：先看健康条的「数据截至」与「数据覆盖」。若 `truncated=true`，缩小统计天数。
+- **Netlify 预览域名上看不到统计**：属预期。部署预览 / 分支预览的请求在采集端被静默丢弃，
+  只统计正式域名的访问；健康条「机器流量」显示已启用的规则数。
 - **改了采集脚本但没生效**：`source/js/custom.js` 被合进 `fluid-bundle.js`，其 `?v=` 由内容 hash 自动生成，构建后即换 URL；必要时强刷一次。
 - **想绕过缓存**：后台点「强制重算」，或直接请求 `/api/stats?days=30&fresh=1`。
 - **改了统计口径怕回归**：跑 `NODE_OPTIONS= node tools/analytics-probe.mjs`。它用内存 mock

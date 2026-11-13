@@ -516,6 +516,7 @@
         ["扫描事件", thousands(h.eventsScanned)],
         ["停留覆盖", (h.dwellCoverage || 0) + "%"],
         ["IP 归属库", h.geoip && h.geoip.available ? "本地库可用" : "降级兜底"],
+        ["机器流量", h.machineFilter && h.machineFilter.enabled ? "已过滤 " + (h.machineFilter.rules || 0) + " 类" : "未启用"],
         ["引擎", "v" + esc(m.schema || "6.0")],
       ];
       var grid = items.map(function (it) {

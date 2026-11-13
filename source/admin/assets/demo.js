@@ -251,7 +251,7 @@ export class DemoAPI {
 
   async readPost(path) {
     const text = await this.readFile(path);
-    const { splitFrontMatter } = await import("./yaml.js?v=4.4.0");
+    const { splitFrontMatter } = await import("./yaml.js?v=4.4.1");
     return splitFrontMatter(text);
   }
 

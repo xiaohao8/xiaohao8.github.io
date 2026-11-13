@@ -48,7 +48,7 @@
   （`.github/workflows/fcircle-refresh.yml`），这与 GitHub Pages 是两回事；
   只是别再建任何 Pages 部署 workflow。
 - Hexo 8.1.2 + fluid 主题已 vendor 进 `themes/fluid`（不再用子模块）。
-- `source/admin/` 是纯 ESM 后台 SPA（当前 v4.4.0），**无构建步骤**：hexo-all-minifier 的 uglify 会跳过 ES 模块，原样拷贝即正确，不要引入打包器。
+- `source/admin/` 是纯 ESM 后台 SPA（当前 v4.4.1），**无构建步骤**：hexo-all-minifier 的 uglify 会跳过 ES 模块，原样拷贝即正确，不要引入打包器。
   动态路由 import 由 `app.js` 的 `VERSION` 带 `?v=`；**所有**模块间的静态 import 也都带同一个硬编码版本号
   （`/admin/assets/*` 是 `max-age=600 + SWR`，不带版本会拿到旧模块；带与不带版本又会加载两份实例、
   让 `setMediaConfig` 只改到其中一份）。升级 `VERSION` 时必须把 `source/admin/` 下全部 `?v=` 引用
@@ -203,6 +203,13 @@
   `netlify.toml` 的 `[functions].included_files = ["netlify/data/*.xdb"]` 必须保留，
   否则线上函数找不到库；`health.geoip.available` 显示库是否随函数部署（诊断只查文件存在，不加载 11MB）。
   自定义 `database` 与 `families` 互斥，构造 `IP2Region` 时不要同时传。
+- **Netlify 机器流量过滤**：`netlify/lib/machine-filter.mjs` 按「来源域名 + UA」拦截
+  `*.netlify.app` / `netlify.com` 的部署预览与后台跳转，以及 Netlify 构建服务、
+  健康检查、监控、无头浏览器、脚本客户端。`collect.mjs` 必须在**写 Blobs 之前**、
+  对 **pv / dwell / leave 所有事件类型**调用，命中静默返回 204。
+  规则只按域名与明确机器 UA 判断，**不要按 IP 段 / 云厂商 ISP 猜**（会误杀代理访客）。
+  过滤只影响新采集，历史数据不回改；`health.machineFilter` 下发规则清单供排障。
+  `tools/analytics-probe.mjs` 必须同时断言「拦截生效」与「正常访客不被误杀」。
 - 已删除：空转的 `.github/workflows/analytics.yml`（每 6h 推只改时间戳的空提交、
   制造推送冲突）、`tools/aggregate-analytics.mjs`、`netlify/functions/archive.mjs`、
   `analytics/stats.json`、`source/analytics/stats.json`。**不要恢复**。

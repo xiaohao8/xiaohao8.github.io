@@ -21,6 +21,7 @@ import {
   dwellKey, legacyKey, cacheKey, mapLimit, shortHash, safeStr, shortProvince,
 } from "../lib/analytics.mjs";
 import { geoDiagnostics } from "../lib/geoip.mjs";
+import { MACHINE_FILTER_RULES } from "../lib/machine-filter.mjs";
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
   status,
@@ -525,6 +526,11 @@ export default async function handler(req) {
     dwellCoverage: payload.totals.dwellCoverage,
     truncated: h.truncated,
     geoip: geoDiagnostics(),
+    machineFilter: {
+      enabled: true,
+      rules: MACHINE_FILTER_RULES.length,
+      labels: MACHINE_FILTER_RULES,
+    },
     warnings,
   };
 
