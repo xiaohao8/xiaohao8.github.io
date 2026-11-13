@@ -1,4 +1,6 @@
 name: 朋友圈数据刷新
+# 改 cron 后如果长时间看不到 schedule 运行，重新提交一次本文件可促使 GitHub
+# 重新登记定时计划（调度器按仓库批量索引，偶尔会滞后很久）。
 
 # 朋友圈唯一的采集通道（v4.4.4 起）：
 #   每 5 分钟抓一次友链 Atom/RSS，有新文章才提交回 source/fcircle/moments.json，
