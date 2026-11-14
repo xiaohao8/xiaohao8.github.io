@@ -6,7 +6,7 @@
    - /admin/、访问统计脚本一律直连，不缓存
    版本号改动 = 全量换缓存
    ============================================================ */
-const VERSION = "v1.0.0";
+const VERSION = "v1.1.0";
 const PAGE_CACHE = "zui-pages-" + VERSION;
 const ASSET_CACHE = "zui-assets-" + VERSION;
 const ALL_CACHES = [PAGE_CACHE, ASSET_CACHE];
@@ -38,16 +38,35 @@ async function staleWhileRevalidate(req, cacheName) {
 
 async function networkFirst(req, cacheName) {
   const cache = await caches.open(cacheName);
+  /* 网络优先但绝不无限等：弱网 TCP 停滞时 fetch 会挂起几分钟，
+     导航就白屏死等（实测 210s+）。8s 拿不到响应立即回退缓存。 */
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
   try {
-    const res = await fetch(req);
+    const res = await fetch(req, { signal: ctrl.signal });
+    clearTimeout(timer);
     if (res && res.ok) cache.put(req, res.clone());
     return res;
   } catch (_) {
+    clearTimeout(timer);
     const hit = await cache.match(req, { ignoreSearch: false });
     if (hit) return hit;
     // 页面彻底离线且无缓存：回退到缓存的首页
     const home = await cache.match("/");
-    return home || Response.error();
+    if (home) return home;
+    /* 无任何缓存且超时：最后再给一次 20s 的机会（首次访问+慢网，HTML 体积小），
+       仍失败则交还浏览器默认错误页，可手动刷新重试。 */
+    const ctrl2 = new AbortController();
+    const timer2 = setTimeout(() => ctrl2.abort(), 20000);
+    try {
+      const res2 = await fetch(req, { signal: ctrl2.signal });
+      clearTimeout(timer2);
+      if (res2 && res2.ok) cache.put(req, res2.clone());
+      return res2;
+    } catch (_) {
+      clearTimeout(timer2);
+      return Response.error();
+    }
   }
 }
 
