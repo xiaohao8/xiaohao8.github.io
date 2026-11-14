@@ -796,3 +796,148 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   .card { padding: 1rem 1rem; }
   .fm-row-2 { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   v4.5 后台打磨——交互反馈 / 视觉层次 / 微动效
+   ============================================================ */
+
+/* 侧栏导航：active 指示条 */
+.nav-item .nav-link2 { position: relative; }
+.nav-item .nav-link2.active::before {
+  content: "";
+  position: absolute;
+  left: -13px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  border-radius: 2px;
+  background: var(--zui-grad, linear-gradient(135deg, #5348c8, #9a7ff0));
+}
+
+/* 侧栏 hover 微移 */
+.nav-item .nav-link2:hover { padding-left: 0.1rem; }
+
+/* 工作台统计卡：hover 浮起 + 数字放大 */
+.stat-card {
+  transition: transform 0.2s var(--zui-ease, ease), box-shadow 0.2s ease;
+}
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(30, 25, 70, 0.1);
+}
+.stat-card .num {
+  transition: font-size 0.15s ease;
+}
+.stat-card:hover .num { font-size: 1.75rem; }
+
+/* 表格行 hover：左侧强调条 */
+.table-wrap .tbl tbody tr {
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+.table-wrap .tbl tbody tr:hover {
+  background: rgba(141, 123, 224, 0.04);
+  box-shadow: inset 3px 0 0 var(--zui-primary-2, #8b7cf0);
+}
+
+/* 表格操作按钮：hover 时依次出现（桌面） */
+@media (min-width: 768px) {
+  .tbl .cell-actions .icon-btn {
+    opacity: 0.35;
+    transition: opacity 0.2s ease, background-color 0.15s ease, transform 0.15s ease;
+  }
+  .tbl tr:hover .cell-actions .icon-btn { opacity: 1; }
+  .tbl .cell-actions .icon-btn:hover { transform: scale(1.15); }
+}
+
+/* 卡片入场动画（页面切换时） */
+#view > .card,
+#view > .stat-grid,
+#view > .grid-2,
+#view > .grid-editor,
+#view > .toolbar {
+  animation: cardIn 0.3s ease both;
+}
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+#view > .stat-grid { animation-delay: 0.05s; }
+#view > .grid-2 > .card:nth-child(2) { animation-delay: 0.08s; }
+
+/* 按钮：按下微缩 */
+.btn:active { transform: scale(0.97); }
+
+/* 输入框：focus 时 border 变粗 */
+.input:focus {
+  border-width: 1.5px;
+  padding-left: calc(0.75rem - 0.5px);
+}
+.input-icon .input:focus { padding-left: calc(2.35rem - 0.5px); }
+
+/* Toast 入场从右侧滑入 */
+.toast {
+  animation: toastIn 0.3s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+@keyframes toastIn {
+  from { transform: translateX(30px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* 徽章 hover */
+.badge { transition: transform 0.15s ease, opacity 0.15s ease; }
+.badge:hover { transform: scale(1.05); }
+
+/* 搜索框：focus 时放大 */
+.search-box .input:focus {
+  box-shadow: 0 0 0 3px rgba(109, 95, 224, 0.12), 0 2px 8px rgba(30, 25, 70, 0.06);
+}
+
+/* 空状态：图标弹跳 */
+.empty .ic {
+  animation: emptyBounce 2.4s ease infinite;
+}
+@keyframes emptyBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(141, 123, 224, 0.25);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(141, 123, 224, 0.5); }
+
+/* 链接 transition */
+a { transition: color 0.15s ease, opacity 0.15s ease; }
+
+/* 折叠面板动画 */
+.collapse.show { animation: collapseIn 0.2s ease; }
+@keyframes collapseIn {
+  from { opacity: 0; max-height: 0; }
+  to { opacity: 1; }
+}
+
+/* 骨架屏 */
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f5 25%, #e8e8f0 50%, #f0f0f5 75%);
+  background-size: 200% 100%;
+  animation: skeleton 1.5s ease infinite;
+  border-radius: 6px;
+}
+@keyframes skeleton {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* 减少动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
