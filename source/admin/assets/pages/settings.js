@@ -2,10 +2,10 @@
 
 import {
   ic, esc, el, toast, loading, store, safeHttpUrl,
-} from "../app.js?v=4.4.6";
-import { NetlifyAPI } from "../netlify.js?v=4.4.6";
-import { setMediaConfig, mediaFallbackUrls } from "../github.js?v=4.4.6";
-import { loadYaml, dumpYaml } from "../yaml.js?v=4.4.6";
+} from "../app.js?v=4.4.7";
+import { NetlifyAPI } from "../netlify.js?v=4.4.7";
+import { setMediaConfig, mediaFallbackUrls } from "../github.js?v=4.4.7";
+import { loadYaml, dumpYaml } from "../yaml.js?v=4.4.7";
 
 const SITE_META_PATH = "source/_data/site_meta.yml";
 const FLUID_PATH = "source/_data/fluid_config.yml";
@@ -472,7 +472,7 @@ export default async function settings(view, ctx, params, handleErr) {
         <b>每 5 分钟</b>抓一次各站 Atom/RSS，<b>只有抓到新文章才</b>写入
         <code>source/fcircle/moments.json</code> 并提交，提交触发 Netlify 部署，页面随即可见。<br>
         5 分钟是 Actions 定时任务的<b>硬下限</b>：官方不支持更短，再快就得在 Netlify 侧跑
-        每分钟的定时函数（1440 次/天的调用与运行时，纯浪费），v4.4.6 已把那条路删掉。<br>
+        每分钟的定时函数（1440 次/天的调用与运行时，纯浪费），v4.4.7 已把那条路删掉。<br>
         没有新文章时不写文件、不产生空提交；浏览器只读本站静态 JSON，不请求任何第三方接口。
       </div>
       <div class="grid-2" style="gap:1rem">
@@ -509,7 +509,7 @@ export default async function settings(view, ctx, params, handleErr) {
             想省额度可改成 <code>*/15 * * * *</code> 或 <code>0 * * * *</code>。</li>
           <li><b>为什么不在 Netlify 侧每分钟跑</b>：那需要定时函数每分钟触发一次去探 39 个友链，
             一天 1440 次调用、每次几秒运行时，换来的还是「几分钟后才看得到」的同一份数据，
-            不划算；v4.4.6 已移除 <code>fcircle-tick</code> 与 <code>/api/fcircle</code>，
+            不划算；v4.4.7 已移除 <code>fcircle-tick</code> 与 <code>/api/fcircle</code>，
             页面回到只读静态 JSON。</li>
           <li><b>立即刷新</b>：点上方「立即刷新」，或到 GitHub → Actions → 朋友圈数据刷新 →
             Run workflow。前者要求登录 Token 具备 <b>Actions 写入权限</b>；权限不足或后台

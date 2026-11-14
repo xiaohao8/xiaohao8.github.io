@@ -2,7 +2,7 @@
    与前台 /stats/ 读同一个 GET /api/stats，但额外提供「强制重算」绕过聚合缓存。
    采集开关 / 排除路径 / 统计天数在「设置 → 访问统计」写入仓库。 */
 
-import { ic, esc, el, toast } from "../app.js?v=4.4.6";
+import { ic, esc, el, toast } from "../app.js?v=4.4.7";
 
 const DAYS = 30;
 const API = "/api/stats?days=" + DAYS;
@@ -172,6 +172,10 @@ export default async function stats(view, ctx, params, handleErr) {
       metricCard(n(t.online), "当前在线", defs.online),
       metricCard(n(t.newVisitors), "新访客", defs.newVisitors),
       metricCard(n(t.returningVisitors), "老访客", defs.returningVisitors),
+      /* 旧格式存档（raw/）里的访客没有首见记录，无法判新老；新+老+无法判定 = UV */
+      ...(Number(t.unknownVisitors) > 0
+        ? [metricCard(n(t.unknownVisitors), "新老无法判定", "旧格式存档中的访客无首见记录，不计入新老对比")]
+        : []),
     ].join("");
 
     const pageRows = (d.pages || []).slice(0, 12);
