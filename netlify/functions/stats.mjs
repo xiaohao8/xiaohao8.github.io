@@ -78,8 +78,12 @@ async function loadEvents(store, keys) {
   const [newResult, legacyRows] = await Promise.all([
     (async () => {
       try {
-        /* paginate 同 loadFirstSeen：ev/ 键会持续增长，单页截断会丢最新事件少计 PV */
-        const { blobs } = await store.list({ prefix: "ev/", paginate: true });
+        /* paginate 同 loadFirstSeen：ev/ 键会持续增长，单页截断会丢最新事件少计 PV。
+           paginate:true 返回 AsyncIterable 分页流，需 for-await 收集。 */
+        const blobs = [];
+        for await (const page of store.list({ prefix: "ev/", paginate: true })) {
+          blobs.push(...page.blobs);
+        }
         return { blobs, error: "" };
       } catch (e) { return { blobs: [], error: String(e && e.message || e) }; }
     })(),
@@ -168,13 +172,14 @@ async function loadFirstSeen(store) {
   try {
     /* visitors/ 键 = 访客 × 到访日，数量会随时间超过 list 单页上限；
        不加 paginate 会静默截断，部分访客查不到首见日期而被计成 unknown，
-       表现为「老访客 0、新+老 < UV」。 */
-    const { blobs } = await store.list({ prefix: "visitors/", paginate: true });
-    for (const b of blobs) {
-      const parts = b.key.split("/");
-      if (parts.length < 3) continue;
-      const date = parts[1], hash = parts[2];
-      if (!map.has(hash) || date < map.get(hash)) map.set(hash, date);
+       表现为「老访客 0、新+老 < UV」。paginate:true 返回 AsyncIterable 分页流。 */
+    for await (const page of store.list({ prefix: "visitors/", paginate: true })) {
+      for (const b of page.blobs) {
+        const parts = b.key.split("/");
+        if (parts.length < 3) continue;
+        const date = parts[1], hash = parts[2];
+        if (!map.has(hash) || date < map.get(hash)) map.set(hash, date);
+      }
     }
   } catch (_) { /* 缺失时按「无法判定」处理 */ }
   return map;
