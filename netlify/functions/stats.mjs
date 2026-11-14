@@ -78,7 +78,8 @@ async function loadEvents(store, keys) {
   const [newResult, legacyRows] = await Promise.all([
     (async () => {
       try {
-        const { blobs } = await store.list({ prefix: "ev/" });
+        /* paginate 同 loadFirstSeen：ev/ 键会持续增长，单页截断会丢最新事件少计 PV */
+        const { blobs } = await store.list({ prefix: "ev/", paginate: true });
         return { blobs, error: "" };
       } catch (e) { return { blobs: [], error: String(e && e.message || e) }; }
     })(),
@@ -165,7 +166,10 @@ async function loadDwell(store, events) {
 async function loadFirstSeen(store) {
   const map = new Map();
   try {
-    const { blobs } = await store.list({ prefix: "visitors/" });
+    /* visitors/ 键 = 访客 × 到访日，数量会随时间超过 list 单页上限；
+       不加 paginate 会静默截断，部分访客查不到首见日期而被计成 unknown，
+       表现为「老访客 0、新+老 < UV」。 */
+    const { blobs } = await store.list({ prefix: "visitors/", paginate: true });
     for (const b of blobs) {
       const parts = b.key.split("/");
       if (parts.length < 3) continue;

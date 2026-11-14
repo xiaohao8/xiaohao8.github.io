@@ -1,10 +1,10 @@
 /* app.js — Qexo 风格后台入口：会话 / 路由 / 骨架 / 通用 UI */
 
-import { GitHubAPI, setMediaConfig, mediaFallbackUrls } from "./github.js?v=4.4.5";
-import { NetlifyAPI } from "./netlify.js?v=4.4.5";
-import { DemoAPI } from "./demo.js?v=4.4.5";
+import { GitHubAPI, setMediaConfig, mediaFallbackUrls } from "./github.js?v=4.4.6";
+import { NetlifyAPI } from "./netlify.js?v=4.4.6";
+import { DemoAPI } from "./demo.js?v=4.4.6";
 
-export const VERSION = "4.4.5";
+export const VERSION = "4.4.6";
 export const ADMIN_TITLE = "醉里博客";
 
 const LS_SESSION = "qexo4_session";
@@ -231,6 +231,8 @@ export function imgWithFallback(srcs, { cls = "", alt = "", onFail } = {}) {
   img.referrerPolicy = "no-referrer";
   img.alt = alt;
   if (cls) img.className = cls;
+  /* data-loaded 钩子：缩略图占位动画据此淡入成图（CSS 看 [data-loaded]） */
+  img.addEventListener("load", () => { img.dataset.loaded = "1"; });
   const list = (srcs || []).filter(Boolean);
   let i = 0;
   const fail = () => {

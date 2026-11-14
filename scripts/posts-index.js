@@ -49,6 +49,8 @@ hexo.extend.generator.register("posts-index", function (locals) {
   });
   const data = posts.map(function (post) {
     const src = String(post.source || "");
+    let size = null;
+    try { size = fs.statSync(post.full_source || path.join(hexo.source_dir, post.source)).size; } catch (_) { /* 文件瞬时不存在 */ }
     return {
       name: src.replace(/^_posts\//, ""),
       path: "source/" + src,
@@ -59,6 +61,7 @@ hexo.extend.generator.register("posts-index", function (locals) {
       tags: post.tags ? post.tags.toArray().map(function (t) { return String(t.name); }) : [],
       categories: post.categories ? post.categories.toArray().map(function (c) { return String(c.name); }) : [],
       password: post.password ? true : false,
+      size: size,
       permalink: post.permalink ? String(post.permalink || "") : "",
       abbrlink: post.abbrlink == null ? "" : String(post.abbrlink),
       slug: String(post.slug || ""),
