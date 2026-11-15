@@ -1,10 +1,10 @@
 /* app.js — Qexo 风格后台入口：会话 / 路由 / 骨架 / 通用 UI */
 
-import { GitHubAPI, setMediaConfig, mediaFallbackUrls } from "./github.js?v=4.4.7";
-import { NetlifyAPI } from "./netlify.js?v=4.4.7";
-import { DemoAPI } from "./demo.js?v=4.4.7";
+import { GitHubAPI, setMediaConfig, mediaFallbackUrls } from "./github.js?v=4.4.8";
+import { NetlifyAPI } from "./netlify.js?v=4.4.8";
+import { DemoAPI } from "./demo.js?v=4.4.8";
 
-export const VERSION = "4.4.7";
+export const VERSION = "4.4.8";
 export const ADMIN_TITLE = "醉里博客";
 
 const LS_SESSION = "qexo4_session";
@@ -518,6 +518,11 @@ function renderShell(c) {
     im.src = user.avatar;
     im.alt = "";
     im.referrerPolicy = "no-referrer";
+    /* 头像加载失败回退首字母占位，不留破图 */
+    im.onerror = () => {
+      im.remove();
+      avatar.textContent = (user.name || "U").slice(0, 1).toUpperCase();
+    };
     avatar.appendChild(im);
   } else avatar.textContent = (user.name || "U").slice(0, 1).toUpperCase();
   shell.querySelector("#side-name").textContent = user.name || "用户";

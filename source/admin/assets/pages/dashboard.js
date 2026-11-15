@@ -2,10 +2,10 @@
 
 import {
   ic, esc, el, fmtTime, fmtAgo, lightbox, imgWithFallback, previewSrcsFor,
-} from "../app.js?v=4.4.7";
-import { loadYaml } from "../yaml.js?v=4.4.7";
-import { deployState } from "../netlify.js?v=4.4.7";
-import { loadAllPosts, postLink } from "./posts.js?v=4.4.7";
+} from "../app.js?v=4.4.8";
+import { loadYaml } from "../yaml.js?v=4.4.8";
+import { deployState } from "../netlify.js?v=4.4.8";
+import { loadAllPosts, postLink } from "./posts.js?v=4.4.8";
 
 export default async function dashboard(view, ctx, params, handleErr) {
   const settings = ctx.settings;
@@ -69,17 +69,17 @@ export default async function dashboard(view, ctx, params, handleErr) {
 
   async function loadStats() {
     const api = ctx.api;
-    let postsFailed = false;
+    let postsFailed = false, apiFailed = 0;
     const [posts, talksYaml, fluidYaml, metaYaml, images] = await Promise.all([
       loadAllPosts(ctx).catch(() => { postsFailed = true; return []; }),
-      api.readFile("source/_data/talks.yml").catch(() => "items: []"),
-      api.readFile("source/_data/fluid_config.yml").catch(() => "links: {}"),
-      api.readFile("source/_data/site_meta.yml").catch(() => ""),
-      api.listDir("source/images/uploads").catch(() => []),
+      api.readFile("source/_data/talks.yml").catch(() => { apiFailed++; return "items: []"; }),
+      api.readFile("source/_data/fluid_config.yml").catch(() => { apiFailed++; return "links: {}"; }),
+      api.readFile("source/_data/site_meta.yml").catch(() => { apiFailed++; return ""; }),
+      api.listDir("source/images/uploads").catch(() => { apiFailed++; return []; }),
     ]);
-    if (postsFailed) {
+    if (postsFailed || apiFailed >= 3) {
       statGrid.appendChild(el(`<div class="card" style="grid-column:1/-1;margin:0;display:flex;align-items:center;gap:.6rem;color:var(--warning)">
-        ${ic("alert")}<span>部分数据拉取失败（网络或限流），统计可能不准；<a href="#/">点击重试</a></span></div>`));
+        ${ic("alert")}<span>${postsFailed ? "部分数据" : "仓库配置"}拉取失败（弱网或限流），统计可能不准；<a href="javascript:location.reload()">刷新重试</a></span></div>`));
     }
     let talks = [], links = [], meta = {};
     try { talks = (loadYaml(talksYaml).items || []); } catch (_) {}
@@ -142,7 +142,17 @@ export default async function dashboard(view, ctx, params, handleErr) {
 
     // 最近图片
     const recentImgs = images.filter((i) => /\.(png|jpe?g|gif|webp|svg|avif)$/i.test(i.name)).slice(-6).reverse();
-    if (recentImgs.length) {
+    if (!recentImgs.length) {
+      /* API 失败/图库为空时给空态，不留「整块消失」的观感 */
+      const emptyCard = el(`<div class="card">
+          <div class="card-header">${ic("image")}<h2>最新图片</h2><div class="spacer"></div>
+            <a class="small" href="#/images">图库 →</a></div>
+          <div class="empty" style="padding:1.6rem">
+            ${ic("image")}<p>${images.length ? "暂无图片" : "图库加载失败（弱网超时），刷新页面重试"}</p>
+          </div>
+        </div>`);
+      right.insertBefore(emptyCard, quickCard);
+    } else {
       const imgCard = el(`<div class="card">
           <div class="card-header">${ic("image")}<h2>最新图片</h2><div class="spacer"></div>
             <a class="small" href="#/images">图库 →</a></div>

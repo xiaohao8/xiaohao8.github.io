@@ -165,12 +165,35 @@ export class GitHubAPI {
     const url = this.apiUrl(path) + (raw && isGet
       ? (path.includes("?") ? "&" : "?") + "raw=1"
       : "");
-    const res = await fetch(url, {
+    /* 超时保护：跨境弱网 TCP 停滞时 fetch 会挂起（实测 dashboard 4 个请求
+       pending 20 分钟，数据全空且永不重试）。GET 15s 超时自动重试一次；
+       写操作 45s 超时不自动重试（避免重复提交）。 */
+    const timeoutMs = isGet ? 15000 : 45000;
+    const doFetch = () => fetch(url, {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
       cache: "no-store",
+      signal: (window.AbortSignal && AbortSignal.timeout)
+        ? AbortSignal.timeout(timeoutMs)
+        : undefined,
     });
+    let res;
+    try {
+      res = await doFetch();
+    } catch (e) {
+      const timedOut = e && (e.name === "TimeoutError" || e.name === "AbortError");
+      if (timedOut && isGet) {
+        try { res = await doFetch(); }
+        catch (e2) {
+          throw new GitHubError("GitHub API 请求超时（弱网），请稍后重试", 0);
+        }
+      } else if (timedOut) {
+        throw new GitHubError("GitHub API 请求超时，请检查网络后重试", 0);
+      } else {
+        throw e;
+      }
+    }
     const remain = res.headers.get("x-ratelimit-remaining");
     if (remain && Number(remain) < RATE_SAFE) {
       console.warn("[qexo] GitHub API 剩余请求：", remain);
@@ -369,7 +392,7 @@ export class GitHubAPI {
 
   async readPost(path) {
     const text = await this.readFile(path);
-    const { splitFrontMatter } = await import("./yaml.js?v=4.4.7");
+    const { splitFrontMatter } = await import("./yaml.js?v=4.4.8");
     return splitFrontMatter(text);
   }
 }
