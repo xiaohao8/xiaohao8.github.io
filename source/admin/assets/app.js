@@ -1,10 +1,10 @@
 /* app.js — Qexo 风格后台入口：会话 / 路由 / 骨架 / 通用 UI */
 
-import { GitHubAPI, setMediaConfig, mediaFallbackUrls } from "./github.js?v=4.4.8";
-import { NetlifyAPI } from "./netlify.js?v=4.4.8";
-import { DemoAPI } from "./demo.js?v=4.4.8";
+import { GitHubAPI, setMediaConfig, mediaFallbackUrls } from "./github.js?v=4.4.9";
+import { NetlifyAPI } from "./netlify.js?v=4.4.9";
+import { DemoAPI } from "./demo.js?v=4.4.9";
 
-export const VERSION = "4.4.8";
+export const VERSION = "4.4.9";
 export const ADMIN_TITLE = "醉里博客";
 
 const LS_SESSION = "qexo4_session";
@@ -641,7 +641,12 @@ async function route(c) {
   view.replaceChildren(pageView);
   pageView.appendChild(el(`<div class="inline-loading"><span class="ring"></span>加载中…</div>`));
   try {
-    const mod = await loader();
+    /* 模块加载超时：dynamic import 无内建超时，弱网 TCP 停滞时
+       「加载中…」会无限挂着（实测 20min+）；20s 后给出明确报错，刷新页面即可重试 */
+    const mod = await Promise.race([
+      loader(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error("页面模块加载超时（弱网），请刷新页面重试")), 20000)),
+    ]);
     if (navTokenMine !== navToken) return;
     pageView.innerHTML = "";
     await mod.default(pageView, c, params, handleErr);
