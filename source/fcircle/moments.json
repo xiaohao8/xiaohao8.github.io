@@ -3,8 +3,8 @@
     "friends_num": 39,
     "active_num": 13,
     "error_num": 26,
-    "article_num": 237,
-    "last_updated_time": "2026-11-16 07:35:40"
+    "article_num": 240,
+    "last_updated_time": "2026-11-16 19:17:06"
   },
   "article_data": [
     {
@@ -20,6 +20,14 @@
       "link": "https://www.nmwbk.com/2026/11/16/7779.html",
       "author": "牛魔博客",
       "avatar": "https://oss.nmwbk.com/wp-content/uploads/2020/10/20201010141735736.png",
+      "created": "2026-11-16",
+      "updated": "2026-11-16"
+    },
+    {
+      "title": "HeoPWA发布：安卓手机的网页转应用小工具",
+      "link": "https://blog.zhheo.com/p/0ycqbkty.html",
+      "author": "张洪Heo",
+      "avatar": "https://img.zhheo.com/i/2022/08/19/62ff32fa28da1.png",
       "created": "2026-11-16",
       "updated": "2026-11-16"
     },
@@ -74,6 +82,22 @@
     {
       "title": "NAS 基础设施：从裸机到八台虚拟机",
       "link": "https://www.zywvvd.com/notes/environment/nas/nas-infra/nas-infra/",
+      "author": "又见苍岚",
+      "avatar": "https://www.zywvvd.com/image/avatar.png",
+      "created": "2026-11-14",
+      "updated": "2026-11-14"
+    },
+    {
+      "title": "Nextcloud 迁移：跳过四个大版本的取舍",
+      "link": "https://www.zywvvd.com/notes/environment/nas/nas-nextcloud/nas-nextcloud/",
+      "author": "又见苍岚",
+      "avatar": "https://www.zywvvd.com/image/avatar.png",
+      "created": "2026-11-14",
+      "updated": "2026-11-14"
+    },
+    {
+      "title": "自建观测栈：Prometheus、Grafana 与脱敏状态页",
+      "link": "https://www.zywvvd.com/notes/environment/nas/nas-observability/nas-observability/",
       "author": "又见苍岚",
       "avatar": "https://www.zywvvd.com/image/avatar.png",
       "created": "2026-11-14",
