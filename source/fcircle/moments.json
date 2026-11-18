@@ -1,12 +1,20 @@
 {
   "statistical_data": {
     "friends_num": 39,
-    "active_num": 12,
-    "error_num": 27,
-    "article_num": 243,
-    "last_updated_time": "2026-11-17 11:53:37"
+    "active_num": 13,
+    "error_num": 26,
+    "article_num": 244,
+    "last_updated_time": "2026-11-18 11:07:14"
   },
   "article_data": [
+    {
+      "title": "11月18日，星期三, 每天60秒读懂全世界！",
+      "link": "https://www.nmwbk.com/2026/11/18/7781.html",
+      "author": "牛魔博客",
+      "avatar": "https://oss.nmwbk.com/wp-content/uploads/2020/10/20201010141735736.png",
+      "created": "2026-11-18",
+      "updated": "2026-11-18"
+    },
     {
       "title": "11月17日，星期二, 每天60秒读懂全世界！",
       "link": "https://www.nmwbk.com/2026/11/17/7780.html",
