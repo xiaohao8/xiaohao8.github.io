@@ -1,12 +1,20 @@
 {
   "statistical_data": {
     "friends_num": 39,
-    "active_num": 10,
-    "error_num": 29,
-    "article_num": 245,
-    "last_updated_time": "2026-11-18 19:40:10"
+    "active_num": 12,
+    "error_num": 27,
+    "article_num": 247,
+    "last_updated_time": "2026-11-19 09:31:06"
   },
   "article_data": [
+    {
+      "title": "11月19日，星期四, 每天60秒读懂全世界！",
+      "link": "https://www.nmwbk.com/2026/11/19/7782.html",
+      "author": "牛魔博客",
+      "avatar": "https://oss.nmwbk.com/wp-content/uploads/2020/10/20201010141735736.png",
+      "created": "2026-11-19",
+      "updated": "2026-11-19"
+    },
     {
       "title": "11月18日，星期三, 每天60秒读懂全世界！",
       "link": "https://www.nmwbk.com/2026/11/18/7781.html",
@@ -20,6 +28,14 @@
       "link": "https://blog.zhheo.com/p/ajbulelx.html",
       "author": "张洪Heo",
       "avatar": "https://img.zhheo.com/i/2022/08/19/62ff32fa28da1.png",
+      "created": "2026-11-18",
+      "updated": "2026-11-18"
+    },
+    {
+      "title": "基于意图识别的编程工具架构构想",
+      "link": "https://www.lyshark.com/post/97b453bd.html",
+      "author": "LyShark - 孤风洗剑",
+      "avatar": "https://www.lyshark.com/images/baidu_logo.png",
       "created": "2026-11-18",
       "updated": "2026-11-18"
     },
