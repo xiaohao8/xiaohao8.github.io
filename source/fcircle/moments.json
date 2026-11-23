@@ -1,12 +1,20 @@
 {
   "statistical_data": {
     "friends_num": 39,
-    "active_num": 12,
-    "error_num": 27,
-    "article_num": 252,
-    "last_updated_time": "2026-11-22 07:58:26"
+    "active_num": 11,
+    "error_num": 28,
+    "article_num": 253,
+    "last_updated_time": "2026-11-23 09:32:25"
   },
   "article_data": [
+    {
+      "title": "11月23日，星期一, 每天60秒读懂全世界！",
+      "link": "https://www.nmwbk.com/2026/11/23/7786.html",
+      "author": "牛魔博客",
+      "avatar": "https://oss.nmwbk.com/wp-content/uploads/2020/10/20201010141735736.png",
+      "created": "2026-11-23",
+      "updated": "2026-11-23"
+    },
     {
       "title": "凌晨一点，我在厨房开椰子",
       "link": "https://dusays.com/posts/899/",
